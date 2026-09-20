@@ -8,7 +8,7 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.locations import locations_bp
 from app.extensions import db
-from app.models import Post, Photo, Like
+from app.models import Post, Photo, Like, Comment, Share, SavedPost
 
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 VIDEO_EXTENSIONS = {'mp4', 'mov', 'webm'}
@@ -107,3 +107,144 @@ def like_post(post_id):
     db.session.add(like)
     db.session.commit()
     return jsonify({"message": "Đã thả tim", "liked": True})
+@locations_bp.route("/posts/<int:post_id>/comments", methods=["POST"])
+@login_required
+def create_comment(post_id):
+    post = Post.query.get(post_id)
+
+    if not post:
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+
+    data = request.get_json() or {}
+    content = data.get("content", "").strip()
+
+    if not content:
+        return jsonify({"error": "Nội dung bình luận không được để trống"}), 400
+
+    comment = Comment(
+        user_id=current_user.id,
+        post_id=post_id,
+        content=content
+    )
+
+    db.session.add(comment)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Bình luận thành công",
+        "comment": {
+            "id": comment.id,
+            "user_id": comment.user_id,
+            "post_id": comment.post_id,
+            "content": comment.content,
+            "created_at": comment.created_at.isoformat()
+        }
+    }), 201
+
+@locations_bp.route("/posts/<int:post_id>/comments", methods=["GET"])
+@login_required
+def get_comments(post_id):
+    post = Post.query.get(post_id)
+
+    if not post:
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+
+    comments = (
+        Comment.query
+        .filter_by(post_id=post_id)
+        .order_by(Comment.created_at.asc())
+        .all()
+    )
+
+    return jsonify({
+        "post_id": post_id,
+        "comments": [
+            {
+                "id": comment.id,
+                "user_id": comment.user_id,
+                "content": comment.content,
+                "created_at": comment.created_at.isoformat()
+            }
+            for comment in comments
+        ]
+    })
+
+@locations_bp.route("/comments/<int:comment_id>", methods=["DELETE"])
+@login_required
+def delete_comment(comment_id):
+    comment = Comment.query.get(comment_id)
+
+    if not comment:
+        return jsonify({"error": "Bình luận không tồn tại"}), 404
+
+    if comment.user_id != current_user.id:
+        return jsonify({"error": "Bạn không có quyền xóa bình luận này"}), 403
+
+    db.session.delete(comment)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Xóa bình luận thành công"
+    })
+
+@locations_bp.route("/posts/<int:post_id>/share", methods=["POST"])
+@login_required
+def share_post(post_id):
+    post = Post.query.get(post_id)
+
+    if not post:
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+
+
+    share = Share(
+        user_id=current_user.id,
+        post_id=post_id
+    )
+
+    db.session.add(share)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Chia sẻ bài viết thành công",
+        "share": {
+            "id": share.id,
+            "user_id": share.user_id,
+            "post_id": share.post_id,
+            "created_at": share.created_at.isoformat()
+        }
+    }), 201
+
+@locations_bp.route("/posts/<int:post_id>/save", methods=["POST"])
+@login_required
+def save_post(post_id):
+    post = Post.query.get(post_id)
+
+    if not post:
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+
+    existing = SavedPost.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
+
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Đã bỏ lưu bài viết",
+            "saved": False
+        })
+
+    saved_post = SavedPost(
+        user_id=current_user.id,
+        post_id=post_id
+    )
+
+    db.session.add(saved_post)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Đã lưu bài viết",
+        "saved": True
+    }), 201
