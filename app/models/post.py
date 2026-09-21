@@ -8,4 +8,5 @@ class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     caption = db.Column(db.Text, nullable=True)
+    location_id = db.Column(db.Integer, db.ForeignKey("locations.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

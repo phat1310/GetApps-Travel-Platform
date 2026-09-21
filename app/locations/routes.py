@@ -8,7 +8,8 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.locations import locations_bp
 from app.extensions import db
-from app.models import Post, Photo, Like, Comment, Share, SavedPost
+from app.models import Post, Photo, Like, Comment, Share, SavedPost, Location
+from app.locations.utils import get_or_create_location, normalize_location_name
 
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 VIDEO_EXTENSIONS = {'mp4', 'mov', 'webm'}
@@ -39,7 +40,14 @@ def create_post():
             return jsonify({"error": f"File '{file.filename}' sai định dạng"}), 400
 
     caption = request.form.get("caption", "")
-    post = Post(user_id=current_user.id, caption=caption)
+    location_name = request.form.get("location_name", "")
+    location = get_or_create_location(location_name)
+
+    post = Post(
+        user_id=current_user.id,
+        caption=caption,
+        location_id=location.id if location else None,
+    )
     db.session.add(post)
     db.session.flush()  # để lấy post.id trước khi commit, dùng gán cho Photo bên dưới
 
@@ -248,3 +256,39 @@ def save_post(post_id):
         "message": "Đã lưu bài viết",
         "saved": True
     }), 201
+
+@locations_bp.route("/locations", methods=["POST"])
+@login_required
+def create_location():
+    """Tạo địa điểm mới — tự dedupe theo slug (Đà Lạt = Da Lat = DALAT)."""
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Tên địa điểm không được để trống"}), 400
+
+    location = get_or_create_location(name)
+    return jsonify({
+        "location": {"id": location.id, "name": location.name, "slug": location.slug}
+    }), 201
+
+
+@locations_bp.route("/locations/search", methods=["GET"])
+@login_required
+def search_locations():
+    """Autocomplete — gõ vài ký tự trả về gợi ý địa điểm đã có."""
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"locations": []})
+
+    query_slug = normalize_location_name(query)
+    locations = (
+        Location.query
+        .filter(Location.slug.contains(query_slug))
+        .limit(10)
+        .all()
+    )
+    return jsonify({
+        "locations": [
+            {"id": l.id, "name": l.name, "slug": l.slug} for l in locations
+        ]
+    })
