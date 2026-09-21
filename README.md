@@ -23,11 +23,18 @@ Trạng thái hiện tại (sườn đã có sẵn — KHÔNG code lại)
 Sườn (walking skeleton) đã được dựng và test end-to-end, gồm:
 
 User + Follow model, route /register, /login, /logout, /follow, /unfollow
-Photo model + route upload ảnh thật (secure_filename/UUID)
-Feed (query ảnh theo danh sách follow)
-Like model + route like/unlike (AJAX-ready, JSON response)
+Post model (bài viết) + Photo model (ảnh/video con, 1 Post - N Photo, tối đa 10 file/post,
+  hỗ trợ media_type "image"/"video") + route đăng bài nhiều file /locations/upload
+Feed (query bài viết theo danh sách follow, trả kèm mảng media)
+Like model + route like/unlike theo post_id (AJAX-ready, JSON response, toggle 2 chiều)
 1 endpoint API mẫu có JWT: /api/login, /api/users/<id>
 base.html (Bootstrap CDN, navbar cơ bản)
+
+Lưu ý: Photo trước đây gắn trực tiếp vào user + có field "caption" riêng.
+Từ bản refactor này, "caption" thuộc về Post (không phải Photo), và mọi FK
+tham chiếu tới 1 bài viết phải dùng post_id (không dùng photo_id nữa).
+Việc gán Location cho Post (location_id) và model Location đang được Tuấn
+làm riêng trên nhánh khác, CHƯA merge vào sườn chính này.
 
 Mọi model/route mới đều làm theo đúng pattern các file trên, không tạo cấu trúc khác.
 
@@ -36,7 +43,7 @@ GetApps/
 ├── app/
 │   ├── __init__.py, extensions.py, config.py   (khung — Khánh)
 │   ├── auth/          (Auth & Follow — Tuấn)
-│   ├── locations/     (Location/Photo — Tuấn; Feed/Like — Trúc)
+│   ├── locations/     (Post/Photo/Feed/Like — Khánh refactor sườn; Location — Tuấn, chưa merge)
 │   ├── api/           (REST API + JWT — Khánh)
 │   ├── models/        (định nghĩa bảng dữ liệu, dùng chung)
 │   ├── templates/      (giao diện HTML — Phát)
