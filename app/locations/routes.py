@@ -3,7 +3,7 @@ Cần mở rộng thêm Place, Album, Tag.
 """
 import os
 import uuid
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, send_from_directory
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.locations import locations_bp
@@ -187,6 +187,59 @@ def delete_comment(comment_id):
         "message": "Xóa bình luận thành công"
     })
 
+
+@locations_bp.route("/posts/<int:post_id>/share/download", methods=["GET"])
+@login_required
+def download_post(post_id):
+    post = Post.query.get(post_id)
+
+    if not post:
+        return jsonify({
+            "error": "Bài viết không tồn tại"
+        }), 404
+
+    photo = Photo.query.filter_by(
+        post_id=post_id
+    ).first()
+
+    if not photo:
+        return jsonify({
+            "error": "Bài viết không có file"
+        }), 404
+
+    upload_folder = os.path.join(
+        current_app.root_path,
+        "static",
+        "uploads"
+    )
+
+    filename = os.path.basename(photo.file_path)
+
+    full_path = os.path.join(
+        upload_folder,
+        filename
+    )
+
+    if not os.path.exists(full_path):
+        return jsonify({
+            "error": "File không tồn tại trên server"
+        }), 404
+
+    share = Share(
+        user_id=current_user.id,
+        post_id=post_id,
+        share_type="download"
+    )
+
+    db.session.add(share)
+    db.session.commit()
+
+    return send_from_directory(
+        upload_folder,
+        filename,
+        as_attachment=True
+    )
+
 @locations_bp.route("/posts/<int:post_id>/share", methods=["POST"])
 @login_required
 def share_post(post_id):
@@ -195,21 +248,25 @@ def share_post(post_id):
     if not post:
         return jsonify({"error": "Bài viết không tồn tại"}), 404
 
-
     share = Share(
         user_id=current_user.id,
-        post_id=post_id
+        post_id=post_id,
+        share_type="copy_link"
     )
 
     db.session.add(share)
     db.session.commit()
 
+    link = f"http://127.0.0.1:5000/locations/posts/{post_id}"
+
     return jsonify({
-        "message": "Chia sẻ bài viết thành công",
+        "message": "Đã sao chép liên kết bài viết",
+        "link": link,
         "share": {
             "id": share.id,
             "user_id": share.user_id,
             "post_id": share.post_id,
+            "share_type": share.share_type,
             "created_at": share.created_at.isoformat()
         }
     }), 201
@@ -247,4 +304,58 @@ def save_post(post_id):
     return jsonify({
         "message": "Đã lưu bài viết",
         "saved": True
+    }), 201
+
+@locations_bp.route("/posts/<int:post_id>/repost", methods=["POST"])
+@login_required
+def repost_post(post_id):
+    original_post = Post.query.get(post_id)
+
+    if not original_post:
+        return jsonify({
+            "error": "Bài viết không tồn tại"
+        }), 404
+
+    repost = Post(
+        user_id=current_user.id,
+        caption=original_post.caption,
+        original_post_id=original_post.id
+    )
+
+    db.session.add(repost)
+    db.session.flush()
+
+    original_photos = Photo.query.filter_by(
+        post_id=original_post.id
+    ).all()
+
+    for photo in original_photos:
+        new_photo = Photo(
+            post_id=repost.id,
+            file_path=photo.file_path,
+            media_type=photo.media_type
+        )
+        db.session.add(new_photo)
+
+    share = Share(
+        user_id=current_user.id,
+        post_id=original_post.id,
+        share_type="repost"
+    )
+
+    db.session.add(share)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Đăng lại bài viết thành công",
+        "repost": {
+            "id": repost.id,
+            "user_id": repost.user_id,
+            "original_post_id": repost.original_post_id,
+            "caption": repost.caption
+        },
+        "share": {
+            "id": share.id,
+            "share_type": share.share_type
+        }
     }), 201
