@@ -6,6 +6,7 @@ Khánh sẽ mở rộng thêm /api/feed, /api/photos... ở tuần 6.
 from flask import jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 from app.api import api_bp
+from app.extensions import db
 from app.models import User
 
 @api_bp.route("/login", methods=["POST"])
@@ -23,7 +24,7 @@ def api_login():
 @api_bp.route("/users/<int:user_id>", methods=["GET"])
 @jwt_required()
 def get_user(user_id):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     return jsonify({
         "id": user.id,
         "username": user.username,

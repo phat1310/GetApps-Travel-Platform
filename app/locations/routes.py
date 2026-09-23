@@ -25,6 +25,23 @@ def get_media_type(filename):
         return "video"
     return None
 
+
+def user_can_access_post(post):
+    """Post public -> ai cũng xem/tương tác được.
+    Post private -> chỉ chủ post hoặc người đang follow chủ post.
+    """
+    if post.visibility != "private":
+        return True
+    if post.user_id == current_user.id:
+        return True
+    from app.models import Follow
+    return (
+        Follow.query.filter_by(
+            follower_id=current_user.id, followed_id=post.user_id
+        ).first()
+        is not None
+    )
+
 @locations_bp.route("/upload", methods=["POST"])
 @login_required
 def create_post():
@@ -40,36 +57,67 @@ def create_post():
             return jsonify({"error": f"File '{file.filename}' sai định dạng"}), 400
 
     caption = request.form.get("caption", "")
+    visibility = request.form.get("visibility", "public")
+    if visibility not in ("public", "private"):
+        return jsonify({"error": "visibility phải là 'public' hoặc 'private'"}), 400
+
     location_name = request.form.get("location_name", "")
     location = get_or_create_location(location_name)
+
+    warning = None
+    extra_names = request.form.getlist("extra_location_names")
+    extra_links = request.form.getlist("extra_location_links")
+    if len(extra_names) > 2:
+        extra_names = extra_names[:2]
+        extra_links = extra_links[:2]
+        warning = "Bạn đã thêm tối đa 2 địa điểm phụ, các địa điểm còn lại đã bị bỏ qua"
 
     post = Post(
         user_id=current_user.id,
         caption=caption,
+        visibility=visibility,
         location_id=location.id if location else None,
     )
     db.session.add(post)
     db.session.flush()  # để lấy post.id trước khi commit, dùng gán cho Photo bên dưới
 
+    for name, link in zip(extra_names, extra_links):
+        extra_loc = get_or_create_location(name, map_link=link)
+        if extra_loc:
+            post.extra_locations.append(extra_loc)
+
     upload_folder = os.path.join(current_app.root_path, "static", "uploads")
     os.makedirs(upload_folder, exist_ok=True)
 
-    for file in files:
-        media_type = get_media_type(file.filename)
-        ext = secure_filename(file.filename).rsplit(".", 1)[1]
-        unique_filename = f"{uuid.uuid4().hex}.{ext}"
-        file.save(os.path.join(upload_folder, unique_filename))
+    saved_paths = []  # theo dõi các file đã ghi lên đĩa để dọn dẹp nếu có lỗi giữa chừng
+    try:
+        for file in files:
+            media_type = get_media_type(file.filename)
+            ext = secure_filename(file.filename).rsplit(".", 1)[1]
+            unique_filename = f"{uuid.uuid4().hex}.{ext}"
+            full_path = os.path.join(upload_folder, unique_filename)
+            file.save(full_path)
+            saved_paths.append(full_path)
 
-        photo = Photo(
-            post_id=post.id,
-            file_path=f"static/uploads/{unique_filename}",
-            media_type=media_type,
-        )
-        db.session.add(photo)
+            photo = Photo(
+                post_id=post.id,
+                file_path=f"static/uploads/{unique_filename}",
+                media_type=media_type,
+            )
+            db.session.add(photo)
 
-    db.session.commit()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        for path in saved_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        return jsonify({"error": "Có lỗi xảy ra khi lưu bài viết, vui lòng thử lại"}), 500
 
-    return jsonify({"message": "Đăng bài thành công", "post_id": post.id}), 201
+    response = {"message": "Đăng bài thành công", "post_id": post.id}
+    if warning:
+        response["warning"] = warning
+    return jsonify(response), 201
 
 @locations_bp.route("/feed", methods=["GET"])
 @login_required
@@ -105,6 +153,12 @@ def feed():
 @locations_bp.route("/posts/<int:post_id>/like", methods=["POST"])
 @login_required
 def like_post(post_id):
+    post = db.session.get(Post, post_id)
+    if not post:
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if not user_can_access_post(post):
+        return jsonify({"error": "Bạn không có quyền xem bài viết này"}), 403
+
     existing = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first()
     if existing:
         db.session.delete(existing)
@@ -118,10 +172,12 @@ def like_post(post_id):
 @locations_bp.route("/posts/<int:post_id>/comments", methods=["POST"])
 @login_required
 def create_comment(post_id):
-    post = Post.query.get(post_id)
+    post = db.session.get(Post, post_id)
 
     if not post:
         return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if not user_can_access_post(post):
+        return jsonify({"error": "Bạn không có quyền bình luận bài viết này"}), 403
 
     data = request.get_json() or {}
     content = data.get("content", "").strip()
@@ -152,10 +208,12 @@ def create_comment(post_id):
 @locations_bp.route("/posts/<int:post_id>/comments", methods=["GET"])
 @login_required
 def get_comments(post_id):
-    post = Post.query.get(post_id)
+    post = db.session.get(Post, post_id)
 
     if not post:
         return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if not user_can_access_post(post):
+        return jsonify({"error": "Bạn không có quyền xem bài viết này"}), 403
 
     comments = (
         Comment.query
@@ -180,7 +238,7 @@ def get_comments(post_id):
 @locations_bp.route("/comments/<int:comment_id>", methods=["DELETE"])
 @login_required
 def delete_comment(comment_id):
-    comment = Comment.query.get(comment_id)
+    comment = db.session.get(Comment, comment_id)
 
     if not comment:
         return jsonify({"error": "Bình luận không tồn tại"}), 404
@@ -198,11 +256,18 @@ def delete_comment(comment_id):
 @locations_bp.route("/posts/<int:post_id>/share", methods=["POST"])
 @login_required
 def share_post(post_id):
-    post = Post.query.get(post_id)
+    post = db.session.get(Post, post_id)
 
     if not post:
         return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if not user_can_access_post(post):
+        return jsonify({"error": "Bạn không có quyền chia sẻ bài viết này"}), 403
 
+    existing = Share.query.filter_by(user_id=current_user.id, post_id=post_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({"message": "Đã bỏ chia sẻ bài viết", "shared": False})
 
     share = Share(
         user_id=current_user.id,
@@ -214,6 +279,7 @@ def share_post(post_id):
 
     return jsonify({
         "message": "Chia sẻ bài viết thành công",
+        "shared": True,
         "share": {
             "id": share.id,
             "user_id": share.user_id,
@@ -225,10 +291,12 @@ def share_post(post_id):
 @locations_bp.route("/posts/<int:post_id>/save", methods=["POST"])
 @login_required
 def save_post(post_id):
-    post = Post.query.get(post_id)
+    post = db.session.get(Post, post_id)
 
     if not post:
         return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if not user_can_access_post(post):
+        return jsonify({"error": "Bạn không có quyền lưu bài viết này"}), 403
 
     existing = SavedPost.query.filter_by(
         user_id=current_user.id,
@@ -263,12 +331,13 @@ def create_location():
     """Tạo địa điểm mới — tự dedupe theo slug (Đà Lạt = Da Lat = DALAT)."""
     data = request.get_json() or {}
     name = data.get("name", "").strip()
+    map_link = data.get("map_link", "").strip() or None
     if not name:
         return jsonify({"error": "Tên địa điểm không được để trống"}), 400
 
-    location = get_or_create_location(name)
+    location = get_or_create_location(name, map_link=map_link)
     return jsonify({
-        "location": {"id": location.id, "name": location.name, "slug": location.slug}
+        "location": {"id": location.id, "name": location.name, "slug": location.slug, "map_link": location.map_link}
     }), 201
 
 

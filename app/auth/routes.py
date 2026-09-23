@@ -4,6 +4,7 @@ Week1_Fase1: chưa có giao diện HTML, trả về JSON để test bằng Postm
 from flask import request, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from app.auth import auth_bp
+from app.auth.utils import validate_password
 from app.extensions import db
 from app.models import User, Follow
 
@@ -13,10 +14,14 @@ def register():
     data = request.get_json()
     username = data.get('username')
     email = data.get('email')
-    password = data.get('password') 
+    password = data.get('password')
 
     if not username or not email or not password:
         return jsonify({"error": "Thiếu username/email/password"}), 400
+
+    password_error = validate_password(password)
+    if password_error:
+        return jsonify({"error": password_error}), 400
 
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Username đã tồn tại"}), 400
@@ -74,6 +79,3 @@ def unfollow(user_id):
     db.session.delete(f)
     db.session.commit()
     return jsonify({"message": f"Đã unfollow user {user_id}"})
-
-
-
