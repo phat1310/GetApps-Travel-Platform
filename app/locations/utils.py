@@ -13,7 +13,7 @@ def normalize_location_name(raw_name: str) -> str:
     return slug
 
 
-def get_or_create_location(raw_name: str):
+def get_or_create_location(raw_name: str, map_link: str = None):
     """Tìm địa điểm theo tên đã chuẩn hóa; nếu chưa có thì tạo mới.
     Trả về None nếu raw_name rỗng (bài đăng không gắn địa điểm).
     """
@@ -27,10 +27,10 @@ def get_or_create_location(raw_name: str):
     slug = normalize_location_name(raw_name)
     location = Location.query.filter_by(slug=slug).first()
     if location:
-        return location
+        return location  # đã tồn tại — giữ nguyên map_link cũ, không ghi đè
 
     try:
-        location = Location(name=raw_name.strip(), slug=slug)
+        location = Location(name=raw_name.strip(), slug=slug, map_link=map_link)
         db.session.add(location)
         db.session.commit()
         return location
