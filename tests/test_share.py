@@ -41,11 +41,11 @@ def test_share_post(client, users, post):
 
 
 def test_share_post_multiple_times(client, users, post):
-    """Một User có thể Share cùng một Post nhiều lần."""
+    """Một User chỉ lưu một copy_link cho cùng một Post."""
 
     login_user(client, "testuser1")
 
-    # Share lần 1
+    # Share lần 1 -> tạo mới
     response = client.post(
         f"/locations/posts/{post.id}/share"
     )
@@ -54,18 +54,19 @@ def test_share_post_multiple_times(client, users, post):
 
     first_share_id = response.get_json()["share"]["id"]
 
-    # Share lần 2
+    # Share lần 2 -> không tạo thêm record
     response = client.post(
         f"/locations/posts/{post.id}/share"
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 200
 
     second_share_id = response.get_json()["share"]["id"]
 
-    # Mỗi lần Share tạo một record mới
-    assert second_share_id != first_share_id
+    # Hai lần phải trả về cùng một Share
+    assert second_share_id == first_share_id
 
+    # Kiểm tra database không tạo record copy_link thứ hai
     with client.application.app_context():
         shares = Share.query.filter_by(
             user_id=users["user1"].id,
@@ -73,7 +74,7 @@ def test_share_post_multiple_times(client, users, post):
             share_type="copy_link"
         ).all()
 
-        assert len(shares) == 2
+        assert len(shares) == 1
 
 
 def test_download_post(client, users, post):

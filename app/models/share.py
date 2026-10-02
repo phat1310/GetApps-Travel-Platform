@@ -37,3 +37,12 @@ class Share(db.Model):
         db.DateTime,
         default=datetime.utcnow
     )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "post_id",
+            "share_type",
+            name="unique_share_type"
+        ),
+    )

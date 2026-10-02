@@ -1,6 +1,24 @@
 """Model POST — bài viết, chứa nhiều ảnh/video (Photo) con."""
+
 from datetime import datetime
 from app.extensions import db
+
+
+post_extra_locations = db.Table(
+    "post_extra_locations",
+    db.Column(
+        "post_id",
+        db.Integer,
+        db.ForeignKey("posts.id"),
+        primary_key=True
+    ),
+    db.Column(
+        "location_id",
+        db.Integer,
+        db.ForeignKey("locations.id"),
+        primary_key=True
+    ),
+)
 
 
 class Post(db.Model):
@@ -22,15 +40,31 @@ class Post(db.Model):
         nullable=True
     )
 
-    created_at = db.Column(
-        db.DateTime,
-        default=datetime.utcnow
+    visibility = db.Column(
+        db.String(10),
+        nullable=False,
+        default="public"
     )
 
-    # Nếu bài này là repost thì lưu ID bài viết gốc
-    # Nếu bài viết bình thường thì để NULL
+    location_id = db.Column(
+        db.Integer,
+        db.ForeignKey("locations.id"),
+        nullable=True
+    )
+
+    extra_locations = db.relationship(
+        "Location",
+        secondary=post_extra_locations
+    )
+
+    # Nếu đây là bài repost, lưu ID của bài viết gốc
     original_post_id = db.Column(
         db.Integer,
         db.ForeignKey("posts.id"),
         nullable=True
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow
     )

@@ -18,6 +18,9 @@ class User(UserMixin, db.Model):
     avatar_url = db.Column(db.String(255), nullable=True)
     bio = db.Column(db.String(255), nullable=True)
     phone_number = db.Column(db.String(20), nullable=True)
+    nickname = db.Column(db.String(64), nullable=True)
+    tags = db.Column(db.String(255), nullable=True)  # CSV tối đa 3 nhãn cố định, VD "dan_dia_phuong,di_phuot"
+    profile_completed = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
