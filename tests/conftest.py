@@ -8,23 +8,20 @@ from app.models import User, Post, Photo
 
 
 @pytest.fixture
-def app(tmp_path, monkeypatch):
+def app(tmp_path):
     """Tạo Flask app và database riêng cho pytest."""
 
+    # Database tạm riêng của pytest
     db_path = tmp_path / "test.db"
 
-    # Cho app dùng database SQLite riêng của pytest
-    monkeypatch.setenv(
-        "DATABASE_URL",
-        f"sqlite:///{db_path}"
-    )
-
-    app = create_app()
-
-    app.config.update(
-        TESTING=True,
-        WTF_CSRF_ENABLED=False,
-    )
+    # Quan trọng:
+    # Truyền DB test vào create_app TRƯỚC khi db.init_app(app) chạy.
+    # Như vậy pytest sẽ không đụng vào instance/app.db thật.
+    app = create_app({
+        "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
+        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}",
+    })
 
     # Tạo thư mục upload test
     upload_folder = os.path.join(
@@ -45,6 +42,7 @@ def app(tmp_path, monkeypatch):
         f.write(b"test image")
 
     with app.app_context():
+        # Chỉ tạo bảng trong test.db
         db.create_all()
 
         # User 1
@@ -85,6 +83,7 @@ def app(tmp_path, monkeypatch):
 
     yield app
 
+    # Chỉ xóa database TEST
     with app.app_context():
         db.session.remove()
         db.drop_all()
