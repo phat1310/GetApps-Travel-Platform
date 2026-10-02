@@ -68,3 +68,7 @@ class Post(db.Model):
         db.DateTime,
         default=datetime.utcnow
     )
+    hashtags = db.Column(
+        db.String(255),
+        nullable=True
+    )

@@ -12,7 +12,18 @@ from flask_jwt_extended import (
 
 from app.api import api_bp
 from app.extensions import db
-from app.models import User, Follow, SavedPost, Post, Photo
+from app.models import (
+    User,
+    Follow,
+    SavedPost,
+    Post,
+    Photo,
+    Notification,
+    Like,
+    Comment,
+    Share,
+    Location
+)
 
 
 # =========================================================
@@ -408,4 +419,359 @@ def get_saved_posts():
     return jsonify({
         "count": len(saved_posts),
         "saved_posts": saved_posts
+    }), 200
+
+# =========================================================
+# SEARCH USERS
+# =========================================================
+
+@api_bp.route("/users/search", methods=["GET"])
+@jwt_required()
+def search_users():
+    """
+    Tìm kiếm user.
+
+    Ưu tiên:
+    1. Username khớp chính xác.
+    2. Nếu không có username chính xác thì tìm gần giống.
+    """
+
+    keyword = request.args.get(
+        "q",
+        ""
+    ).strip()
+
+    if not keyword:
+        return jsonify({
+            "error": "Thiếu từ khóa tìm kiếm"
+        }), 400
+
+    # =====================================================
+    # 1. TÌM KHỚP CHÍNH XÁC
+    # =====================================================
+
+    exact_user = User.query.filter(
+        User.username.ilike(keyword)
+    ).first()
+
+    if exact_user:
+        users = [exact_user]
+
+    else:
+        # =================================================
+        # 2. TÌM GẦN GIỐNG
+        # =================================================
+
+        users = User.query.filter(
+            User.username.ilike(f"%{keyword}%")
+        ).order_by(
+            User.username.asc()
+        ).limit(20).all()
+
+    result = []
+
+    for user in users:
+        result.append({
+            "id": user.id,
+            "username": user.username,
+            "nickname": user.nickname,
+            "avatar_url": user.avatar_url,
+            "is_private": user.is_private
+        })
+
+    return jsonify({
+        "keyword": keyword,
+        "count": len(result),
+        "users": result
+    }), 200
+
+# =========================================================
+# GET NOTIFICATIONS
+# =========================================================
+
+@api_bp.route("/notifications", methods=["GET"])
+@jwt_required()
+def get_notifications():
+    """
+    Lấy danh sách notification của user hiện tại.
+
+    Các notification cùng:
+    - notification_type
+    - post_id
+
+    sẽ được gom lại.
+
+    Ví dụ:
+    User 2 like + User 3 like cùng một post
+    -> User 2 + 1 người khác đã like.
+    """
+
+    current_user_id = int(get_jwt_identity())
+
+    notifications = Notification.query.filter_by(
+        user_id=current_user_id
+    ).order_by(
+        Notification.created_at.desc()
+    ).all()
+
+    # =====================================================
+    # GROUP NOTIFICATIONS
+    # =====================================================
+
+    groups = {}
+
+    for notification in notifications:
+
+        # Follow không có post_id
+        # Like/share theo cùng post sẽ được group
+        key = (
+            notification.notification_type,
+            notification.post_id
+        )
+
+        if key not in groups:
+            groups[key] = []
+
+        groups[key].append(notification)
+
+    result = []
+
+    for key, group in groups.items():
+
+        # Notification mới nhất đại diện cho group
+        latest = group[0]
+
+        actor = db.session.get(
+            User,
+            latest.actor_id
+        )
+
+        post = None
+
+        if latest.post_id:
+            post = db.session.get(
+                Post,
+                latest.post_id
+            )
+
+        result.append({
+            "id": latest.id,
+            "type": latest.notification_type,
+            "is_read": all(
+                n.is_read for n in group
+            ),
+            "created_at": (
+                latest.created_at.isoformat()
+                if latest.created_at
+                else None
+            ),
+
+            "actor": {
+                "id": actor.id,
+                "username": actor.username,
+                "nickname": actor.nickname,
+                "avatar_url": actor.avatar_url
+            } if actor else None,
+
+            "other_count": max(
+                len(group) - 1,
+                0
+            ),
+
+            "post": {
+                "id": post.id,
+                "caption": post.caption
+            } if post else None
+        })
+
+    return jsonify({
+        "count": len(result),
+        "notifications": result
+    }), 200
+
+# =========================================================
+# SEARCH HASHTAGS
+# =========================================================
+
+@api_bp.route("/hashtags/search", methods=["GET"])
+@jwt_required()
+def search_hashtags():
+    """
+    Tìm bài viết theo hashtag.
+
+    Ví dụ:
+    /api/hashtags/search?q=dalat
+    """
+
+    keyword = request.args.get(
+        "q",
+        ""
+    ).strip().lstrip("#").lower()
+
+    if not keyword:
+        return jsonify({
+            "error": "Thiếu hashtag cần tìm"
+        }), 400
+
+    posts = Post.query.filter(
+        Post.hashtags.ilike(f"%{keyword}%")
+    ).order_by(
+        Post.created_at.desc()
+    ).limit(20).all()
+
+    result = []
+
+    for post in posts:
+        result.append({
+            "id": post.id,
+            "user_id": post.user_id,
+            "caption": post.caption,
+            "hashtags": post.hashtags,
+            "visibility": post.visibility,
+            "created_at": (
+                post.created_at.isoformat()
+                if post.created_at
+                else None
+            )
+        })
+
+    return jsonify({
+        "keyword": keyword,
+        "count": len(result),
+        "posts": result
+    }), 200
+
+# =========================================================
+# SEARCH ALL - SORT TỔNG HỢP
+# =========================================================
+
+@api_bp.route("/search", methods=["GET"])
+@jwt_required()
+def search_all():
+    """
+    Tìm kiếm tổng hợp bài viết.
+
+    Score được tính từ:
+    - hashtag popularity
+    - like count
+    - comment count
+    - share count
+
+    Công thức:
+        score = hashtag_popularity
+              + like_count
+              + comment_count
+              + share_count
+    """
+
+    keyword = request.args.get(
+        "q",
+        ""
+    ).strip().lower()
+
+    if not keyword:
+        return jsonify({
+            "error": "Thiếu từ khóa cần tìm"
+        }), 400
+
+    posts = (
+        Post.query
+        .filter(
+            db.or_(
+                Post.caption.ilike(f"%{keyword}%"),
+                Post.hashtags.ilike(f"%{keyword}%")
+            )
+        )
+        .all()
+    )
+
+    result = []
+
+    for post in posts:
+
+        # -------------------------------------------------
+        # LIKE COUNT
+        # -------------------------------------------------
+        like_count = Like.query.filter_by(
+            post_id=post.id
+        ).count()
+
+        # -------------------------------------------------
+        # COMMENT COUNT
+        # -------------------------------------------------
+        comment_count = Comment.query.filter_by(
+            post_id=post.id
+        ).count()
+
+        # -------------------------------------------------
+        # SHARE COUNT
+        # -------------------------------------------------
+        share_count = Share.query.filter_by(
+            post_id=post.id
+        ).count()
+
+        # -------------------------------------------------
+        # HASHTAG POPULARITY
+        # -------------------------------------------------
+        hashtag_popularity = 0
+
+        if post.hashtags:
+            hashtags = [
+                tag.strip().lstrip("#").lower()
+                for tag in post.hashtags.split(",")
+                if tag.strip()
+            ]
+
+            for tag in hashtags:
+                hashtag_popularity += (
+                    Post.query
+                    .filter(
+                        Post.hashtags.ilike(
+                            f"%{tag}%"
+                        )
+                    )
+                    .count()
+                )
+
+        # -------------------------------------------------
+        # TOTAL SCORE
+        # -------------------------------------------------
+        score = (
+            hashtag_popularity
+            + like_count
+            + comment_count
+            + share_count
+        )
+
+        result.append({
+            "id": post.id,
+            "user_id": post.user_id,
+            "caption": post.caption,
+            "hashtags": post.hashtags,
+            "visibility": post.visibility,
+            "created_at": (
+                post.created_at.isoformat()
+                if post.created_at
+                else None
+            ),
+            "like_count": like_count,
+            "comment_count": comment_count,
+            "share_count": share_count,
+            "hashtag_popularity": hashtag_popularity,
+            "score": score
+        })
+
+    # Score cao đứng trước
+    result.sort(
+        key=lambda item: (
+            item["score"],
+            item["created_at"] or ""
+        ),
+        reverse=True
+    )
+
+    return jsonify({
+        "keyword": keyword,
+        "count": len(result),
+        "posts": result
     }), 200

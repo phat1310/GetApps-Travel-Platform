@@ -94,6 +94,11 @@ def create_post():
 
     caption = request.form.get("caption", "")
 
+    hashtags = request.form.get(
+        "hashtags",
+        ""
+    ).strip()
+
     visibility = request.form.get("visibility", "public")
 
     if visibility not in ("public", "private"):
@@ -121,6 +126,7 @@ def create_post():
     post = Post(
         user_id=current_user.id,
         caption=caption,
+        hashtags=hashtags,
         visibility=visibility,
         location_id=location.id if location else None,
     )
@@ -816,9 +822,11 @@ def create_location():
 @login_required
 def search_locations():
     """
-    Autocomplete — gõ vài ký tự trả về
-    gợi ý địa điểm đã có.
+    Tìm kiếm địa điểm.
+    Sort theo số lần share của các bài viết thuộc địa điểm:
+    share nhiều -> đứng trước.
     """
+
     query = request.args.get(
         "q",
         ""
@@ -834,9 +842,27 @@ def search_locations():
     )
 
     locations = (
-        Location.query
+        db.session.query(
+            Location,
+            db.func.count(Share.id).label("share_count")
+        )
+        .outerjoin(
+            Post,
+            Post.location_id == Location.id
+        )
+        .outerjoin(
+            Share,
+            Share.post_id == Post.id
+        )
         .filter(
             Location.slug.contains(query_slug)
+        )
+        .group_by(
+            Location.id
+        )
+        .order_by(
+            db.func.count(Share.id).desc(),
+            Location.name.asc()
         )
         .limit(10)
         .all()
@@ -847,8 +873,11 @@ def search_locations():
             {
                 "id": location.id,
                 "name": location.name,
-                "slug": location.slug
+                "slug": location.slug,
+                "address": location.address,
+                "map_link": location.map_link,
+                "share_count": share_count
             }
-            for location in locations
+            for location, share_count in locations
         ]
     })
