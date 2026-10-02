@@ -19,7 +19,8 @@ from app.models import (
     Comment,
     Share,
     SavedPost,
-    Location
+    Location,
+    Notification
 )
 from app.locations.utils import get_or_create_location, normalize_location_name
 
@@ -282,11 +283,25 @@ def like_post(post_id):
         })
 
     like = Like(
-        user_id=current_user.id,
-        post_id=post_id
-    )
+    user_id=current_user.id,
+    post_id=post_id
+)
 
     db.session.add(like)
+
+    # Tạo thông báo Like cho chủ bài viết
+    # Không gửi thông báo nếu tự like bài của mình
+    if current_user.id != post.user_id:
+        notification = Notification(
+            user_id=post.user_id,
+            actor_id=current_user.id,
+            notification_type="like",
+            post_id=post.id
+        )
+
+        db.session.add(notification)
+
+    # Lưu Like + Notification cùng transaction
     db.session.commit()
 
     return jsonify({
@@ -485,6 +500,20 @@ def download_post(post_id):
         )
 
         db.session.add(share)
+
+        # Tạo thông báo Share cho chủ bài viết
+        # Không gửi thông báo nếu tự download bài của mình
+        if current_user.id != post.user_id:
+            notification = Notification(
+                user_id=post.user_id,
+                actor_id=current_user.id,
+                notification_type="share",
+                post_id=post.id
+            )
+
+            db.session.add(notification)
+
+        # Lưu Share + Notification cùng transaction
         db.session.commit()
 
     return send_from_directory(
@@ -548,6 +577,20 @@ def share_post(post_id):
     )
 
     db.session.add(share)
+
+    # Tạo thông báo Share cho chủ bài viết
+    # Không gửi thông báo nếu tự share bài của mình
+    if current_user.id != post.user_id:
+        notification = Notification(
+            user_id=post.user_id,
+            actor_id=current_user.id,
+            notification_type="share",
+            post_id=post.id
+        )
+
+        db.session.add(notification)
+
+    # Lưu Share + Notification cùng transaction
     db.session.commit()
 
     return jsonify({
@@ -685,6 +728,20 @@ def repost_post(post_id):
     )
 
     db.session.add(share)
+
+    # Tạo thông báo Share cho chủ bài viết gốc
+    # Không gửi thông báo nếu tự repost bài của mình
+    if current_user.id != original_post.user_id:
+        notification = Notification(
+            user_id=original_post.user_id,
+            actor_id=current_user.id,
+            notification_type="share",
+            post_id=original_post.id
+        )
+
+        db.session.add(notification)
+
+    # Lưu Repost + Share + Notification cùng transaction
     db.session.commit()
 
     return jsonify({
