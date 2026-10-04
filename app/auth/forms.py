@@ -101,6 +101,39 @@ class EditProfileForm(FlaskForm):
     submit = SubmitField("Lưu thay đổi")
 
 
+class SettingsForm(FlaskForm):
+    """Biểu mẫu Cài đặt thông tin tài khoản người dùng theo thiết kế GEs Proposal."""
+    nickname = StringField(
+        "Biệt danh (Nickname)",
+        validators=[Length(max=64, message="Biệt danh tối đa 64 ký tự")]
+    )
+    profile_tag = StringField(
+        "Nhãn (Tags)",
+        validators=[Length(max=64, message="Nhãn tối đa 64 ký tự")]
+    )
+    email = StringField(
+        "Email",
+        validators=[
+            DataRequired(message="Vui lòng nhập email"),
+            Email(message="Địa chỉ email không đúng định dạng")
+        ]
+    )
+    phone_number = StringField(
+        "Số điện thoại",
+        validators=[Length(max=20, message="Số điện thoại tối đa 20 ký tự")]
+    )
+    bio = TextAreaField(
+        "Ghi chú / Tiểu sử",
+        validators=[Length(max=255, message="Tiểu sử tối đa 255 ký tự")]
+    )
+    avatar_url = StringField(
+        "Đường dẫn ảnh đại diện",
+        validators=[Length(max=255, message="Đường dẫn ảnh tối đa 255 ký tự")]
+    )
+    submit = SubmitField("Lưu thay đổi")
+
+
+
 class ChangePasswordForm(FlaskForm):
     """Biểu mẫu Đổi mật khẩu tài khoản người dùng."""
     current_password = PasswordField(

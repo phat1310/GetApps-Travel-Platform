@@ -6,10 +6,11 @@ import random
 from datetime import datetime, timedelta
 from flask import request, jsonify, render_template, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import func, or_
 from app.auth import auth_bp
 from app.auth.forms import (
     LoginForm, RegisterForm, EditProfileForm, ChangePasswordForm,
-    ForgotPasswordForm, ResetPasswordForm
+    ForgotPasswordForm, ResetPasswordForm, SettingsForm
 )
 from app.extensions import db
 from app.models import User, Follow, Post, Photo, Like, Comment, SavedPost, Location, Itinerary
@@ -109,9 +110,9 @@ def register():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """Đăng nhập tài khoản người dùng."""
+    """Đăng nhập tài khoản người dùng — hỗ trợ linh hoạt Username, Email (không phân biệt chữ hoa/thường) hoặc Số điện thoại."""
     if request.method == 'GET':
-        if request.args.get('registered') and current_user.is_authenticated:
+        if (request.args.get('registered') or request.args.get('switch')) and current_user.is_authenticated:
             logout_user()
 
         if current_user.is_authenticated:
@@ -122,16 +123,22 @@ def login():
     # 1. Nếu client gửi JSON (API / Automation tests)
     if request.is_json:
         data = request.get_json() or {}
-        username = data.get('username')
-        password = data.get('password')
+        raw_val = (data.get('username') or '').strip()
+        password = data.get('password') or ''
 
         user = User.query.filter(
-            (User.username == username) | (User.email == username)
+            or_(
+                func.lower(User.username) == raw_val.lower(),
+                func.lower(User.email) == raw_val.lower(),
+                User.phone_number == raw_val
+            )
         ).first()
 
         if not user or not user.check_password(password):
             return jsonify({"error": "Sai username hoặc password"}), 401
 
+        if current_user.is_authenticated:
+            logout_user()
         login_user(user)
         return jsonify({"message": "Đăng nhập thành công", "username": user.username})
 
@@ -142,15 +149,21 @@ def login():
         password = form.password.data
 
         user = User.query.filter(
-            (User.username == login_val) | (User.email == login_val.lower())
+            or_(
+                func.lower(User.username) == login_val.lower(),
+                func.lower(User.email) == login_val.lower(),
+                User.phone_number == login_val
+            )
         ).first()
 
         if not user or not user.check_password(password):
             flash("Tên đăng nhập hoặc mật khẩu không chính xác.", "error")
             return render_template('auth/login.html', form=form), 401
 
+        if current_user.is_authenticated:
+            logout_user()
         login_user(user, remember=form.remember_me.data)
-        flash(f"Chào mừng trở lại, {user.username}!", "success")
+        flash(f"Chào mừng trở lại, {user.nickname or user.username}!", "success")
 
         next_page = request.args.get('next')
         if next_page and next_page.startswith('/'):
@@ -283,6 +296,115 @@ def unfollow(user_id):
     db.session.delete(f)
     db.session.commit()
     return jsonify({"message": f"Đã unfollow user {user_id}"})
+
+
+@auth_bp.route('/settings', methods=['GET', 'POST'])
+@auth_bp.route('/profile/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    """Giao diện & Xử lý Cài đặt tài khoản người dùng theo Proposal GEs."""
+    form = SettingsForm()
+
+    if request.method == 'GET':
+        form.nickname.data = current_user.nickname or current_user.username
+        form.profile_tag.data = current_user.profile_tag or "#nguoidulich"
+        form.email.data = current_user.email
+        form.phone_number.data = current_user.phone_number or ""
+        form.bio.data = current_user.bio or ""
+        form.avatar_url.data = current_user.avatar_url or ""
+        return render_template('auth/settings.html', form=form)
+
+    # 1. API JSON update
+    if request.is_json:
+        data = request.get_json() or {}
+        email = (data.get('email') or '').strip().lower()
+        if email and email != current_user.email.lower():
+            if User.query.filter(func.lower(User.email) == email, User.id != current_user.id).first():
+                return jsonify({"error": "Địa chỉ email này đã được sử dụng bởi tài khoản khác"}), 400
+            current_user.email = email
+
+        if 'nickname' in data:
+            current_user.nickname = data['nickname'].strip() if data['nickname'] else None
+        if 'profile_tag' in data:
+            tag = data['profile_tag'].strip()
+            if tag and not tag.startswith('#'):
+                tag = f"#{tag}"
+            current_user.profile_tag = tag or "#nguoidulich"
+        if 'phone_number' in data:
+            current_user.phone_number = data['phone_number'].strip() if data['phone_number'] else None
+        if 'bio' in data:
+            current_user.bio = data['bio'].strip() if data['bio'] else None
+        if 'avatar_url' in data:
+            current_user.avatar_url = data['avatar_url'].strip() if data['avatar_url'] else None
+
+        db.session.commit()
+        return jsonify({
+            "message": "Cập nhật cài đặt thành công",
+            "nickname": current_user.nickname or current_user.username,
+            "profile_tag": current_user.profile_tag,
+            "email": current_user.email,
+            "phone_number": current_user.phone_number,
+            "bio": current_user.bio,
+            "avatar_url": current_user.avatar_url
+        })
+
+    # 2. Xử lý Form HTML (Flask-WTF)
+    if form.validate_on_submit():
+        email = form.email.data.strip().lower()
+        if email != current_user.email.lower():
+            existing = User.query.filter(func.lower(User.email) == email, User.id != current_user.id).first()
+            if existing:
+                flash("Địa chỉ email này đã được sử dụng bởi tài khoản khác.", "error")
+                return render_template('auth/settings.html', form=form), 400
+            current_user.email = email
+
+        current_user.nickname = form.nickname.data.strip() if form.nickname.data else None
+        tag = form.profile_tag.data.strip() if form.profile_tag.data else "#nguoidulich"
+        if tag and not tag.startswith('#'):
+            tag = f"#{tag}"
+        current_user.profile_tag = tag
+
+        current_user.phone_number = form.phone_number.data.strip() if form.phone_number.data else None
+        current_user.bio = form.bio.data.strip() if form.bio.data else None
+        if form.avatar_url.data:
+            current_user.avatar_url = form.avatar_url.data.strip()
+
+        db.session.commit()
+        flash("Cập nhật thông tin cài đặt thành công!", "success")
+        return redirect(url_for('auth.settings'))
+
+    return render_template('auth/settings.html', form=form), 400 if form.errors else 200
+
+
+@auth_bp.route('/api/profile/tag', methods=['POST'])
+@login_required
+def update_profile_tag():
+    """API cập nhật nhanh nhãn hồ sơ từ modal Chọn Nhãn Hồ Sơ."""
+    data = request.get_json() if request.is_json else request.form
+    tag = (data.get('tag') or '').strip()
+    if not tag:
+        return jsonify({"error": "Nhãn không được để trống"}), 400
+
+    if not tag.startswith('#'):
+        tag = f"#{tag}"
+
+    current_user.profile_tag = tag
+    db.session.commit()
+    return jsonify({"message": "Cập nhật nhãn thành công", "tag": current_user.profile_tag})
+
+
+@auth_bp.route('/api/profile/avatar', methods=['POST'])
+@login_required
+def update_profile_avatar():
+    """API cập nhật nhanh đường dẫn ảnh đại diện."""
+    data = request.get_json() if request.is_json else request.form
+    avatar_url = (data.get('avatar_url') or '').strip()
+    if not avatar_url:
+        return jsonify({"error": "Đường dẫn ảnh đại diện không hợp lệ"}), 400
+
+    current_user.avatar_url = avatar_url
+    db.session.commit()
+    return jsonify({"message": "Cập nhật ảnh đại diện thành công", "avatar_url": current_user.avatar_url})
 
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])

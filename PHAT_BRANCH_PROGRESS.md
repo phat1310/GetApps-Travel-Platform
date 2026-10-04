@@ -95,6 +95,35 @@ Theo đúng phân công trong tài liệu [`GetApps-Tai-Lieu-Du-An.docx`](file:/
 
 ---
 
+## 🌟 6. CẬP NHẬT MỚI: SỬA ĐĂNG NHẬP EMAIL & BỔ SUNG GIAO DIỆN CÀI ĐẶT PROFILE (GEs DESIGN SYSTEM)
+
+### 🚀 6.1. Chi tiết các hạng mục đã hoàn thành:
+1. **Khắc phục triệt để lỗi đăng nhập bằng Email:**
+   - So sánh email và username không phân biệt chữ hoa/thường (`func.lower(User.email) == raw_val.lower()`, `func.lower(User.username) == raw_val.lower()`).
+   - Tự động cắt bỏ khoảng trắng thừa (`strip()`) do bàn phím ảo di động tự động thêm vào.
+   - Hỗ trợ đăng nhập đa kênh linh hoạt: `Username`, `Email` hoặc `Số điện thoại` (`User.phone_number`).
+   - Tự động gọi `logout_user()` dọn sạch session cũ trước khi gán phiên đăng nhập mới, ngăn ngừa conflict session.
+2. **Giao diện Cài đặt người dùng (Profile Settings) theo chuẩn ảnh Proposal & Stitch:**
+   - Tạo trang `app/templates/auth/settings.html` và route `/settings`, `/profile/settings`.
+   - Card Thông tin: Avatar tròn kèm nút Camera Cyan (`#0EA5E9`), Biệt danh, Badge "Tài khoản cá nhân", Dòng "Chỉnh sửa trang cá nhân".
+   - Danh sách cài đặt dạng Card bo góc mềm:
+     - **Biệt danh (Nickname)**: `Minh Đi Đâu` `>`
+     - **Nhãn (Tags)**: Chip `#nguoidulich` `>`
+     - **Email**: Hiển thị email `>`
+     - **Số điện thoại**: Hiển thị SĐT `>`
+     - **Ghi chú / Tiểu sử**: Khối văn bản bio bên dưới `>`
+   - Nhóm **BẢO MẬT**: Mục **Chỉnh sửa mật khẩu** (mô tả "Đổi mật khẩu tài khoản đăng nhập") `>` dẫn sang `/change-password`.
+   - Nút **Đăng xuất** màu đỏ nhạt bo góc mềm (`#FEE2E2` / `#DC2626`).
+   - **Modal Chọn Nhãn Hồ Sơ (Figma / Stitch UI):** Hỗ trợ chọn danh xưng (`Người du lịch`, `Dân địa phương`, `Đi phượt`, `Hướng dẫn viên`, `Người nổi tiếng`) với nút "Xác nhận", "Hủy" và nhãn đã thêm có dấu `x` gỡ bỏ.
+3. **Đồng bộ toàn bộ Icon theo Design System (`media_1791099064196.png`):**
+   - Chuẩn hóa các icon trên Header, Navbar, Feed, Profile, Settings:
+     - Home (`bi-house-door-fill`), Explore (`bi-compass`), Plan (`bi-map`), Post (`bi-pencil-square`), Profile (`bi-person`), Setting (`bi-gear`), Password (`bi-shield-lock`), Logout (`bi-box-arrow-right`), Like (`bi-heart-fill`), Comment (`bi-chat`), Save (`bi-bookmark-fill`), Share (`bi-send`), More (`bi-three-dots`).
+4. **Kiểm thử tự động:**
+   - Đạt **56/56 tests PASSED 100%** trên pytest.
+
+---
+
 > **Lưu ý dành cho Nhóm trưởng (Khánh):**
 > * Nhánh `feature/phat-frontend-plan` hoàn toàn an toàn và sẵn sàng để so sánh (compare) trên GitHub.
 > * Các file thay đổi hoàn toàn là Presentation Layer (HTML/CSS), không gây ra Merge Conflict với nhánh `main`.
+

@@ -90,7 +90,7 @@
                         {% if current_user.is_authenticated %}
                             <!-- Nút Thêm mới (Đăng bài & Tạo lịch trình) -->
                             <a href="/locations/upload" class="btn btn-ges-outline btn-sm d-flex align-items-center gap-1" title="Đăng bài viết mới">
-                                <i class="bi bi-send-fill text-primary"></i> Đăng bài
+                                <i class="bi bi-pencil-square text-primary"></i> Đăng bài
                             </a>
                             <a href="/plans/create" class="btn btn-ges-primary btn-sm d-flex align-items-center gap-1" title="Lên kế hoạch lịch trình mới">
                                 <i class="bi bi-plus-circle"></i> Tạo lịch trình
@@ -106,14 +106,14 @@
                                             {{ current_user.username[0]|upper }}
                                         </span>
                                     {% endif %}
-                                    <span class="fw-bold d-none d-md-inline me-1">{{ current_user.username }}</span>
+                                    <span class="fw-bold d-none d-md-inline me-1">{{ current_user.nickname or current_user.username }}</span>
                                     {% if current_user.role %}
                                         <span class="badge badge-role badge-role-{{ current_user.role }} d-none d-lg-inline">{{ current_user.role }}</span>
                                     {% endif %}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" aria-labelledby="userMenuDropdown">
                                     <li class="px-3 py-2 border-bottom">
-                                        <div class="fw-bold text-dark">{{ current_user.username }}</div>
+                                        <div class="fw-bold text-dark">{{ current_user.nickname or current_user.username }}</div>
                                         <small class="text-muted">{{ current_user.email }}</small>
                                     </li>
                                     <li>
@@ -123,12 +123,17 @@
                                     </li>
                                     <li>
                                         <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('plans.my_plans') }}">
-                                            <i class="bi bi-journal-bookmark text-primary"></i> Lịch trình của tôi
+                                            <i class="bi bi-map text-primary"></i> Lịch trình của tôi
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.settings') }}">
+                                            <i class="bi bi-gear text-primary"></i> Cài đặt tài khoản
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.change_password') }}">
-                                            <i class="bi bi-key text-warning"></i> Đổi mật khẩu
+                                            <i class="bi bi-shield-lock text-warning"></i> Đổi mật khẩu
                                         </a>
                                     </li>
                                     <li><hr class="dropdown-divider my-1"></li>

@@ -487,3 +487,117 @@ def test_forgot_password_api_json(client, users):
     assert res_reset.get_json()["message"] == "Đặt lại mật khẩu thành công"
 
 
+def test_login_with_email_case_insensitive_and_whitespace(client, users):
+    """Đăng nhập bằng Email không phân biệt chữ hoa/thường và tự động cắt khoảng trắng thừa."""
+    # Test với email viết hoa và có khoảng trắng
+    res = client.post(
+        "/login",
+        data={
+            "username": "  TEST1@EXAMPLE.COM  ",
+            "password": "123456",
+            "remember_me": False
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 302
+    assert "/locations/feed" in res.headers["Location"]
+
+    # Đăng nhập qua JSON API với email chữ hoa
+    res_json = client.post(
+        "/login",
+        json={
+            "username": " Test1@Example.com ",
+            "password": "123456"
+        }
+    )
+    assert res_json.status_code == 200
+    assert res_json.get_json()["username"] == "testuser1"
+
+
+def test_login_with_phone_number(client, users, app):
+    """Đăng nhập thành công bằng Số điện thoại đã đăng ký."""
+    with app.app_context():
+        u = User.query.filter_by(username="testuser1").first()
+        u.phone_number = "0987654321"
+        db.session.commit()
+
+    res = client.post(
+        "/login",
+        data={
+            "username": "0987654321",
+            "password": "123456",
+            "remember_me": False
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 302
+    assert "/locations/feed" in res.headers["Location"]
+
+
+def test_settings_page_get(client, users):
+    """GET /settings hiển thị giao diện cài đặt tài khoản theo chuẩn Proposal GEs."""
+    login_user(client, "testuser1", "123456")
+    res = client.get("/settings")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "Cài đặt tài khoản" in html
+    assert "Biệt danh (Nickname)" in html
+    assert "Nhãn (Tags)" in html
+    assert "BẢO MẬT" in html
+    assert "Đăng xuất" in html
+    assert "Chọn Nhãn Hồ Sơ" in html
+
+
+def test_settings_page_post_update(client, users, app):
+    """POST /settings cập nhật thành công Biệt danh, Số điện thoại và Tiểu sử."""
+    login_user(client, "testuser1", "123456")
+    res = client.post(
+        "/settings",
+        data={
+            "nickname": "Minh Đi Đâu",
+            "profile_tag": "#nguoidulich",
+            "email": "test1@example.com",
+            "phone_number": "0987654321",
+            "bio": "Đam mê xê dịch & chia sẻ trải nghiệm thực tế.",
+            "avatar_url": ""
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 302
+    assert "/settings" in res.headers["Location"]
+
+    with app.app_context():
+        u = User.query.filter_by(username="testuser1").first()
+        assert u.nickname == "Minh Đi Đâu"
+        assert u.phone_number == "0987654321"
+        assert u.profile_tag == "#nguoidulich"
+        assert "Đam mê xê dịch" in u.bio
+
+
+def test_api_profile_tag_and_avatar(client, users, app):
+    """Kiểm thử API AJAX cập nhật nhanh nhãn hồ sơ và ảnh đại diện."""
+    login_user(client, "testuser1", "123456")
+
+    # 1. Update tag
+    res_tag = client.post(
+        "/api/profile/tag",
+        json={"tag": "dandiaphuong"}
+    )
+    assert res_tag.status_code == 200
+    assert res_tag.get_json()["tag"] == "#dandiaphuong"
+
+    # 2. Update avatar
+    res_avatar = client.post(
+        "/api/profile/avatar",
+        json={"avatar_url": "https://example.com/minh_avatar.jpg"}
+    )
+    assert res_avatar.status_code == 200
+    assert res_avatar.get_json()["avatar_url"] == "https://example.com/minh_avatar.jpg"
+
+    with app.app_context():
+        u = User.query.filter_by(username="testuser1").first()
+        assert u.profile_tag == "#dandiaphuong"
+        assert u.avatar_url == "https://example.com/minh_avatar.jpg"
+
+
+

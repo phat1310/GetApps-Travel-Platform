@@ -18,6 +18,8 @@ class User(UserMixin, db.Model):
     avatar_url = db.Column(db.String(255), nullable=True)
     bio = db.Column(db.String(255), nullable=True)
     phone_number = db.Column(db.String(20), nullable=True)
+    nickname = db.Column(db.String(64), nullable=True)
+    profile_tag = db.Column(db.String(64), default="#nguoidulich", nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):

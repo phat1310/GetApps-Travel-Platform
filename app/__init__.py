@@ -21,6 +21,22 @@ def create_app():
     with app.app_context():
         from app import models  # để Flask-Migrate thấy được model
         db.create_all()
+        # Đảm bảo an toàn tương thích ngược cho DB SQLite cũ nếu thiếu cột mới
+        try:
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            if 'users' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('users')]
+                if 'nickname' not in columns:
+                    with db.engine.connect() as conn:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN nickname VARCHAR(64)"))
+                        conn.commit()
+                if 'profile_tag' not in columns:
+                    with db.engine.connect() as conn:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_tag VARCHAR(64) DEFAULT '#nguoidulich'"))
+                        conn.commit()
+        except Exception:
+            pass
 
     from app.auth import auth_bp
     from app.locations import locations_bp
