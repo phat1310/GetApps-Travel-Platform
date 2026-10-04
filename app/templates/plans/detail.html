@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan.title }} — Lịch trình GetApps{% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-detail-hero {
+        position: relative;
+        height: 280px;
+        border-radius: var(--ges-radius-lg);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        background-color: #0f172a;
+    }
+    .plan-detail-hero img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .plan-detail-hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.8) 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 2rem;
+        color: #ffffff;
+    }
+    .day-card {
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+    .day-header {
+        background-color: #f8fafc;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .timeline-container {
+        position: relative;
+        padding: 1.25rem 1.5rem;
+    }
+    .timeline-container::before {
+        content: '';
+        position: absolute;
+        top: 25px;
+        bottom: 25px;
+        left: 2.25rem;
+        width: 2px;
+        background-color: #e2e8f0;
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 2.5rem;
+        margin-bottom: 1.25rem;
+    }
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+    .timeline-dot {
+        position: absolute;
+        left: 0;
+        top: 4px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background-color: var(--ges-primary);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.78rem;
+        font-weight: 700;
+        box-shadow: 0 0 0 4px #e0f2fe;
+        z-index: 2;
+    }
+    .stop-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.9rem 1.1rem;
+        transition: border-color 0.2s ease;
+    }
+    .stop-card:hover {
+        border-color: var(--ges-primary);
+    }
+    .badge-trans {
+        background-color: #f1f5f9;
+        color: #475569;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.55rem;
+        border-radius: 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-2" style="max-width: 1050px;">
+
+    <!-- Detail Hero -->
+    <div class="plan-detail-hero">
+        {% if plan.cover_image %}
+            <img src="{{ url_for('static', filename=plan.cover_image.replace('static/', '')) }}" alt="{{ plan.title }}">
+        {% else %}
+            <div class="w-100 h-100 d-flex align-items-center justify-content-center bg-dark">
+                <i class="bi bi-map fs-1 text-white opacity-50"></i>
+            </div>
+        {% endif %}
+
+        <div class="plan-detail-hero-overlay">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-primary px-3 py-1 rounded-pill fw-bold">
+                    <i class="bi bi-geo-alt-fill me-1"></i> {{ plan.destination }}
+                </span>
+                <span class="badge bg-dark bg-opacity-75 px-3 py-1 rounded-pill">
+                    <i class="bi bi-calendar-event me-1"></i> {{ plan.total_days }} Ngày
+                </span>
+                {% if is_owner %}
+                    <span class="badge {% if plan.visibility == 'public' %}bg-success{% else %}bg-secondary{% endif %} rounded-pill">
+                        {{ "Công khai" if plan.visibility == 'public' else "Riêng tư" }}
+                    </span>
+                {% endif %}
+            </div>
+
+            <h2 class="fw-bold text-white mb-2">{{ plan.title }}</h2>
+
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    {% if plan.author.avatar_url %}
+                        <img src="{{ plan.author.avatar_url }}" alt="{{ plan.author.username }}" class="avatar avatar-sm">
+                    {% else %}
+                        <span class="avatar-placeholder avatar-sm text-white" style="background-color: rgba(255,255,255,0.25);">
+                            {{ plan.author.username[0]|upper }}
+                        </span>
+                    {% endif %}
+                    <span class="small fw-semibold text-white">Được tạo bởi <a href="{{ url_for('auth.profile', username=plan.author.username) }}" class="text-white text-decoration-underline">{{ plan.author.username }}</a></span>
+                </div>
+
+                <!-- Actions for Owner -->
+                {% if is_owner %}
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('plans.edit', plan_id=plan.id) }}" class="btn btn-light btn-sm rounded-pill px-3 fw-bold">
+                            <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa
+                        </a>
+                        <form action="{{ url_for('plans.delete', plan_id=plan.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa toàn bộ lịch trình này?')">
+                            <button type="submit" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold">
+                                <i class="bi bi-trash me-1"></i> Xóa
+                            </button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="row g-4">
+        
+        <!-- Left: Timeline Days & Stops -->
+        <div class="col-lg-8">
+
+            <!-- Description & Notes -->
+            {% if plan.description %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-info-circle me-1 text-primary"></i> Giới thiệu chuyến đi</h6>
+                    <p class="text-muted small mb-0" style="line-height: 1.6; white-space: pre-line;">{{ plan.description }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Attachment File Download Link (if any) -->
+            {% if plan.attachment_file %}
+                <div class="alert alert-info d-flex align-items-center justify-content-between rounded-4 p-3 mb-4 shadow-sm" role="alert">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-arrow-down-fill fs-3 text-primary"></i>
+                        <div>
+                            <div class="fw-bold text-dark small">Tài liệu đính kèm chuyến đi</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">File lịch trình (.pdf, .docx, .xlsx, .pptx)</div>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('static', filename=plan.attachment_file.replace('static/', '')) }}" target="_blank" download class="btn btn-primary btn-sm rounded-pill px-3">
+                        <i class="bi bi-download me-1"></i> Tải về máy
+                    </a>
+                </div>
+            {% endif %}
+
+            <!-- Days List -->
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0">
+                    <i class="bi bi-list-task me-1 text-primary"></i> Lộ trình chi tiết từng ngày ({{ plan.days|length }})
+                </h5>
+                {% if is_owner %}
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#addDayModal">
+                        <i class="bi bi-plus-lg me-1"></i> Thêm ngày mới
+                    </button>
+                {% endif %}
+            </div>
+
+            {% for day in plan.days %}
+                <div class="day-card">
+                    <!-- Day Header -->
+                    <div class="day-header">
+                        <div>
+                            <span class="badge bg-primary text-white rounded-pill px-2 py-1 me-2" style="font-size: 0.78rem;">
+                                Ngày {{ day.day_number }}
+                            </span>
+                            <span class="fw-bold text-dark">{{ day.title or ("Ngày " ~ day.day_number) }}</span>
+                        </div>
+                        {% if is_owner %}
+                            <button type="button" class="btn btn-ges-primary btn-sm rounded-pill px-3" onclick="openAddStopModal('{{ day.id }}', '{{ day.day_number }}')">
+                                <i class="bi bi-plus-circle me-1"></i> Thêm điểm đến
+                            </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Day Note -->
+                    {% if day.note %}
+                        <div class="px-4 pt-3 pb-1 text-muted small fst-italic">
+                            <i class="bi bi-chat-left-quote me-1"></i>{{ day.note }}
+                        </div>
+                    {% endif %}
+
+                    <!-- Stops Timeline -->
+                    <div class="timeline-container">
+                        {% if day.stops %}
+                            {% for stop in day.stops %}
+                                <div class="timeline-item">
+                                    <div class="timeline-dot">{{ stop.order_index }}</div>
+                                    <div class="stop-card">
+                                        <div class="d-flex align-items-start justify-content-between">
+                                            <div>
+                                                <h6 class="fw-bold text-dark mb-1">{{ stop.location_name }}</h6>
+                                                {% if stop.address %}
+                                                    <p class="text-muted small mb-1"><i class="bi bi-geo-alt me-1"></i>{{ stop.address }}</p>
+                                                {% endif %}
+                                            </div>
+
+                                            {% if is_owner %}
+                                                <form action="{{ url_for('plans.delete_stop', stop_id=stop.id) }}" method="POST" class="m-0" onsubmit="return confirm('Xóa điểm dừng này?')">
+                                                    <button type="submit" class="btn btn-link text-danger p-0 border-0" title="Xóa điểm dừng">
+                                                        <i class="bi bi-x-circle fs-6"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="d-flex align-items-center flex-wrap gap-2 mt-2 pt-2 border-top">
+                                            {% if stop.arrival_time %}
+                                                <span class="small text-muted"><i class="bi bi-clock me-1"></i>{{ stop.arrival_time }}</span>
+                                            {% endif %}
+                                            {% if stop.transportation %}
+                                                <span class="badge-trans"><i class="bi bi-bicycle me-1"></i>{{ stop.transportation }}</span>
+                                            {% endif %}
+                                            {% if stop.estimated_cost and stop.estimated_cost > 0 %}
+                                                <span class="small fw-semibold text-success ms-auto">
+                                                    <i class="bi bi-cash-coin me-1"></i>~{{ "{:,.0f}".format(stop.estimated_cost) }} đ
+                                                </span>
+                                            {% endif %}
+                                        </div>
+
+                                        {% if stop.notes %}
+                                            <div class="mt-2 text-secondary small bg-light p-2 rounded">
+                                                <i class="bi bi-lightbulb me-1 text-warning"></i>{{ stop.notes }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-3 text-muted small">
+                                <i class="bi bi-geo-alt fs-3 d-block mb-1 opacity-50"></i>
+                                Ngày này chưa có điểm dừng nào.
+                                {% if is_owner %}
+                                    <br><a href="javascript:void(0)" onclick="openAddStopModal('{{ day.id }}', '{{ day.day_number }}')" class="text-primary fw-bold">Bấm vào đây để thêm điểm đến đầu tiên!</a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+
+        </div>
+
+        <!-- Right: Summary Sidebar -->
+        <div class="col-lg-4">
+            
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white sticky-top" style="top: 85px;">
+                <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">
+                    <i class="bi bi-pie-chart-fill me-1 text-primary"></i> Tổng quan chuyến đi
+                </h6>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Thời lượng:</span>
+                    <span class="fw-bold text-dark">{{ plan.total_days }} Ngày</span>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Khởi hành:</span>
+                    <span class="fw-semibold text-dark">{{ plan.start_date.strftime('%d/%m/%Y') if plan.start_date else 'Linh hoạt' }}</span>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Kết thúc:</span>
+                    <span class="fw-semibold text-dark">{{ plan.end_date.strftime('%d/%m/%Y') if plan.end_date else 'Linh hoạt' }}</span>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small">Dự toán ngân sách:</span>
+                    <span class="fw-bold text-success fs-6">
+                        {% if plan.estimated_budget and plan.estimated_budget > 0 %}
+                            {{ "{:,.0f}".format(plan.estimated_budget) }} đ
+                        {% else %}
+                            Chưa đặt
+                        {% endif %}
+                    </span>
+                </div>
+
+                <hr class="my-3">
+
+                <!-- Social Actions -->
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill btn-sm" onclick="navigator.clipboard.writeText(window.location.href); alert('Đã sao chép link lịch trình vào clipboard!');">
+                        <i class="bi bi-share me-1"></i> Chia sẻ lịch trình này
+                    </button>
+                    <a href="{{ url_for('plans.index') }}" class="btn btn-light rounded-pill btn-sm text-muted">
+                        <i class="bi bi-compass me-1"></i> Khám phá thêm lịch trình khác
+                    </a>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Modal: Thêm Ngày Mới -->
+{% if is_owner %}
+<div class="modal fade" id="addDayModal" tabindex="-1" aria-labelledby="addDayModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="addDayModalLabel">Thêm ngày vào hành trình</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('plans.add_day', plan_id=plan.id) }}" method="POST">
+                {{ day_form.hidden_tag() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="day_title" class="form-label fw-bold small">Chủ đề ngày</label>
+                        {{ day_form.title(class="form-control", id="day_title", placeholder="Ví dụ: Chinh phục đỉnh Langbiang & Thác Datanla") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="day_note" class="form-label fw-bold small">Ghi chú ngày</label>
+                        {{ day_form.note(class="form-control", id="day_note", rows="3", placeholder="Chuẩn bị áo ấm, giày thể thao...") }}
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-ges-primary rounded-pill px-4 fw-bold">Thêm ngày</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Thêm Điểm Dừng Mới -->
+<div class="modal fade" id="addStopModal" tabindex="-1" aria-labelledby="addStopModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="addStopModalLabel">Thêm điểm đến</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addStopForm" method="POST">
+                {{ stop_form.hidden_tag() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="stop_location_name" class="form-label fw-bold small">Tên địa điểm / Quán xá <span class="text-danger">*</span></label>
+                        {{ stop_form.location_name(class="form-control", id="stop_location_name", placeholder="Ví dụ: Tiệm cà phê Túi Mơ To") }}
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="stop_arrival_time" class="form-label fw-bold small">Giờ ghé thăm</label>
+                            {{ stop_form.arrival_time(class="form-control", id="stop_arrival_time", placeholder="08:30") }}
+                        </div>
+                        <div class="col-6">
+                            <label for="stop_transportation" class="form-label fw-bold small">Phương tiện</label>
+                            {{ stop_form.transportation(class="form-select", id="stop_transportation") }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="stop_cost" class="form-label fw-bold small">Chi phí ước tính (VNĐ)</label>
+                        {{ stop_form.estimated_cost(class="form-control", id="stop_cost", placeholder="65000") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="stop_address" class="form-label fw-bold small">Địa chỉ</label>
+                        {{ stop_form.address(class="form-control", id="stop_address", placeholder="Hẻm 31 Sào Nam, Phường 11, Đà Lạt") }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="stop_notes" class="form-label fw-bold small">Lưu ý & Mẹo vặt</label>
+                        {{ stop_form.notes(class="form-control", id="stop_notes", rows="2", placeholder="Nên đi lúc bình minh hoặc hoàng hôn để săn mây đẹp nhất...") }}
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-ges-primary rounded-pill px-4 fw-bold">Lưu điểm đến</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openAddStopModal(dayId, dayNumber) {
+        const form = document.getElementById('addStopForm');
+        form.action = `/plans/days/${dayId}/stops/add`;
+        document.getElementById('addStopModalLabel').innerText = `Thêm điểm đến — Ngày ${dayNumber}`;
+        const modal = new bootstrap.Modal(document.getElementById('addStopModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

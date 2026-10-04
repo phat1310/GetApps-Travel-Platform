@@ -25,8 +25,10 @@ def create_app():
     from app.auth import auth_bp
     from app.locations import locations_bp
     from app.api import api_bp
+    from app.plans import plans_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(locations_bp, url_prefix="/locations")
     app.register_blueprint(api_bp, url_prefix="/api")
+    app.register_blueprint(plans_bp, url_prefix="/plans")
 
     return app

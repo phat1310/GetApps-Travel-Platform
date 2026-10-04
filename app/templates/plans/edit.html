@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Chỉnh sửa: {{ plan.title }} — GetApps{% endblock %}
+
+{% block content %}
+<div class="container py-2" style="max-width: 760px;">
+
+    <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white my-3">
+        
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-4 pb-3 border-bottom">
+            <div>
+                <span class="badge bg-primary-subtle text-primary px-3 py-1 mb-1 fw-bold rounded-pill" style="font-size: 0.78rem;">
+                    <i class="bi bi-pencil-square me-1"></i> Quản lý lịch trình
+                </span>
+                <h3 class="fw-bold text-dark mb-0">Chỉnh sửa lịch trình</h3>
+            </div>
+            <a href="{{ url_for('plans.detail', plan_id=plan.id) }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <i class="bi bi-arrow-left me-1"></i> Xem lịch trình
+            </a>
+        </div>
+
+        <form action="{{ url_for('plans.edit', plan_id=plan.id) }}" method="POST" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+
+            <div class="mb-3">
+                <label for="title" class="form-label fw-bold text-dark small">Tên chuyến đi / Tiêu đề lịch trình <span class="text-danger">*</span></label>
+                {{ form.title(class="form-control", id="title") }}
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-7">
+                    <label for="destination" class="form-label fw-bold text-dark small">Điểm đến chính <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-geo-alt"></i></span>
+                        {{ form.destination(class="form-control", id="destination") }}
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <label for="estimated_budget" class="form-label fw-bold text-dark small">Dự toán ngân sách (VNĐ)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted">₫</span>
+                        {{ form.estimated_budget(class="form-control", id="estimated_budget") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label fw-bold text-dark small">Ngày khởi hành</label>
+                    {{ form.start_date(class="form-control", type="date", id="start_date") }}
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label fw-bold text-dark small">Ngày kết thúc</label>
+                    {{ form.end_date(class="form-control", type="date", id="end_date") }}
+                </div>
+                <div class="col-md-4">
+                    <label for="visibility" class="form-label fw-bold text-dark small">Chế độ hiển thị</label>
+                    {{ form.visibility(class="form-select", id="visibility") }}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-dark small">Ảnh bìa lịch trình mới (nếu muốn thay đổi)</label>
+                {{ form.cover_image(class="form-control", id="cover_image") }}
+                {% if plan.cover_image %}
+                    <small class="text-muted d-block mt-1">Ảnh bìa hiện tại: <code>{{ plan.cover_image }}</code></small>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-dark small">Tệp tài liệu đính kèm mới</label>
+                {{ form.attachment_file(class="form-control", id="attachment_file") }}
+                {% if plan.attachment_file %}
+                    <small class="text-muted d-block mt-1">File hiện tại: <code>{{ plan.attachment_file }}</code></small>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <label for="description" class="form-label fw-bold text-dark small">Mô tả & Lưu ý chung</label>
+                {{ form.description(class="form-control", rows="4", id="description") }}
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                <a href="{{ url_for('plans.detail', plan_id=plan.id) }}" class="btn btn-light rounded-pill px-4">Hủy</a>
+                <button type="submit" class="btn btn-ges-primary rounded-pill px-4 fw-bold">
+                    <i class="bi bi-save me-1"></i> Lưu thay đổi
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+{% endblock %}
