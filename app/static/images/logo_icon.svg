@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="icon-bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <style>
+      .app-text-white {
+        fill: #FFFFFF;
+        font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+        font-weight: 800;
+        font-size: 155px;
+      }
+    </style>
+  </defs>
+
+  <!-- Squircle / Rounded App Icon Container -->
+  <rect width="512" height="512" rx="115" ry="115" fill="url(#icon-bg-grad)"/>
+
+  <!-- Brand Symbol Centered -->
+  <g transform="translate(42, 125)">
+    <!-- Letter G -->
+    <text x="15" y="195" class="app-text-white">G</text>
+
+    <!-- Location Pin inside G -->
+    <g transform="translate(68, 115) scale(2.0)">
+      <path fill="#0284C7" d="M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8z"/>
+      <circle fill="#FFFFFF" cx="12" cy="10" r="3.2"/>
+    </g>
+
+    <!-- Letter E -->
+    <text x="165" y="195" class="app-text-white">E</text>
+
+    <!-- Letter s -->
+    <text x="280" y="195" class="app-text-white">s</text>
+
+    <!-- Paper Plane above letter 's' -->
+    <g transform="translate(340, 50) rotate(-5) scale(2.8)">
+      <path fill="#FFFFFF" d="M0 16 L24 0 L15 22 L10 16 Z"/>
+      <path fill="#E0F2FE" d="M10 16 L15 22 L11 25 L8 19 Z"/>
+      <path fill="#BAE6FD" d="M0 16 L24 0 L10 16 Z"/>
+    </g>
+  </g>
+</svg>

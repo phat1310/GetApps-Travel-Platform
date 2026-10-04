@@ -6,19 +6,22 @@
    ========================================================================== */
 
 :root {
-    --ges-primary: #0284c7;        /* Xanh da trời điểm nhấn */
-    --ges-primary-hover: #0369a1;  /* Xanh đậm khi hover */
-    --ges-primary-light: #e0f2fe;  /* Xanh nhạt nền phụ */
-    --ges-bg-body: #f8fafc;        /* Nền trang sáng tối giản */
-    --ges-text-main: #0f172a;      /* Màu chữ chính */
-    --ges-text-muted: #64748b;     /* Màu chữ phụ */
-    --ges-card-bg: #ffffff;        /* Nền thẻ card */
-    --ges-border-color: #e2e8f0;   /* Viền mỏng nhẹ */
+    --ges-primary: #0EA5E9;        /* Sky-500: Màu nhấn thương hiệu chuẩn */
+    --ges-primary-hover: #0284C7;  /* Sky-600: Hover */
+    --ges-primary-active: #0369A1; /* Sky-700: Active / Pressed */
+    --ges-primary-light: #E0F2FE;  /* Sky-100: Nền phụ nhẹ */
+    --ges-bg-body: #F8FAFC;        /* Nền phụ toàn trang */
+    --ges-text-main: #111827;      /* Chữ chính (Slate-900) */
+    --ges-text-muted: #6B7280;     /* Chữ phụ (Gray-500) */
+    --ges-card-bg: #FFFFFF;        /* Nền thẻ card */
+    --ges-border-color: #E5E7EB;   /* Viền mỏng nhẹ chuẩn Design System */
     --ges-radius-sm: 8px;
     --ges-radius-md: 12px;
     --ges-radius-lg: 16px;
-    --ges-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --ges-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+    --ges-radius-xl: 24px;
+    --ges-shadow-sm: 0 1px 3px 0 rgba(17, 24, 39, 0.05);
+    --ges-shadow-md: 0 4px 20px -2px rgba(17, 24, 39, 0.06);
+    --ges-shadow-lg: 0 12px 32px -4px rgba(17, 24, 39, 0.08);
 }
 
 body {
@@ -45,33 +48,22 @@ main.main-content {
     padding: 0.75rem 0;
 }
 
-.brand-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0284c7, #38bdf8);
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 1.25rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: var(--ges-radius-sm);
-    letter-spacing: 0.5px;
-    margin-right: 0.5rem;
+.brand-logo-img {
+    height: 44px;
+    width: auto;
+    display: inline-block;
+    vertical-align: middle;
+    transition: transform 0.2s ease;
 }
 
-.brand-title {
-    font-weight: 800;
-    font-size: 1.35rem;
-    color: var(--ges-text-main);
-    letter-spacing: -0.5px;
+.brand-logo-img:hover {
+    transform: scale(1.03);
 }
 
-.brand-tagline {
-    font-size: 0.7rem;
-    color: var(--ges-text-muted);
-    font-weight: 500;
-    display: block;
-    margin-top: -3px;
+.brand-logo-footer {
+    height: 36px;
+    width: auto;
+    display: inline-block;
 }
 
 .nav-link-ges {

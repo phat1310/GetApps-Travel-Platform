@@ -78,10 +78,9 @@
     
     <!-- Brand Header -->
     <div class="text-center mb-4">
-        <div class="d-inline-flex align-items-center justify-content-center mb-2">
-            <span class="brand-badge fs-4 px-3 py-1">GEs</span>
-            <span class="fs-3 fw-bold text-dark ms-1">GetApps</span>
-        </div>
+        <a href="{{ url_for('locations.feed') }}" class="d-inline-block mb-1 text-decoration-none">
+            <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs - GetApps" style="height: 52px; width: auto;">
+        </a>
         <h4 class="fw-bold text-dark mt-2 mb-1">Chào mừng trở lại!</h4>
         <p class="text-muted small mb-0">Đăng nhập để tiếp tục chia sẻ hành trình du lịch của bạn</p>
     </div>
