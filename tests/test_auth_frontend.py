@@ -95,6 +95,33 @@ def test_register_form_post_success(client):
         assert user.role == "traveler"
 
 
+def test_register_while_authenticated_clears_session_and_redirects_to_login(client, users):
+    """Khi user đã đăng nhập mà đăng ký tài khoản mới thì xóa session cũ và chuyển về /login."""
+    login_user(client, "testuser1")
+    
+    res = client.post(
+        "/register",
+        data={
+            "username": "brandnewuser",
+            "email": "brandnew@example.com",
+            "password": "StrongPassword123!",
+            "confirm_password": "StrongPassword123!",
+            "role": "traveler",
+            "agree_terms": "y"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 302
+    assert "/login" in res.headers["Location"]
+    assert "registered=1" in res.headers["Location"]
+
+    # Đảm bảo trang đích là form login (không bị đá về feed)
+    login_page = client.get(res.headers["Location"])
+    assert login_page.status_code == 200
+    assert "Đăng ký tài khoản thành công" in login_page.data.decode("utf-8")
+    assert "login-form" in login_page.data.decode("utf-8")
+
+
 def test_register_weak_password_rejected(client):
     """POST /register mật khẩu yếu (thiếu hoa, thường, ký tự đặc biệt hoặc < 8 ký tự) bị từ chối."""
     # 1. Quá ngắn (< 8 ký tự)

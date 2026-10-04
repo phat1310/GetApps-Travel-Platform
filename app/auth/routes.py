@@ -17,9 +17,10 @@ def index():
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     """Đăng ký tài khoản người dùng mới."""
+    if current_user.is_authenticated:
+        logout_user()
+
     if request.method == 'GET':
-        if current_user.is_authenticated:
-            return redirect(url_for('locations.feed'))
         form = RegisterForm()
         return render_template('auth/register.html', form=form)
 
@@ -74,9 +75,13 @@ def register():
             db.session.add(user)
             db.session.commit()
 
+            # Đảm bảo xóa bỏ mọi phiên đăng nhập cũ
+            if current_user.is_authenticated:
+                logout_user()
+
             # Thông báo thành công và chuyển hướng về trang /login để người dùng đăng nhập lại
             flash("Đăng ký tài khoản thành công! Vui lòng đăng nhập để tiếp tục.", "success")
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login', registered='1'))
         except Exception as e:
             db.session.rollback()
             flash(f"Lỗi khi tạo tài khoản: {str(e)}", "error")
@@ -88,6 +93,9 @@ def register():
 def login():
     """Đăng nhập tài khoản người dùng."""
     if request.method == 'GET':
+        if request.args.get('registered') and current_user.is_authenticated:
+            logout_user()
+
         if current_user.is_authenticated:
             return redirect(url_for('locations.feed'))
         form = LoginForm()
