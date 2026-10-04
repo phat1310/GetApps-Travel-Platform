@@ -52,7 +52,7 @@ class RegisterForm(FlaskForm):
     role = SelectField(
         "Vai trò tham gia",
         choices=[
-            ("traveler", "Traveler • Người đam mê xê dịch"),
+            ("traveler", "Người đam mê du lịch"),
             ("local", "Local Guide • Dân bản địa am hiểu"),
             ("creator", "Creator • Tác giả nội dung du lịch"),
             ("owner", "Owner • Chủ địa điểm / Quán xá"),
@@ -80,11 +80,11 @@ class EditProfileForm(FlaskForm):
     role = SelectField(
         "Vai trò hiển thị",
         choices=[
-            ("traveler", "Traveler"),
-            ("local", "Local Guide"),
-            ("creator", "Creator"),
-            ("owner", "Owner"),
-            ("user", "User")
+            ("traveler", "Người đam mê du lịch"),
+            ("local", "Local Guide • Dân bản địa"),
+            ("creator", "Creator • Tác giả nội dung"),
+            ("owner", "Owner • Chủ địa điểm"),
+            ("user", "User • Thành viên")
         ]
     )
     submit = SubmitField("Lưu thay đổi")

@@ -56,18 +56,23 @@ def register():
             form.email.errors.append("Địa chỉ email này đã được đăng ký tài khoản")
             return render_template('auth/register.html', form=form), 400
 
-        user = User(
-            username=username,
-            email=email,
-            role=form.role.data
-        )
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
+        try:
+            user = User(
+                username=username,
+                email=email,
+                role=form.role.data
+            )
+            user.set_password(form.password.data)
+            db.session.add(user)
+            db.session.commit()
 
-        login_user(user)
-        flash("Đăng ký tài khoản thành công! Chào mừng bạn đến với GEs.", "success")
-        return redirect(url_for('locations.feed'))
+            login_user(user)
+            flash("Đăng ký tài khoản thành công! Chào mừng bạn đến với GEs.", "success")
+            return redirect(url_for('locations.feed'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Lỗi khi tạo tài khoản: {str(e)}", "error")
+            return render_template('auth/register.html', form=form), 500
 
     return render_template('auth/register.html', form=form), 400 if form.errors else 200
 

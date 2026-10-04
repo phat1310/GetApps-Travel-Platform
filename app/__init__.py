@@ -20,6 +20,7 @@ def create_app():
 
     with app.app_context():
         from app import models  # để Flask-Migrate thấy được model
+        db.create_all()
 
     from app.auth import auth_bp
     from app.locations import locations_bp
