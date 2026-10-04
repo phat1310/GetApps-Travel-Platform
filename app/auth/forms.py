@@ -99,3 +99,39 @@ class EditProfileForm(FlaskForm):
         ]
     )
     submit = SubmitField("Lưu thay đổi")
+
+
+class ChangePasswordForm(FlaskForm):
+    """Biểu mẫu Đổi mật khẩu tài khoản người dùng."""
+    current_password = PasswordField(
+        "Mật khẩu hiện tại",
+        validators=[DataRequired(message="Vui lòng nhập mật khẩu hiện tại")]
+    )
+    new_password = PasswordField(
+        "Mật khẩu mới",
+        validators=[
+            DataRequired(message="Vui lòng nhập mật khẩu mới"),
+            Length(min=8, message="Mật khẩu mới phải có ít nhất 8 ký tự")
+        ]
+    )
+    confirm_new_password = PasswordField(
+        "Xác nhận mật khẩu mới",
+        validators=[
+            DataRequired(message="Vui lòng xác nhận mật khẩu mới"),
+            EqualTo("new_password", message="Mật khẩu xác nhận không khớp")
+        ]
+    )
+    submit = SubmitField("Cập nhật mật khẩu")
+
+    def validate_new_password(self, field):
+        """Kiểm tra độ phức tạp của mật khẩu mới theo chuẩn bảo mật."""
+        pwd = field.data or ""
+        if len(pwd) < 8:
+            raise ValidationError("Mật khẩu mới phải có ít nhất 8 ký tự.")
+        if not re.search(r'[A-Z]', pwd):
+            raise ValidationError("Mật khẩu mới phải chứa ít nhất 1 chữ in hoa (A-Z).")
+        if not re.search(r'[a-z]', pwd):
+            raise ValidationError("Mật khẩu mới phải chứa ít nhất 1 chữ thường (a-z).")
+        if not re.search(r'[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]', pwd):
+            raise ValidationError("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt (!@#$%^&*...).")
+

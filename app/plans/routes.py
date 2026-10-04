@@ -83,6 +83,15 @@ def index():
     )
 
 
+@plans_bp.route('/my-plans', methods=['GET'])
+def my_plans():
+    """Chuyển hướng hoặc xem thẳng tab Lịch trình của tôi."""
+    if not current_user.is_authenticated:
+        flash("Vui lòng đăng nhập để xem lịch trình của bạn.", "info")
+        return redirect(url_for('auth.login'))
+    return redirect(url_for('plans.index', tab='my_plans'))
+
+
 @plans_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create():

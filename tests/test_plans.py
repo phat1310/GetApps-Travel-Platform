@@ -240,3 +240,19 @@ def test_plan_delete_success(client, users):
 
     with client.application.app_context():
         assert Itinerary.query.get(plan_id) is None
+
+
+def test_my_plans_redirect_anonymous(client):
+    """Khách chưa đăng nhập truy cập /plans/my-plans bị chuyển hướng sang /login."""
+    res = client.get("/plans/my-plans")
+    assert res.status_code == 302
+    assert "/login" in res.headers["Location"]
+
+
+def test_my_plans_redirect_authenticated(client, users):
+    """Người dùng đã đăng nhập truy cập /plans/my-plans được chuyển hướng về /plans?tab=my_plans."""
+    login_user(client, "testuser1")
+    res = client.get("/plans/my-plans")
+    assert res.status_code == 302
+    assert "tab=my_plans" in res.headers["Location"]
+

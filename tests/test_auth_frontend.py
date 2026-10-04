@@ -194,3 +194,123 @@ def test_logout_get_redirect(client):
     res = client.get("/logout", headers={"Accept": "text/html"})
     assert res.status_code == 302
     assert "/login" in res.headers["Location"]
+
+
+def test_explore_page_get(client):
+    """GET /explore hiển thị giao diện Khám phá 200 OK."""
+    res = client.get("/explore")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "Khám phá" in html
+    assert "Điểm đến xu hướng" in html
+    assert "Đà Lạt" in html
+
+
+def test_change_password_requires_login(client):
+    """GET /change-password khi chưa đăng nhập bị chuyển hướng về /login."""
+    res = client.get("/change-password")
+    assert res.status_code == 302
+    assert "/login" in res.headers["Location"]
+
+
+def test_change_password_form_render(client, users):
+    """GET /change-password khi đã đăng nhập hiển thị form đổi mật khẩu."""
+    login_user(client, "testuser1")
+    res = client.get("/change-password")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "Đổi mật khẩu" in html
+    assert "Mật khẩu hiện tại" in html
+    assert "Mật khẩu mới" in html
+    assert "pwd-strength-bar" in html
+
+
+def test_change_password_wrong_current(client, users):
+    """POST /change-password sai mật khẩu hiện tại trả về lỗi 400."""
+    login_user(client, "testuser1")
+    res = client.post(
+        "/change-password",
+        data={
+            "current_password": "WrongPassword123!",
+            "new_password": "NewStrongPass123!",
+            "confirm_new_password": "NewStrongPass123!"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 400
+    assert "Mật khẩu hiện tại không chính xác" in res.data.decode("utf-8")
+
+
+def test_change_password_weak_new(client, users):
+    """POST /change-password mật khẩu mới yếu (thiếu ký tự đặc biệt) trả về lỗi 400."""
+    login_user(client, "testuser1")
+    res = client.post(
+        "/change-password",
+        data={
+            "current_password": "123456",
+            "new_password": "NewPassword1234",
+            "confirm_new_password": "NewPassword1234"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 400
+    assert "ký tự đặc biệt" in res.data.decode("utf-8")
+
+
+def test_change_password_same_as_old(client, users):
+    """POST /change-password mật khẩu mới trùng mật khẩu cũ trả về lỗi 400."""
+    login_user(client, "testuser1")
+    res = client.post(
+        "/change-password",
+        data={
+            "current_password": "123456",
+            "new_password": "123456",
+            "confirm_new_password": "123456"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 400
+
+
+def test_change_password_success_and_login_with_new(client, users):
+    """POST /change-password thành công cập nhật mật khẩu mới và có thể đăng nhập lại."""
+    login_user(client, "testuser1")
+    res = client.post(
+        "/change-password",
+        data={
+            "current_password": "123456",
+            "new_password": "BrandNewPassword123@",
+            "confirm_new_password": "BrandNewPassword123@"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 302
+    assert "/profile" in res.headers["Location"]
+
+    # Đăng xuất và đăng nhập lại bằng mật khẩu mới
+    client.get("/logout")
+    login_res = client.post(
+        "/login",
+        json={
+            "username": "testuser1",
+            "password": "BrandNewPassword123@"
+        }
+    )
+    assert login_res.status_code == 200
+    assert login_res.get_json()["message"] == "Đăng nhập thành công"
+
+
+def test_change_password_api_json(client, users):
+    """JSON API POST /change-password đổi mật khẩu thành công."""
+    login_user(client, "testuser2")
+    res = client.post(
+        "/change-password",
+        json={
+            "current_password": "123456",
+            "new_password": "VerySecret@2026",
+            "confirm_new_password": "VerySecret@2026"
+        }
+    )
+    assert res.status_code == 200
+    assert res.get_json()["message"] == "Đổi mật khẩu thành công"
+

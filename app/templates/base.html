@@ -60,12 +60,12 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link nav-link-ges" href="/explore">
+                            <a class="nav-link nav-link-ges {% if request.endpoint == 'auth.explore' %}active{% endif %}" href="{{ url_for('auth.explore') }}">
                                 <i class="bi bi-search"></i> Khám phá
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link nav-link-ges" href="/plans">
+                            <a class="nav-link nav-link-ges {% if request.endpoint and request.endpoint.startswith('plans.') %}active{% endif %}" href="{{ url_for('plans.index') }}">
                                 <i class="bi bi-map"></i> Lịch trình (Plan)
                             </a>
                         </li>
@@ -103,13 +103,18 @@
                                         <small class="text-muted">{{ current_user.email }}</small>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/profile">
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.profile', username=current_user.username) }}">
                                             <i class="bi bi-person text-primary"></i> Trang cá nhân
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/plans/my-plans">
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('plans.my_plans') }}">
                                             <i class="bi bi-journal-bookmark text-primary"></i> Lịch trình của tôi
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.change_password') }}">
+                                            <i class="bi bi-key text-warning"></i> Đổi mật khẩu
                                         </a>
                                     </li>
                                     <li><hr class="dropdown-divider my-1"></li>

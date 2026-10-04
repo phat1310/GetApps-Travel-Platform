@@ -181,6 +181,9 @@
                         <button type="button" class="btn btn-ges-primary btn-sm flex-grow-1" data-bs-toggle="modal" data-bs-target="#editProfileModal">
                             <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa hồ sơ
                         </button>
+                        <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm" title="Đổi mật khẩu">
+                            <i class="bi bi-key-fill me-1 text-warning"></i> Đổi mật khẩu
+                        </a>
                     {% elif current_user.is_authenticated %}
                         <!-- Nút Follow cho user khác -->
                         <button type="button" class="btn {% if is_following %}btn-light border text-muted{% else %}btn-ges-primary{% endif %} btn-sm flex-grow-1" id="follow-btn" onclick="toggleFollow({{ profile_user.id }})">

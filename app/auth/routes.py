@@ -5,14 +5,27 @@ import re
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from app.auth import auth_bp
-from app.auth.forms import LoginForm, RegisterForm, EditProfileForm
+from app.auth.forms import LoginForm, RegisterForm, EditProfileForm, ChangePasswordForm
 from app.extensions import db
-from app.models import User, Follow, Post, Photo, Like, Comment, SavedPost
+from app.models import User, Follow, Post, Photo, Like, Comment, SavedPost, Location, Itinerary
 
 @auth_bp.route('/', methods=['GET'])
 def index():
     """Trang chủ — chuyển hướng về dòng tin feed."""
     return redirect(url_for('locations.feed'))
+
+@auth_bp.route('/explore', methods=['GET'])
+def explore():
+    """Trang Khám phá địa điểm & trải nghiệm du lịch cộng đồng."""
+    locations = Location.query.all()
+    recent_posts = Post.query.order_by(Post.created_at.desc()).limit(9).all()
+    featured_plans = Itinerary.query.filter_by(visibility='public').order_by(Itinerary.created_at.desc()).limit(6).all()
+    return render_template(
+        'explore.html',
+        locations=locations,
+        recent_posts=recent_posts,
+        featured_plans=featured_plans
+    )
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -265,3 +278,48 @@ def unfollow(user_id):
     db.session.delete(f)
     db.session.commit()
     return jsonify({"message": f"Đã unfollow user {user_id}"})
+
+
+@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@auth_bp.route('/settings/password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    """Đổi mật khẩu người dùng."""
+    form = ChangePasswordForm()
+
+    # 1. API JSON
+    if request.is_json:
+        data = request.get_json() or {}
+        current_pwd = data.get('current_password', '')
+        new_pwd = data.get('new_password', '')
+
+        if not current_user.check_password(current_pwd):
+            return jsonify({"error": "Mật khẩu hiện tại không chính xác"}), 400
+
+        if len(new_pwd) < 8 or not re.search(r'[A-Z]', new_pwd) or not re.search(r'[a-z]', new_pwd) or not re.search(r'[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]', new_pwd):
+            return jsonify({"error": "Mật khẩu mới phải từ 8 ký tự, gồm chữ hoa, chữ thường và ký tự đặc biệt"}), 400
+
+        if current_pwd == new_pwd:
+            return jsonify({"error": "Mật khẩu mới không được trùng với mật khẩu cũ"}), 400
+
+        current_user.set_password(new_pwd)
+        db.session.commit()
+        return jsonify({"message": "Đổi mật khẩu thành công"}), 200
+
+    # 2. Xử lý Form HTML
+    if form.validate_on_submit():
+        if not current_user.check_password(form.current_password.data):
+            form.current_password.errors.append("Mật khẩu hiện tại không chính xác")
+            return render_template('auth/change_password.html', form=form), 400
+
+        if form.current_password.data == form.new_password.data:
+            form.new_password.errors.append("Mật khẩu mới không được trùng với mật khẩu cũ")
+            return render_template('auth/change_password.html', form=form), 400
+
+        current_user.set_password(form.new_password.data)
+        db.session.commit()
+        flash("Đổi mật khẩu thành công! Mật khẩu mới của bạn đã có hiệu lực.", "success")
+        return redirect(url_for('auth.profile'))
+
+    return render_template('auth/change_password.html', form=form), 400 if form.errors else 200
+
