@@ -1,0 +1,661 @@
+{% extends "base.html" %}
+
+{% block title %}Bảng tin Du lịch — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+<style>
+    .story-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 72px;
+        flex-shrink: 0;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .story-ring {
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        padding: 2px;
+        background: linear-gradient(45deg, #0284c7, #38bdf8, #f59e0b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s ease;
+    }
+    .story-ring:hover {
+        transform: scale(1.05);
+    }
+    .story-img {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #ffffff;
+    }
+    .story-name {
+        font-size: 0.75rem;
+        color: var(--ges-text-main);
+        font-weight: 500;
+        margin-top: 4px;
+        max-width: 68px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: center;
+    }
+    .post-card {
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: var(--ges-radius-md);
+        margin-bottom: 1.5rem;
+        box-shadow: var(--ges-shadow-sm);
+        overflow: hidden;
+        transition: box-shadow 0.2s ease;
+    }
+    .post-card:hover {
+        box-shadow: var(--ges-shadow-md);
+    }
+    .post-media-container {
+        position: relative;
+        background-color: #0f172a;
+        width: 100%;
+        max-height: 540px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .post-media-container img, 
+    .post-media-container video {
+        max-height: 540px;
+        width: 100%;
+        object-fit: contain;
+    }
+    .carousel-indicators [data-bs-target] {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin: 0 3px;
+    }
+    .post-action-btn {
+        background: transparent;
+        border: none;
+        padding: 0.4rem 0.6rem;
+        border-radius: 8px;
+        color: var(--ges-text-muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: all 0.15s ease;
+    }
+    .post-action-btn:hover {
+        background: #f1f5f9;
+        color: var(--ges-text-main);
+    }
+    .post-action-btn.liked {
+        color: #ef4444;
+    }
+    .post-action-btn.saved {
+        color: var(--ges-primary);
+    }
+    .comment-box {
+        background-color: #f8fafc;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.88rem;
+    }
+    .sidebar-card {
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: var(--ges-radius-md);
+        box-shadow: var(--ges-shadow-sm);
+        margin-bottom: 1.25rem;
+        padding: 1.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- ==================== CỘT CHÍNH (NEWSFEED) ==================== -->
+    <div class="col-lg-8">
+        
+        <!-- Story / Highlight Bar -->
+        <div class="card border-0 shadow-sm p-3 mb-4 rounded-3 bg-white">
+            <div class="d-flex align-items-center gap-3 overflow-auto pb-1" style="scrollbar-width: none;">
+                <!-- Story Của bạn (Tạo mới) -->
+                <a href="{{ url_for('locations.create_post') }}" class="story-item">
+                    <div class="story-ring" style="background: #e2e8f0;">
+                        <div class="story-img bg-light d-flex align-items-center justify-content-center text-primary">
+                            <i class="bi bi-plus-lg fs-5"></i>
+                        </div>
+                    </div>
+                    <span class="story-name">Đăng bài</span>
+                </a>
+
+                <!-- Demo stories -->
+                <div class="story-item">
+                    <div class="story-ring">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Hoàng My" class="story-img">
+                    </div>
+                    <span class="story-name">Hoàng My</span>
+                </div>
+                <div class="story-item">
+                    <div class="story-ring">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80" alt="Nguyễn Minh" class="story-img">
+                    </div>
+                    <span class="story-name">Nguyễn Minh</span>
+                </div>
+                <div class="story-item">
+                    <div class="story-ring">
+                        <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80" alt="Lan Anh" class="story-img">
+                    </div>
+                    <span class="story-name">Lan Anh</span>
+                </div>
+                <div class="story-item">
+                    <div class="story-ring">
+                        <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80" alt="Tuấn Kiệt" class="story-img">
+                    </div>
+                    <span class="story-name">Tuấn Kiệt</span>
+                </div>
+                <div class="story-item">
+                    <div class="story-ring">
+                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80" alt="Thảo My" class="story-img">
+                    </div>
+                    <span class="story-name">Thảo My</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Post Card -->
+        <div class="card border-0 shadow-sm p-3 mb-4 rounded-3 bg-white">
+            <div class="d-flex align-items-center gap-3">
+                {% if current_user.avatar_url %}
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-md">
+                {% else %}
+                    <span class="avatar-placeholder avatar-md">{{ current_user.username[0]|upper }}</span>
+                {% endif %}
+                <a href="{{ url_for('locations.create_post') }}" class="form-control rounded-pill bg-light text-muted text-decoration-none py-2 px-3 d-flex align-items-center">
+                    <span>Bạn vừa khám phá địa điểm nào? Chia sẻ cùng GEs...</span>
+                </a>
+            </div>
+            <hr class="my-3 text-muted opacity-25">
+            <div class="d-flex justify-content-around">
+                <a href="{{ url_for('locations.create_post') }}" class="btn btn-sm btn-light border-0 text-primary fw-semibold d-flex align-items-center gap-2 px-3 py-1">
+                    <i class="bi bi-images text-success fs-5"></i> Đăng ảnh / Video
+                </a>
+                <a href="/plans/create" class="btn btn-sm btn-light border-0 text-primary fw-semibold d-flex align-items-center gap-2 px-3 py-1">
+                    <i class="bi bi-calendar-event text-warning fs-5"></i> Lên lịch trình
+                </a>
+                <a href="/locations/locations/search" class="btn btn-sm btn-light border-0 text-primary fw-semibold d-flex align-items-center gap-2 px-3 py-1 d-none d-sm-inline-flex">
+                    <i class="bi bi-geo-alt-fill text-danger fs-5"></i> Check-in địa điểm
+                </a>
+            </div>
+        </div>
+
+        <!-- Feed List -->
+        {% if posts %}
+            {% for post in posts %}
+                <article class="post-card" id="post-article-{{ post.id }}">
+                    <!-- Post Header -->
+                    <div class="p-3 d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if post.author and post.author.avatar_url %}
+                                <img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}" class="avatar avatar-sm">
+                            {% else %}
+                                <span class="avatar-placeholder avatar-sm">
+                                    {{ post.author.username[0]|upper if post.author else 'U' }}
+                                </span>
+                            {% endif %}
+                            <div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="fw-bold text-dark fs-6">{{ post.author.username if post.author else 'Ẩn danh' }}</span>
+                                    {% if post.author and post.author.role %}
+                                        <span class="badge badge-role badge-role-{{ post.author.role }}">{{ post.author.role }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.78rem;">
+                                    <span>{{ post.created_at }}</span>
+                                    {% if post.location %}
+                                        <span>•</span>
+                                        <span class="text-primary fw-semibold">
+                                            <i class="bi bi-geo-alt-fill text-danger"></i> {{ post.location.name }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dropdown Options -->
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border-0 text-muted rounded-circle" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                <li>
+                                    <a class="dropdown-item" href="javascript:void(0)" onclick="copyPostLink({{ post.id }})">
+                                        <i class="bi bi-link-45deg me-1"></i> Sao chép liên kết
+                                    </a>
+                                </li>
+                                {% if post.location %}
+                                    <li>
+                                        <a class="dropdown-item" href="/plans/create?location_id={{ post.location.id }}">
+                                            <i class="bi bi-calendar-plus me-1"></i> Thêm vào lịch trình
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Post Caption -->
+                    {% if post.caption %}
+                        <div class="px-3 pb-2">
+                            <p class="mb-1 text-dark" style="white-space: pre-line; font-size: 0.95rem; line-height: 1.5;">{{ post.caption }}</p>
+                        </div>
+                    {% endif %}
+
+                    <!-- Post Media (Multi-photo Carousel or Single photo/video) -->
+                    {% if post.photos %}
+                        <div class="post-media-container">
+                            {% if post.photos|length == 1 %}
+                                {% set photo = post.photos[0] %}
+                                {% if photo.media_type == 'video' %}
+                                    <video controls playsinline class="w-100">
+                                        <source src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" type="video/mp4">
+                                        Trình duyệt của bạn không hỗ trợ video.
+                                    </video>
+                                {% else %}
+                                    <img src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" alt="Post image" loading="lazy">
+                                {% endif %}
+                            {% else %}
+                                <div id="carouselPost{{ post.id }}" class="carousel slide w-100" data-bs-interval="false">
+                                    <div class="carousel-indicators">
+                                        {% for photo in post.photos %}
+                                            <button type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide-to="{{ loop.index0 }}" class="{% if loop.first %}active{% endif %}"></button>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="carousel-inner">
+                                        {% for photo in post.photos %}
+                                            <div class="carousel-item {% if loop.first %}active{% endif %} text-center">
+                                                {% if photo.media_type == 'video' %}
+                                                    <video controls playsinline class="w-100">
+                                                        <source src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" type="video/mp4">
+                                                    </video>
+                                                {% else %}
+                                                    <img src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" class="d-block w-100" alt="Photo {{ loop.index }}">
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon"></span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon"></span>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Post Action Bar -->
+                    <div class="p-3 border-top border-light">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center gap-1">
+                                <!-- Like Button -->
+                                <button type="button" class="post-action-btn {% if post.is_liked %}liked{% endif %}" id="like-btn-{{ post.id }}" onclick="toggleLike({{ post.id }})">
+                                    <i class="bi {% if post.is_liked %}bi-heart-fill{% else %}bi-heart{% endif %} fs-5" id="like-icon-{{ post.id }}"></i>
+                                    <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
+                                </button>
+
+                                <!-- Comment Button -->
+                                <button type="button" class="post-action-btn" data-bs-toggle="collapse" data-bs-target="#comments-collapse-{{ post.id }}" aria-expanded="false">
+                                    <i class="bi bi-chat fs-5"></i>
+                                    <span id="comment-count-{{ post.id }}">{{ post.comments_count }}</span>
+                                </button>
+
+                                <!-- Share Button -->
+                                <button type="button" class="post-action-btn" onclick="sharePost({{ post.id }})">
+                                    <i class="bi bi-send fs-5"></i>
+                                    <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
+                                </button>
+                            </div>
+
+                            <!-- Save / Bookmark Button -->
+                            <button type="button" class="post-action-btn {% if post.is_saved %}saved{% endif %}" id="save-btn-{{ post.id }}" onclick="toggleSavePost({{ post.id }})">
+                                <i class="bi {% if post.is_saved %}bi-bookmark-fill{% else %}bi-bookmark{% endif %} fs-5" id="save-icon-{{ post.id }}"></i>
+                            </button>
+                        </div>
+
+                        <!-- Collapse Comments Section -->
+                        <div class="collapse {% if post.comments_count > 0 %}show{% endif %}" id="comments-collapse-{{ post.id }}">
+                            <div class="pt-2 border-top">
+                                <!-- Comments List -->
+                                <div class="comments-list d-flex flex-col gap-2 mb-3" id="comments-list-{{ post.id }}">
+                                    {% for comment in post.comments %}
+                                        <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-{{ comment.id }}">
+                                            <div>
+                                                <strong class="text-dark">{{ comment.author_name }}:</strong>
+                                                <span class="text-secondary ms-1">{{ comment.content }}</span>
+                                                <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">{{ comment.created_at }}</div>
+                                            </div>
+                                            {% if comment.can_delete %}
+                                                <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment({{ comment.id }}, {{ post.id }})">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Add Comment Input Box -->
+                                <form onsubmit="submitComment(event, {{ post.id }})" class="d-flex gap-2">
+                                    <input type="text" class="form-control form-control-sm rounded-pill px-3" placeholder="Viết bình luận của bạn..." id="comment-input-{{ post.id }}" required>
+                                    <button type="submit" class="btn btn-sm btn-ges-primary rounded-pill px-3">
+                                        Gửi
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        {% else %}
+            <!-- Empty State -->
+            <div class="card border-0 shadow-sm p-5 text-center bg-white rounded-3">
+                <i class="bi bi-compass text-muted" style="font-size: 3.5rem;"></i>
+                <h5 class="fw-bold mt-3 mb-1">Chưa có bài viết nào trên bảng tin</h5>
+                <p class="text-muted mb-4">Hãy là người đầu tiên chia sẻ hành trình du lịch tuyệt đẹp của bạn hoặc theo dõi bạn bè!</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="{{ url_for('locations.create_post') }}" class="btn btn-ges-primary">
+                        <i class="bi bi-camera-fill me-1"></i> Đăng bài ngay
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ==================== CỘT PHỤ (SIDEBAR) ==================== -->
+    <div class="col-lg-4 d-none d-lg-block">
+        
+        <!-- User Profile Card -->
+        <div class="sidebar-card">
+            <div class="d-flex align-items-center gap-3">
+                {% if current_user.avatar_url %}
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-md">
+                {% else %}
+                    <span class="avatar-placeholder avatar-md">{{ current_user.username[0]|upper }}</span>
+                {% endif %}
+                <div class="flex-grow-1 min-w-0">
+                    <h6 class="mb-0 fw-bold text-dark truncate">{{ current_user.username }}</h6>
+                    <small class="text-muted d-block truncate">{{ current_user.email }}</small>
+                    <span class="badge badge-role badge-role-{{ current_user.role }} mt-1">{{ current_user.role }}</span>
+                </div>
+            </div>
+            <hr class="my-3 text-muted opacity-25">
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('locations.create_post') }}" class="btn btn-ges-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i> Đăng bài viết mới
+                </a>
+                <a href="/plans/create" class="btn btn-ges-outline btn-sm">
+                    <i class="bi bi-map me-1"></i> Tạo lịch trình mới
+                </a>
+            </div>
+        </div>
+
+        <!-- Suggested Locations Card -->
+        <div class="sidebar-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="fw-bold text-dark mb-0">
+                    <i class="bi bi-fire text-danger me-1"></i> Địa điểm nổi bật
+                </h6>
+                <a href="/locations/locations/search" class="text-decoration-none small fw-semibold text-primary">Xem tất cả</a>
+            </div>
+            {% if suggested_locations %}
+                <div class="d-flex flex-column gap-2">
+                    {% for loc in suggested_locations %}
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-2 hover-bg-light">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="bg-light rounded-circle p-2 text-primary">
+                                    <i class="bi bi-geo-alt-fill"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold text-dark small">{{ loc.name }}</div>
+                                    <small class="text-muted">{{ loc.address if loc.address else 'Việt Nam' }}</small>
+                                </div>
+                            </div>
+                            <a href="/plans/create?location_id={{ loc.id }}" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.75rem;" title="Lên lịch trình">
+                                + Plan
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted small mb-0">Chưa có dữ liệu địa điểm gợi ý.</p>
+            {% endif %}
+        </div>
+
+        <!-- Suggested Creators / Users Card -->
+        <div class="sidebar-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="fw-bold text-dark mb-0">
+                    <i class="bi bi-people-fill text-primary me-1"></i> Gợi ý kết nối
+                </h6>
+            </div>
+            {% if suggested_users %}
+                <div class="d-flex flex-column gap-3">
+                    {% for u in suggested_users %}
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                {% if u.avatar_url %}
+                                    <img src="{{ u.avatar_url }}" alt="{{ u.username }}" class="avatar avatar-sm">
+                                {% else %}
+                                    <span class="avatar-placeholder avatar-sm">{{ u.username[0]|upper }}</span>
+                                {% endif %}
+                                <div>
+                                    <div class="fw-bold text-dark small">{{ u.username }}</div>
+                                    <span class="badge badge-role badge-role-{{ u.role }}">{{ u.role }}</span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-ges-outline py-0 px-2" style="font-size: 0.75rem;" onclick="followUser({{ u.id }}, this)">
+                                Follow
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted small mb-0">Đang cập nhật danh sách bạn bè du lịch.</p>
+            {% endif %}
+        </div>
+
+        <!-- Footer snippet -->
+        <div class="text-muted small px-2">
+            <p class="mb-1">© 2026 GetApps (GEs) · Đồ án môn PWD301</p>
+            <p class="mb-0">Designed & Developed by Nhóm SE173285</p>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // AJAX: Thả tim / Bỏ tim (Like/Unlike)
+    async function toggleLike(postId) {
+        try {
+            const res = await fetch(`/locations/posts/${postId}/like`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const btn = document.getElementById(`like-btn-${postId}`);
+                const icon = document.getElementById(`like-icon-${postId}`);
+                const countSpan = document.getElementById(`like-count-${postId}`);
+                let currentCount = parseInt(countSpan.innerText) || 0;
+
+                if (data.liked) {
+                    btn.classList.add('liked');
+                    icon.classList.remove('bi-heart');
+                    icon.classList.add('bi-heart-fill');
+                    countSpan.innerText = currentCount + 1;
+                } else {
+                    btn.classList.remove('liked');
+                    icon.classList.remove('bi-heart-fill');
+                    icon.classList.add('bi-heart');
+                    countSpan.innerText = Math.max(0, currentCount - 1);
+                }
+            }
+        } catch (err) {
+            console.error("Lỗi thả tim:", err);
+        }
+    }
+
+    // AJAX: Lưu bài viết (Save/Unsave Bookmark)
+    async function toggleSavePost(postId) {
+        try {
+            const res = await fetch(`/locations/posts/${postId}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const btn = document.getElementById(`save-btn-${postId}`);
+                const icon = document.getElementById(`save-icon-${postId}`);
+                if (data.saved) {
+                    btn.classList.add('saved');
+                    icon.classList.remove('bi-bookmark');
+                    icon.classList.add('bi-bookmark-fill');
+                } else {
+                    btn.classList.remove('saved');
+                    icon.classList.remove('bi-bookmark-fill');
+                    icon.classList.add('bi-bookmark');
+                }
+            }
+        } catch (err) {
+            console.error("Lỗi lưu bài viết:", err);
+        }
+    }
+
+    // AJAX: Chia sẻ bài viết (Share Post)
+    async function sharePost(postId) {
+        try {
+            const res = await fetch(`/locations/posts/${postId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const shareCount = document.getElementById(`share-count-${postId}`);
+                shareCount.innerText = (parseInt(shareCount.innerText) || 0) + 1;
+                
+                // Copy post link to clipboard
+                copyPostLink(postId);
+            }
+        } catch (err) {
+            console.error("Lỗi chia sẻ:", err);
+        }
+    }
+
+    function copyPostLink(postId) {
+        const postUrl = `${window.location.origin}/locations/feed#post-article-${postId}`;
+        navigator.clipboard.writeText(postUrl).then(() => {
+            alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+        }).catch(() => {
+            prompt("Sao chép liên kết bên dưới:", postUrl);
+        });
+    }
+
+    // AJAX: Thêm bình luận (Comment)
+    async function submitComment(event, postId) {
+        event.preventDefault();
+        const input = document.getElementById(`comment-input-${postId}`);
+        const content = input.value.trim();
+        if (!content) return;
+
+        try {
+            const res = await fetch(`/locations/posts/${postId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                input.value = '';
+                // Cập nhật số lượng bình luận
+                const countSpan = document.getElementById(`comment-count-${postId}`);
+                countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
+
+                // Thêm comment vào danh sách
+                const list = document.getElementById(`comments-list-${postId}`);
+                const c = data.comment;
+                const newCommentHtml = `
+                    <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-${c.id}">
+                        <div>
+                            <strong class="text-dark">${c.user_id === {{ current_user.id }} ? '{{ current_user.username }}' : 'Bạn'}:</strong>
+                            <span class="text-secondary ms-1">${escapeHtml(c.content)}</span>
+                            <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">Vừa xong</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                list.insertAdjacentHTML('beforeend', newCommentHtml);
+            } else {
+                alert(data.error || "Không thể gửi bình luận");
+            }
+        } catch (err) {
+            console.error("Lỗi gửi bình luận:", err);
+        }
+    }
+
+    // AJAX: Xóa bình luận
+    async function deleteComment(commentId, postId) {
+        if (!confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+
+        try {
+            const res = await fetch(`/locations/comments/${commentId}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const item = document.getElementById(`comment-item-${commentId}`);
+                if (item) item.remove();
+                const countSpan = document.getElementById(`comment-count-${postId}`);
+                let count = parseInt(countSpan.innerText) || 1;
+                countSpan.innerText = Math.max(0, count - 1);
+            } else {
+                alert(data.error || "Không thể xóa bình luận");
+            }
+        } catch (err) {
+            console.error("Lỗi xóa bình luận:", err);
+        }
+    }
+
+    // AJAX: Follow user
+    async function followUser(userId, btn) {
+        try {
+            const res = await fetch(`/follow/${userId}`, { method: 'POST' });
+            if (res.ok) {
+                btn.innerText = "Đã Follow";
+                btn.classList.remove('btn-ges-outline');
+                btn.classList.add('btn-light', 'text-muted');
+                btn.disabled = true;
+            }
+        } catch (err) {
+            console.error("Lỗi follow:", err);
+        }
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+</script>
+{% endblock %}

@@ -1,11 +1,15 @@
 """Routes AUTH — xử lý đăng ký, đăng nhập, đăng xuất, follow/unfollow.
 Week1_Fase1: chưa có giao diện HTML, trả về JSON để test bằng Postman trước.
 """
-from flask import request, jsonify
+from flask import request, jsonify, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
 from app.auth import auth_bp
 from app.extensions import db
 from app.models import User, Follow
+
+@auth_bp.route('/', methods=['GET'])
+def index():
+    return redirect(url_for('locations.feed'))
 
 #Xử lý đăng ký người dùng mới
 @auth_bp.route('/register', methods=['POST'])

@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+
+{% block title %}Đăng bài viết mới — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+<style>
+    .upload-container {
+        max-width: 680px;
+        margin: 0 auto;
+    }
+    .segmented-tabs {
+        background-color: #e2e8f0;
+        padding: 4px;
+        border-radius: 12px;
+        display: flex;
+        gap: 4px;
+    }
+    .segmented-tab {
+        flex: 1;
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--ges-text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+    .segmented-tab.active {
+        background: #ffffff;
+        color: var(--ges-primary);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .dropzone-box {
+        border: 2px dashed #cbd5e1;
+        border-radius: 16px;
+        padding: 2.5rem 1.5rem;
+        text-align: center;
+        background-color: #f8fafc;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .dropzone-box:hover, .dropzone-box.dragover {
+        border-color: var(--ges-primary);
+        background-color: var(--ges-primary-light);
+    }
+    .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .preview-item {
+        position: relative;
+        width: 100%;
+        padding-top: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        background-color: #0f172a;
+    }
+    .preview-item img, .preview-item video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .preview-item .btn-remove {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.7);
+        color: #ffffff;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        cursor: pointer;
+        z-index: 2;
+    }
+    .hashtag-pill {
+        background-color: #f1f5f9;
+        color: var(--ges-primary);
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 3px 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .hashtag-pill:hover {
+        background-color: var(--ges-primary-light);
+        border-color: var(--ges-primary);
+    }
+    .autocomplete-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .autocomplete-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        transition: background-color 0.15s;
+    }
+    .autocomplete-item:hover {
+        background-color: #f8fafc;
+        color: var(--ges-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    
+    <!-- Top Segmented Tabs (2-in-1: Post vs Plan) -->
+    <div class="mb-4">
+        <div class="segmented-tabs">
+            <a href="javascript:void(0)" class="segmented-tab active">
+                <i class="bi bi-pencil-square"></i> Đăng bài viết
+            </a>
+            <a href="/plans/create" class="segmented-tab">
+                <i class="bi bi-calendar2-range"></i> Lên lịch trình
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Upload Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-5">
+        
+        <!-- Author Info Header -->
+        <div class="d-flex align-items-center justify-content-between mb-4 pb-3 border-bottom">
+            <div class="d-flex align-items-center gap-3">
+                {% if current_user.avatar_url %}
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-md">
+                {% else %}
+                    <span class="avatar-placeholder avatar-md">{{ current_user.username[0]|upper }}</span>
+                {% endif %}
+                <div>
+                    <h6 class="mb-0 fw-bold text-dark">{{ current_user.username }}</h6>
+                    <small class="text-muted"><i class="bi bi-globe2 me-1"></i>Công khai • Cộng đồng GEs</small>
+                </div>
+            </div>
+            <span class="badge badge-role badge-role-{{ current_user.role }}">{{ current_user.role }}</span>
+        </div>
+
+        <!-- Form Đăng Bài -->
+        <form action="{{ url_for('locations.create_post') }}" method="POST" enctype="multipart/form-data" id="post-upload-form">
+            
+            <!-- 1. VÙNG TẢI ẢNH / VIDEO -->
+            <div class="mb-4">
+                <label class="form-label fw-bold text-dark d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-images text-primary me-1"></i> Chọn ảnh hoặc video</span>
+                    <span class="text-muted small fw-normal" id="files-counter">0/10 file</span>
+                </label>
+
+                <!-- Hidden file input -->
+                <input type="file" id="images-input" name="images" multiple accept="image/png,image/jpeg,image/jpg,image/gif,video/mp4,video/webm" class="d-none" required>
+
+                <!-- Dropzone trigger -->
+                <div class="dropzone-box" id="dropzone" onclick="document.getElementById('images-input').click()">
+                    <div class="mb-2">
+                        <i class="bi bi-cloud-arrow-up-fill text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <div class="fw-semibold text-dark">Kéo thả ảnh/video vào đây hoặc <span class="text-primary text-decoration-underline">chọn file</span></div>
+                    <small class="text-muted d-block mt-1">Hỗ trợ PNG, JPG, JPEG, GIF, MP4 (Tối đa 10 file)</small>
+                </div>
+
+                <!-- Preview Grid -->
+                <div class="preview-grid" id="preview-container"></div>
+            </div>
+
+            <!-- 2. NỘI DUNG / CAPTION -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label for="caption" class="form-label fw-bold text-dark mb-0">
+                        <i class="bi bi-chat-left-text text-primary me-1"></i> Nội dung bài viết
+                    </label>
+                    <span class="text-muted small" id="caption-counter">0/1500</span>
+                </div>
+                <textarea class="form-control" id="caption" name="caption" rows="4" maxlength="1500" placeholder="Chia sẻ cảm xúc, trải nghiệm hoặc mẹo du lịch của bạn..." style="border-radius: 12px; resize: none;" oninput="updateCharCount(this)"></textarea>
+
+                <!-- Quick Hashtags -->
+                <div class="mt-2">
+                    <small class="text-muted d-block mb-1">Gợi ý hashtag:</small>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="hashtag-pill" onclick="insertTag('#nguoidulich')">#nguoidulich</span>
+                        <span class="hashtag-pill" onclick="insertTag('#khongquangcao')">#khongquangcao</span>
+                        <span class="hashtag-pill" onclick="insertTag('#dalat')">#dalat</span>
+                        <span class="hashtag-pill" onclick="insertTag('#travelreview')">#travelreview</span>
+                        <span class="hashtag-pill" onclick="insertTag('#vietnam')">#vietnam</span>
+                        <span class="hashtag-pill" onclick="insertTag('#chill')">#chill</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. GẮN ĐỊA ĐIỂM (AUTOCOMPLETE TUẤN) -->
+            <div class="mb-4 position-relative">
+                <label for="location-input" class="form-label fw-bold text-dark">
+                    <i class="bi bi-geo-alt-fill text-danger me-1"></i> Gắn địa điểm
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0" id="location-input" name="location_name" placeholder="Gõ tên địa điểm (ví dụ: Đà Lạt, Fansipan, Hồ Tây...)" autocomplete="off" style="border-radius: 0 12px 12px 0;">
+                </div>
+                
+                <!-- Autocomplete Dropdown List -->
+                <div class="autocomplete-list d-none" id="location-suggestions"></div>
+            </div>
+
+            <!-- NÚT ĐĂNG BÀI -->
+            <div class="d-grid mt-4">
+                <button type="submit" class="btn btn-ges-primary py-2 fw-bold fs-6" id="submit-btn" style="border-radius: 12px;">
+                    <i class="bi bi-send-fill me-1"></i> Đăng bài viết ngay
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedFiles = [];
+    const MAX_FILES = 10;
+    const fileInput = document.getElementById('images-input');
+    const dropzone = document.getElementById('dropzone');
+    const previewContainer = document.getElementById('preview-container');
+    const filesCounter = document.getElementById('files-counter');
+
+    // Drag & Drop
+    ['dragenter', 'dragover'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+        });
+    });
+    dropzone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+
+    function handleFiles(files) {
+        for (let file of files) {
+            if (selectedFiles.length >= MAX_FILES) {
+                alert(`Chỉ được chọn tối đa ${MAX_FILES} file.`);
+                break;
+            }
+            selectedFiles.push(file);
+        }
+        updateFileInput();
+        renderPreviews();
+    }
+
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        updateFileInput();
+        renderPreviews();
+    }
+
+    function updateFileInput() {
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+        filesCounter.innerText = `${selectedFiles.length}/${MAX_FILES} file`;
+    }
+
+    function renderPreviews() {
+        previewContainer.innerHTML = '';
+        selectedFiles.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'preview-item';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn-remove';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.onclick = (e) => {
+                e.stopPropagation();
+                removeFile(index);
+            };
+            item.appendChild(removeBtn);
+
+            if (file.type.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                item.appendChild(img);
+            } else if (file.type.startsWith('video/')) {
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(file);
+                video.muted = true;
+                item.appendChild(video);
+            }
+            previewContainer.appendChild(item);
+        });
+    }
+
+    // Bộ đếm ký tự caption
+    function updateCharCount(textarea) {
+        document.getElementById('caption-counter').innerText = `${textarea.value.length}/1500`;
+    }
+
+    // Chèn hashtag
+    function insertTag(tag) {
+        const textarea = document.getElementById('caption');
+        if (!textarea.value.includes(tag)) {
+            textarea.value = (textarea.value.trim() + ' ' + tag).trim() + ' ';
+            updateCharCount(textarea);
+            textarea.focus();
+        }
+    }
+
+    // Autocomplete Địa điểm
+    const locInput = document.getElementById('location-input');
+    const suggestionsBox = document.getElementById('location-suggestions');
+    let debounceTimer = null;
+
+    locInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        const query = e.target.value.trim();
+        if (query.length < 1) {
+            suggestionsBox.classList.add('d-none');
+            return;
+        }
+
+        debounceTimer = setTimeout(async () => {
+            try {
+                // Gọi API autocomplete từ Tuấn
+                const res = await fetch(`/locations/locations/search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                if (data.locations && data.locations.length > 0) {
+                    suggestionsBox.innerHTML = '';
+                    data.locations.forEach(loc => {
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.innerHTML = `<i class="bi bi-geo-alt-fill text-danger"></i> <strong>${loc.name}</strong>`;
+                        item.onclick = () => {
+                            locInput.value = loc.name;
+                            suggestionsBox.classList.add('d-none');
+                        };
+                        suggestionsBox.appendChild(item);
+                    });
+                    suggestionsBox.classList.remove('d-none');
+                } else {
+                    suggestionsBox.classList.add('d-none');
+                }
+            } catch (err) {
+                console.error("Autocomplete error:", err);
+            }
+        }, 250);
+    });
+
+    // Đóng dropdown khi click ra ngoài
+    document.addEventListener('click', (e) => {
+        if (!locInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.classList.add('d-none');
+        }
+    });
+</script>
+{% endblock %}
