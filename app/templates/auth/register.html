@@ -65,6 +65,30 @@
         font-weight: 600;
         margin-bottom: 0.75rem;
     }
+    .pwd-strength-bar-bg {
+        height: 6px;
+        background-color: #e2e8f0;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .pwd-strength-bar {
+        height: 100%;
+        width: 0%;
+        transition: width 0.3s ease, background-color 0.3s ease;
+        border-radius: 6px;
+    }
+    .pwd-req-item {
+        font-size: 0.76rem;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: color 0.2s ease;
+    }
+    .pwd-req-item.valid {
+        color: #16a34a;
+        font-weight: 500;
+    }
 </style>
 {% endblock %}
 
@@ -132,11 +156,36 @@
             <label for="password" class="form-label fw-semibold text-dark small">Mật khẩu</label>
             <div class="auth-input-group">
                 <i class="bi bi-lock auth-input-icon"></i>
-                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Ít nhất 6 ký tự", id="reg-password") }}
+                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Tối thiểu 8 ký tự (hoa, thường, ký tự đặc biệt)", id="reg-password") }}
                 <button type="button" class="toggle-pwd-btn" onclick="togglePassword('reg-password', this)" title="Ẩn/Hiện mật khẩu">
                     <i class="bi bi-eye"></i>
                 </button>
             </div>
+
+            <!-- Thanh đo độ mạnh yếu của mật khẩu (Password Strength Meter) -->
+            <div class="mt-2" id="pwd-meter-box">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="small text-muted" style="font-size: 0.78rem;">Độ mạnh mật khẩu:</span>
+                    <span class="small fw-bold" id="pwd-strength-text" style="font-size: 0.78rem; color: #94a3b8;">Chưa nhập</span>
+                </div>
+                <div class="pwd-strength-bar-bg">
+                    <div class="pwd-strength-bar" id="pwd-strength-bar"></div>
+                </div>
+
+                <!-- Checklist tiêu chuẩn bảo mật -->
+                <div class="mt-2 p-2 rounded bg-light border" style="font-size: 0.75rem;">
+                    <div class="pwd-req-item mb-1" id="req-length">
+                        <i class="bi bi-circle"></i> <span>Tối thiểu 8 ký tự</span>
+                    </div>
+                    <div class="pwd-req-item mb-1" id="req-case">
+                        <i class="bi bi-circle"></i> <span>Có cả chữ hoa (A-Z) và chữ thường (a-z)</span>
+                    </div>
+                    <div class="pwd-req-item" id="req-special">
+                        <i class="bi bi-circle"></i> <span>Có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)</span>
+                    </div>
+                </div>
+            </div>
+
             {% for error in form.password.errors %}
                 <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
             {% endfor %}
@@ -203,5 +252,93 @@
             icon.classList.add('bi-eye');
         }
     }
+
+    // Logic đo độ mạnh mật khẩu và cập nhật tiêu chuẩn
+    document.addEventListener('DOMContentLoaded', function() {
+        const pwdInput = document.getElementById('reg-password');
+        const bar = document.getElementById('pwd-strength-bar');
+        const text = document.getElementById('pwd-strength-text');
+        const reqLength = document.getElementById('req-length');
+        const reqCase = document.getElementById('req-case');
+        const reqSpecial = document.getElementById('req-special');
+
+        function updateReq(el, isValid) {
+            if (!el) return;
+            const icon = el.querySelector('i');
+            if (isValid) {
+                el.classList.add('valid');
+                icon.className = 'bi bi-check-circle-fill text-success';
+            } else {
+                el.classList.remove('valid');
+                icon.className = 'bi bi-circle text-muted';
+            }
+        }
+
+        function evaluateStrength() {
+            if (!pwdInput || !bar || !text) return;
+            const val = pwdInput.value || '';
+
+            if (val.length === 0) {
+                bar.style.width = '0%';
+                bar.style.backgroundColor = '#e2e8f0';
+                text.innerText = 'Chưa nhập';
+                text.style.color = '#94a3b8';
+                updateReq(reqLength, false);
+                updateReq(reqCase, false);
+                updateReq(reqSpecial, false);
+                return;
+            }
+
+            const hasLength = val.length >= 8;
+            const hasUpper = /[A-Z]/.test(val);
+            const hasLower = /[a-z]/.test(val);
+            const hasCase = hasUpper && hasLower;
+            const hasSpecial = /[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]/.test(val);
+            const hasDigit = /[0-9]/.test(val);
+
+            updateReq(reqLength, hasLength);
+            updateReq(reqCase, hasCase);
+            updateReq(reqSpecial, hasSpecial);
+
+            let score = 0;
+            if (hasLength) score += 1;
+            if (hasUpper) score += 0.5;
+            if (hasLower) score += 0.5;
+            if (hasSpecial) score += 1;
+            if (hasDigit) score += 0.5;
+
+            // Xếp loại độ mạnh:
+            // Yếu: Dưới 8 ký tự hoặc thiếu chữ cái
+            if (!hasLength || (!hasUpper && !hasLower)) {
+                bar.style.width = '25%';
+                bar.style.backgroundColor = '#ef4444';
+                text.innerText = 'Yếu';
+                text.style.color = '#ef4444';
+            }
+            // Trung bình: Đã đủ 8 ký tự nhưng chưa thỏa mãn cả 3 tiêu chí bắt buộc (hoa, thường, ký tự đặc biệt)
+            else if (!hasCase || !hasSpecial || score < 3) {
+                bar.style.width = '60%';
+                bar.style.backgroundColor = '#f59e0b';
+                text.innerText = 'Trung bình';
+                text.style.color = '#d97706';
+            }
+            // Mạnh: Đủ cả 3 tiêu chuẩn bắt buộc (≥8 ký tự, có hoa & thường, có ký tự đặc biệt)
+            else {
+                bar.style.width = '100%';
+                bar.style.backgroundColor = '#10b981';
+                text.innerText = 'Mạnh (An toàn)';
+                text.style.color = '#059669';
+            }
+        }
+
+        if (pwdInput) {
+            pwdInput.addEventListener('input', evaluateStrength);
+            pwdInput.addEventListener('focus', evaluateStrength);
+            // Chạy kiểm tra nếu form reload lại có sẵn dữ liệu
+            if (pwdInput.value) {
+                evaluateStrength();
+            }
+        }
+    });
 </script>
 {% endblock %}

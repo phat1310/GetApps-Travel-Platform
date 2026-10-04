@@ -1,6 +1,7 @@
 """Routes AUTH — xử lý đăng ký, đăng nhập, đăng xuất, hồ sơ cá nhân (Profile) và follow/unfollow.
 Hỗ trợ song song cả giao diện HTML (Jinja2 + Flask-WTF + CSRF) lẫn API JSON (Postman/Mobile).
 """
+import re
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from app.auth import auth_bp
@@ -27,11 +28,14 @@ def register():
         data = request.get_json() or {}
         username = (data.get('username') or '').strip()
         email = (data.get('email') or '').strip().lower()
-        password = data.get('password')
+        password = data.get('password') or ''
         role = data.get('role', 'traveler')
 
         if not username or not email or not password:
             return jsonify({"error": "Thiếu username/email/password"}), 400
+
+        if len(password) < 8 or not re.search(r'[A-Z]', password) or not re.search(r'[a-z]', password) or not re.search(r'[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]', password):
+            return jsonify({"error": "Mật khẩu phải từ 8 ký tự, gồm chữ hoa, chữ thường và ký tự đặc biệt"}), 400
 
         if User.query.filter_by(username=username).first():
             return jsonify({"error": "Username đã tồn tại"}), 400
@@ -70,9 +74,9 @@ def register():
             db.session.add(user)
             db.session.commit()
 
-            login_user(user)
-            flash("Đăng ký tài khoản thành công! Chào mừng bạn đến với GEs.", "success")
-            return redirect(url_for('locations.feed'))
+            # Thông báo thành công và chuyển hướng về trang /login để người dùng đăng nhập lại
+            flash("Đăng ký tài khoản thành công! Vui lòng đăng nhập để tiếp tục.", "success")
+            return redirect(url_for('auth.login'))
         except Exception as e:
             db.session.rollback()
             flash(f"Lỗi khi tạo tài khoản: {str(e)}", "error")

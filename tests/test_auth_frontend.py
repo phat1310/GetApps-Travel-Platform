@@ -68,25 +68,66 @@ def test_login_form_post_invalid_credentials(client):
 
 
 def test_register_form_post_success(client):
-    """POST /register qua form tạo tài khoản mới thành công."""
+    """POST /register qua form tạo tài khoản mới thành công và chuyển hướng về /login với flash success."""
     res = client.post(
         "/register",
         data={
             "username": "newtraveler",
             "email": "newtraveler@example.com",
-            "password": "password123",
-            "confirm_password": "password123",
+            "password": "StrongPassword123!",
+            "confirm_password": "StrongPassword123!",
             "role": "traveler",
             "agree_terms": "y"
         },
         headers={"Accept": "text/html"}
     )
     assert res.status_code == 302
+    assert "/login" in res.headers["Location"]
+
+    # Kiểm tra chuyển hướng về trang /login có hiển thị thông báo thành công
+    login_page = client.get(res.headers["Location"])
+    assert login_page.status_code == 200
+    assert "Đăng ký tài khoản thành công" in login_page.data.decode("utf-8")
 
     with client.application.app_context():
         user = User.query.filter_by(username="newtraveler").first()
         assert user is not None
         assert user.role == "traveler"
+
+
+def test_register_weak_password_rejected(client):
+    """POST /register mật khẩu yếu (thiếu hoa, thường, ký tự đặc biệt hoặc < 8 ký tự) bị từ chối."""
+    # 1. Quá ngắn (< 8 ký tự)
+    res_short = client.post(
+        "/register",
+        data={
+            "username": "shortpass",
+            "email": "shortpass@example.com",
+            "password": "Aa1!",
+            "confirm_password": "Aa1!",
+            "role": "traveler",
+            "agree_terms": "y"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_short.status_code == 400
+    assert "Mật khẩu phải có ít nhất 8 ký tự" in res_short.data.decode("utf-8")
+
+    # 2. Thiếu ký tự đặc biệt
+    res_no_special = client.post(
+        "/register",
+        data={
+            "username": "nospecial",
+            "email": "nospecial@example.com",
+            "password": "Password1234",
+            "confirm_password": "Password1234",
+            "role": "traveler",
+            "agree_terms": "y"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_no_special.status_code == 400
+    assert "ký tự đặc biệt" in res_no_special.data.decode("utf-8")
 
 
 def test_profile_page_get(client, users, post):

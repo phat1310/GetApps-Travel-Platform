@@ -1,8 +1,7 @@
-"""Form AUTH — Các biểu mẫu Đăng ký, Đăng nhập và Hồ sơ người dùng với Flask-WTF và CSRF protection.
-"""
+import re
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SelectField, TextAreaField, SubmitField
-from wtforms.validators import DataRequired, Email, Length, EqualTo
+from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
 
 
 class LoginForm(FlaskForm):
@@ -39,7 +38,7 @@ class RegisterForm(FlaskForm):
         "Mật khẩu",
         validators=[
             DataRequired(message="Vui lòng nhập mật khẩu"),
-            Length(min=6, message="Mật khẩu phải có ít nhất 6 ký tự")
+            Length(min=8, message="Mật khẩu phải có ít nhất 8 ký tự")
         ]
     )
     confirm_password = PasswordField(
@@ -65,6 +64,18 @@ class RegisterForm(FlaskForm):
         validators=[DataRequired(message="Vui lòng đồng ý với điều khoản để tiếp tục")]
     )
     submit = SubmitField("Tạo tài khoản GETAPPS")
+
+    def validate_password(self, field):
+        """Xác thực độ phức tạp của mật khẩu: ít nhất 8 ký tự, có chữ hoa, chữ thường, ký tự đặc biệt."""
+        pwd = field.data or ""
+        if len(pwd) < 8:
+            raise ValidationError("Mật khẩu phải có ít nhất 8 ký tự.")
+        if not re.search(r'[A-Z]', pwd):
+            raise ValidationError("Mật khẩu phải chứa ít nhất 1 chữ in hoa (A-Z).")
+        if not re.search(r'[a-z]', pwd):
+            raise ValidationError("Mật khẩu phải chứa ít nhất 1 chữ thường (a-z).")
+        if not re.search(r'[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]', pwd):
+            raise ValidationError("Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (!@#$%^&*...).")
 
 
 class EditProfileForm(FlaskForm):
