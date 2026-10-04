@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Đăng ký tài khoản — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-card {
+        max-width: 480px;
+        margin: 2rem auto;
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: var(--ges-radius-lg);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        padding: 2.5rem 2rem;
+    }
+    .auth-input-group {
+        position: relative;
+    }
+    .auth-input-group input, .auth-input-group select {
+        border-radius: 12px;
+        padding: 0.75rem 1rem 0.75rem 2.75rem;
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s ease;
+    }
+    .auth-input-group input:focus, .auth-input-group select:focus {
+        border-color: var(--ges-primary);
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+    .auth-input-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 1.1rem;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .toggle-pwd-btn {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 0.25rem;
+        display: flex;
+        align-items: center;
+        z-index: 2;
+    }
+    .toggle-pwd-btn:hover {
+        color: var(--ges-text-main);
+    }
+    .tagline-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background-color: var(--ges-primary-light);
+        color: var(--ges-primary);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    
+    <!-- Brand & Header -->
+    <div class="text-center mb-4">
+        <div class="d-inline-flex align-items-center justify-content-center mb-2">
+            <span class="brand-badge fs-4 px-3 py-1">GEs</span>
+            <span class="fs-3 fw-bold text-dark ms-1">GetApps</span>
+        </div>
+        <div>
+            <span class="tagline-pill">
+                <i class="bi bi-airplane-engines-fill"></i> Hành trình vạn dặm khởi đầu tại đây
+            </span>
+        </div>
+        <h4 class="fw-bold text-dark mb-1">Tạo tài khoản GETAPPS</h4>
+        <p class="text-muted small mb-0">Tham gia cộng đồng đam mê du lịch và chia sẻ hành trình tuyệt vời</p>
+    </div>
+
+    <!-- Registration Form -->
+    <form action="{{ url_for('auth.register') }}" method="POST" novalidate id="register-form">
+        {{ form.hidden_tag() }}
+
+        <!-- Username -->
+        <div class="mb-3">
+            <label for="username" class="form-label fw-semibold text-dark small">Tên người dùng (Username)</label>
+            <div class="auth-input-group">
+                <i class="bi bi-at auth-input-icon fs-5"></i>
+                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="traveler_vn", id="username", autofocus=true) }}
+            </div>
+            {% for error in form.username.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+            <small class="text-muted" style="font-size: 0.75rem;">Từ 3-64 ký tự, viết liền không dấu.</small>
+        </div>
+
+        <!-- Email -->
+        <div class="mb-3">
+            <label for="email" class="form-label fw-semibold text-dark small">Địa chỉ Email</label>
+            <div class="auth-input-group">
+                <i class="bi bi-envelope auth-input-icon"></i>
+                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="example@domain.com", id="email") }}
+            </div>
+            {% for error in form.email.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Role Selection -->
+        <div class="mb-3">
+            <label for="role" class="form-label fw-semibold text-dark small">Vai trò của bạn</label>
+            <div class="auth-input-group">
+                <i class="bi bi-compass auth-input-icon"></i>
+                {{ form.role(class="form-select" + (" is-invalid" if form.role.errors else ""), id="role") }}
+            </div>
+            {% for error in form.role.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Password -->
+        <div class="mb-3">
+            <label for="password" class="form-label fw-semibold text-dark small">Mật khẩu</label>
+            <div class="auth-input-group">
+                <i class="bi bi-lock auth-input-icon"></i>
+                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Ít nhất 6 ký tự", id="reg-password") }}
+                <button type="button" class="toggle-pwd-btn" onclick="togglePassword('reg-password', this)" title="Ẩn/Hiện mật khẩu">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+            {% for error in form.password.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="mb-3">
+            <label for="confirm_password" class="form-label fw-semibold text-dark small">Xác nhận mật khẩu</label>
+            <div class="auth-input-group">
+                <i class="bi bi-shield-check auth-input-icon"></i>
+                {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else ""), placeholder="Nhập lại mật khẩu", id="reg-confirm-password") }}
+                <button type="button" class="toggle-pwd-btn" onclick="togglePassword('reg-confirm-password', this)" title="Ẩn/Hiện mật khẩu">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+            {% for error in form.confirm_password.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Terms and Conditions Checkbox -->
+        <div class="mb-4 form-check">
+            {{ form.agree_terms(class="form-check-input" + (" is-invalid" if form.agree_terms.errors else ""), id="agree_terms") }}
+            <label class="form-check-label small text-muted" for="agree_terms">
+                Tôi đồng ý với <a href="javascript:void(0)" class="text-primary text-decoration-none">Điều khoản dịch vụ</a> và <a href="javascript:void(0)" class="text-primary text-decoration-none">Chính sách bảo mật</a> của GEs.
+            </label>
+            {% for error in form.agree_terms.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Submit Button -->
+        <div class="d-grid mb-3">
+            <button type="submit" class="btn btn-ges-primary py-2 fw-bold fs-6" style="border-radius: 12px;">
+                <i class="bi bi-person-plus-fill me-1"></i> Đăng ký tài khoản
+            </button>
+        </div>
+
+    </form>
+
+    <!-- Login Link -->
+    <div class="text-center pt-3 border-top">
+        <p class="text-muted small mb-0">
+            Đã có tài khoản?
+            <a href="{{ url_for('auth.login') }}" class="text-primary fw-bold text-decoration-none ms-1">Đăng nhập</a>
+        </p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>
+{% endblock %}
