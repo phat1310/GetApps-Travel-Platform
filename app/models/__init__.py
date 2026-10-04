@@ -10,3 +10,4 @@ from app.models.comment import Comment
 from app.models.share import Share
 from app.models.saved_post import SavedPost
 from app.models.location import Location
+from app.models.itinerary import Itinerary, ItineraryDay, ItineraryStop, ItineraryLodging, ItineraryAttachment

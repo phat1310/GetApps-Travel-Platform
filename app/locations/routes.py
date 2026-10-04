@@ -3,12 +3,12 @@ Cần mở rộng thêm Place, Album, Tag.
 """
 import os
 import uuid
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, render_template
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.locations import locations_bp
 from app.extensions import db
-from app.models import Post, Photo, Like, Comment, Share, SavedPost, Location
+from app.models import Post, Photo, Like, Comment, Share, SavedPost, Location, Itinerary, ItineraryDay, ItineraryStop, ItineraryLodging, ItineraryAttachment
 from app.locations.utils import get_or_create_location, normalize_location_name
 
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -361,3 +361,353 @@ def search_locations():
             {"id": l.id, "name": l.name, "slug": l.slug} for l in locations
         ]
     })
+
+# ============================================================
+# LỊCH TRÌNH (ITINERARY) — Pack 3, phụ trách: Khánh
+# Itinerary luôn công khai (theo File 1) -> không cần user_can_access_post
+# ============================================================
+
+@locations_bp.route("/itineraries", methods=["POST"])
+@login_required
+def create_itinerary():
+    data = request.get_json()
+    if not data or not data.get("title"):
+        return jsonify({"error": "Thiếu tên chuyến đi"}), 400
+
+    from datetime import datetime
+    location = None
+    if data.get("location_name"):
+        location = get_or_create_location(data["location_name"], data.get("map_link"))
+
+    itinerary = Itinerary(
+        user_id=current_user.id,
+        title=data["title"],
+        description=data.get("description"),
+        location_id=location.id if location else None,
+        start_date=datetime.fromisoformat(data["start_date"]).date() if data.get("start_date") else None,
+        end_date=datetime.fromisoformat(data["end_date"]).date() if data.get("end_date") else None,
+        trip_type=data.get("trip_type"),
+        participants_count=data.get("participants_count"),
+        budget_estimate=data.get("budget_estimate"),
+    )
+    db.session.add(itinerary)
+    db.session.flush()  # có itinerary.id ngay, chưa commit, để gắn Day/Stop cùng 1 transaction
+
+    for day_data in data.get("days", []):
+        day = ItineraryDay(itinerary_id=itinerary.id, day_number=day_data["day_number"])
+        db.session.add(day)
+        db.session.flush()
+        for i, stop_data in enumerate(day_data.get("stops", [])):
+            from datetime import time as dtime
+            start_t = dtime.fromisoformat(stop_data["start_time"]) if stop_data.get("start_time") else None
+            end_t = dtime.fromisoformat(stop_data["end_time"]) if stop_data.get("end_time") else None
+            db.session.add(ItineraryStop(
+                day_id=day.id,
+                order_index=i,
+                activity_name=stop_data["activity_name"],
+                location_link=stop_data.get("location_link"),
+                price=stop_data.get("price"),
+                note=stop_data.get("note"),
+                start_time=start_t,
+                end_time=end_t,
+            ))
+
+    for lodging_data in data.get("lodgings", []):
+        db.session.add(ItineraryLodging(
+            itinerary_id=itinerary.id,
+            name=lodging_data["name"],
+            price_per_night=lodging_data.get("price_per_night"),
+            booking_link=lodging_data.get("booking_link"),
+            note=lodging_data.get("note"),
+        ))
+
+    db.session.commit()
+    return jsonify({"message": "Đăng lịch trình thành công", "itinerary": serialize_itinerary(itinerary)}), 201
+
+
+@locations_bp.route("/itineraries/feed", methods=["GET"])
+@login_required
+def itinerary_feed():
+    itineraries = Itinerary.query.order_by(Itinerary.created_at.desc()).all()
+    return jsonify({"feed": [
+        {
+            "id": it.id,
+            "title": it.title,
+            "cover_image": it.cover_image,
+            "user_id": it.user_id,
+            "start_date": it.start_date.isoformat() if it.start_date else None,
+            "end_date": it.end_date.isoformat() if it.end_date else None,
+        } for it in itineraries
+    ]})
+
+def serialize_itinerary(it):
+    return {
+        "id": it.id,
+        "title": it.title,
+        "description": it.description,
+        "cover_image": it.cover_image,
+        "user_id": it.user_id,
+        "start_date": it.start_date.isoformat() if it.start_date else None,
+        "end_date": it.end_date.isoformat() if it.end_date else None,
+        "trip_type": it.trip_type,
+        "participants_count": it.participants_count,
+        "budget_estimate": it.budget_estimate,
+        "days": [{
+            "id": d.id,
+            "day_number": d.day_number,
+            "stops": [{
+                "id": s.id,
+                "activity_name": s.activity_name,
+                "location_link": s.location_link,
+                "price": s.price,
+                "note": s.note,
+                "image_path": s.image_path,
+                "start_time": s.start_time.strftime("%H:%M") if s.start_time else None,
+                "end_time": s.end_time.strftime("%H:%M") if s.end_time else None,
+            } for s in d.stops],
+        } for d in it.days],
+        "lodgings": [{
+            "id": l.id,
+            "name": l.name,
+            "price_per_night": l.price_per_night,
+            "booking_link": l.booking_link,
+            "note": l.note,
+        } for l in it.lodgings],
+        "attachments": [{"id": a.id, "original_name": a.original_name, "file_path": a.file_path} for a in it.attachments],
+        "like_count": Like.query.filter_by(itinerary_id=it.id).count(),
+        "comment_count": Comment.query.filter_by(itinerary_id=it.id).count(),
+    }
+
+
+@locations_bp.route("/itineraries/<int:itinerary_id>", methods=["GET"])
+@login_required
+def get_itinerary(itinerary_id):
+    it = db.get_or_404(Itinerary, itinerary_id)
+    return jsonify(serialize_itinerary(it))
+
+
+@locations_bp.route("/itineraries/<int:itinerary_id>", methods=["DELETE"])
+@login_required
+def delete_itinerary(itinerary_id):
+    it = db.get_or_404(Itinerary, itinerary_id)
+    if it.user_id != current_user.id:
+        return jsonify({"error": "Bạn không có quyền xóa lịch trình này"}), 403
+    db.session.delete(it)
+    db.session.commit()
+    return jsonify({"message": "Xóa lịch trình thành công"})
+
+
+ATTACHMENT_EXTENSIONS = {"docx", "xlsx", "pdf", "pptx"}
+
+@locations_bp.route("/itineraries/<int:itinerary_id>/attachments", methods=["POST"])
+@login_required
+def upload_itinerary_attachment(itinerary_id):
+    it = db.get_or_404(Itinerary, itinerary_id)
+    if it.user_id != current_user.id:
+        return jsonify({"error": "Bạn không có quyền thêm file vào lịch trình này"}), 403
+
+    file = request.files.get("file")
+    if not file or file.filename == "":
+        return jsonify({"error": "Thiếu file"}), 400
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ATTACHMENT_EXTENSIONS:
+        return jsonify({"error": f"Chỉ nhận file: {', '.join(ATTACHMENT_EXTENSIONS)}"}), 400
+
+    filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
+    upload_dir = os.path.join(current_app.root_path, "static", "uploads", "itineraries")
+    os.makedirs(upload_dir, exist_ok=True)
+    save_path = os.path.join(upload_dir, filename)
+    file.save(save_path)
+
+    attachment = ItineraryAttachment(
+        itinerary_id=itinerary_id,
+        file_path=f"uploads/itineraries/{filename}",
+        original_name=file.filename,
+    )
+    db.session.add(attachment)
+    db.session.commit()
+    return jsonify({"message": "Upload thành công", "attachment_id": attachment.id}), 201
+
+
+# ---- Like / Comment / Share / Save áp dụng cho Itinerary ----
+
+@locations_bp.route("/itineraries/<int:itinerary_id>/like", methods=["POST"])
+@login_required
+def like_itinerary(itinerary_id):
+    db.get_or_404(Itinerary, itinerary_id)
+    existing = Like.query.filter_by(user_id=current_user.id, itinerary_id=itinerary_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({"message": "Đã bỏ tim", "liked": False})
+    db.session.add(Like(user_id=current_user.id, itinerary_id=itinerary_id))
+    db.session.commit()
+    return jsonify({"message": "Đã thả tim", "liked": True})
+
+
+@locations_bp.route("/itineraries/<int:itinerary_id>/comments", methods=["POST"])
+@login_required
+def create_itinerary_comment(itinerary_id):
+    db.get_or_404(Itinerary, itinerary_id)
+    data = request.get_json()
+    content = data.get("content", "").strip() if data else ""
+    if not content:
+        return jsonify({"error": "Nội dung bình luận không được rỗng"}), 400
+    comment = Comment(user_id=current_user.id, itinerary_id=itinerary_id, content=content)
+    db.session.add(comment)
+    db.session.commit()
+    return jsonify({"message": "Đã bình luận", "comment_id": comment.id}), 201
+
+
+@locations_bp.route("/itineraries/<int:itinerary_id>/comments", methods=["GET"])
+@login_required
+def get_itinerary_comments(itinerary_id):
+    db.get_or_404(Itinerary, itinerary_id)
+    comments = Comment.query.filter_by(itinerary_id=itinerary_id).order_by(Comment.created_at.asc()).all()
+    return jsonify({"comments": [
+        {"id": c.id, "user_id": c.user_id, "content": c.content} for c in comments
+    ]})
+
+
+@locations_bp.route("/itineraries/<int:itinerary_id>/share", methods=["POST"])
+@login_required
+def share_itinerary(itinerary_id):
+    db.get_or_404(Itinerary, itinerary_id)
+    existing = Share.query.filter_by(user_id=current_user.id, itinerary_id=itinerary_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({"message": "Đã hủy chia sẻ", "shared": False})
+    db.session.add(Share(user_id=current_user.id, itinerary_id=itinerary_id))
+    db.session.commit()
+    return jsonify({"message": "Đã chia sẻ", "shared": True})
+
+
+@locations_bp.route("/itineraries/<int:itinerary_id>/save", methods=["POST"])
+@login_required
+def save_itinerary(itinerary_id):
+    db.get_or_404(Itinerary, itinerary_id)
+    existing = SavedPost.query.filter_by(user_id=current_user.id, itinerary_id=itinerary_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({"message": "Đã bỏ lưu", "saved": False})
+    db.session.add(SavedPost(user_id=current_user.id, itinerary_id=itinerary_id))
+    db.session.commit()
+    return jsonify({"message": "Đã lưu", "saved": True})
+
+@locations_bp.route("/itineraries/<int:itinerary_id>", methods=["PUT"])
+@login_required
+def update_itinerary(itinerary_id):
+    it = db.get_or_404(Itinerary, itinerary_id)
+    if it.user_id != current_user.id:
+        return jsonify({"error": "Bạn không có quyền sửa lịch trình này"}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Thiếu dữ liệu"}), 400
+
+    from datetime import datetime
+
+    if "title" in data:
+        if not data["title"]:
+            return jsonify({"error": "Tên chuyến đi không được để trống"}), 400
+        it.title = data["title"]
+    if "description" in data:
+        it.description = data["description"]
+    if "start_date" in data:
+        it.start_date = datetime.fromisoformat(data["start_date"]).date() if data["start_date"] else None
+    if "end_date" in data:
+        it.end_date = datetime.fromisoformat(data["end_date"]).date() if data["end_date"] else None
+    if "trip_type" in data:
+        it.trip_type = data["trip_type"]
+    if "participants_count" in data:
+        it.participants_count = data["participants_count"]
+    if "budget_estimate" in data:
+        it.budget_estimate = data["budget_estimate"]
+
+    # Nếu client gửi kèm "days" hoặc "lodgings" -> xóa sạch cũ, tạo lại từ đầu
+    # (nhờ cascade="all, delete-orphan" đã khai báo sẵn trong model Itinerary)
+    if "days" in data:
+        it.days = []
+        db.session.flush()
+        for day_data in data["days"]:
+            day = ItineraryDay(itinerary_id=it.id, day_number=day_data["day_number"])
+            db.session.add(day)
+            db.session.flush()
+            for i, stop_data in enumerate(day_data.get("stops", [])):
+                db.session.add(ItineraryStop(
+                    day_id=day.id,
+                    order_index=i,
+                    activity_name=stop_data["activity_name"],
+                    location_link=stop_data.get("location_link"),
+                    price=stop_data.get("price"),
+                    note=stop_data.get("note"),
+                ))
+
+    if "lodgings" in data:
+        it.lodgings = []
+        db.session.flush()
+        for lodging_data in data["lodgings"]:
+            db.session.add(ItineraryLodging(
+                itinerary_id=it.id,
+                name=lodging_data["name"],
+                price_per_night=lodging_data.get("price_per_night"),
+                booking_link=lodging_data.get("booking_link"),
+                note=lodging_data.get("note"),
+            ))
+
+    db.session.commit()
+    return jsonify({"message": "Cập nhật lịch trình thành công", "itinerary_id": it.id})
+
+@locations_bp.route("/itineraries/<int:itinerary_id>/cover-image", methods=["POST"])
+@login_required
+def upload_itinerary_cover(itinerary_id):
+    it = db.get_or_404(Itinerary, itinerary_id)
+    if it.user_id != current_user.id:
+        return jsonify({"error": "Bạn không có quyền sửa lịch trình này"}), 403
+
+    file = request.files.get("image")
+    if not file or file.filename == "":
+        return jsonify({"error": "Thiếu file ảnh"}), 400
+    if get_media_type(file.filename) != "image":
+        return jsonify({"error": "Chỉ nhận file ảnh (jpg/png/gif)"}), 400
+
+    ext = file.filename.rsplit(".", 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    upload_dir = os.path.join(current_app.root_path, "static", "uploads", "itineraries")
+    os.makedirs(upload_dir, exist_ok=True)
+    file.save(os.path.join(upload_dir, filename))
+
+    it.cover_image = f"uploads/itineraries/{filename}"
+    db.session.commit()
+    return jsonify({"message": "Đã cập nhật ảnh bìa", "cover_image": it.cover_image})
+
+
+@locations_bp.route("/itineraries/stops/<int:stop_id>/image", methods=["POST"])
+@login_required
+def upload_stop_image(stop_id):
+    stop = db.get_or_404(ItineraryStop, stop_id)
+    if stop.day.itinerary.user_id != current_user.id:
+        return jsonify({"error": "Bạn không có quyền sửa chặng này"}), 403
+
+    file = request.files.get("image")
+    if not file or file.filename == "":
+        return jsonify({"error": "Thiếu file ảnh"}), 400
+    if get_media_type(file.filename) != "image":
+        return jsonify({"error": "Chỉ nhận file ảnh (jpg/png/gif)"}), 400
+
+    ext = file.filename.rsplit(".", 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    upload_dir = os.path.join(current_app.root_path, "static", "uploads", "itineraries")
+    os.makedirs(upload_dir, exist_ok=True)
+    file.save(os.path.join(upload_dir, filename))
+
+    stop.image_path = f"uploads/itineraries/{filename}"
+    db.session.commit()
+    return jsonify({"message": "Đã cập nhật ảnh chặng", "image_path": stop.image_path})
+
+@locations_bp.route("/itineraries/new", methods=["GET"])
+@login_required
+def new_itinerary_page():
+    return render_template("itinerary_create.html")

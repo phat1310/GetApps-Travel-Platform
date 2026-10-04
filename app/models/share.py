@@ -1,4 +1,4 @@
-"""Model SHARE — chia sẻ một bài viết Post."""
+"""Model SHARE — chia sẻ một bài viết Post hoặc Itinerary."""
 
 from datetime import datetime
 from app.extensions import db
@@ -18,7 +18,13 @@ class Share(db.Model):
     post_id = db.Column(
         db.Integer,
         db.ForeignKey("posts.id"),
-        nullable=False
+        nullable=True
+    )
+
+    itinerary_id = db.Column(
+        db.Integer,
+        db.ForeignKey("itineraries.id"),
+        nullable=True
     )
 
     created_at = db.Column(
@@ -28,4 +34,6 @@ class Share(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint("user_id", "post_id", name="unique_share"),
+        db.UniqueConstraint("user_id", "itinerary_id", name="unique_share_itinerary"),
+        db.CheckConstraint("(post_id IS NOT NULL) != (itinerary_id IS NOT NULL)", name="chk_share_target"),
     )
