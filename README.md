@@ -2,6 +2,9 @@ GetApps — "Get Up & Explore"
 
 Mạng xã hội chia sẻ trải nghiệm du lịch — đồ án môn Phát triển Web bằng Python (PWD301). Flask, SQLAlchemy, Flask-Login, Flask-WTF, JWT, Bootstrap 5, AJAX, Docker.
 
+> 📋 **Dành cho Nhóm trưởng Khánh:** Xem chi tiết [Báo Cáo Tiến Độ & Hướng Dẫn Trải Nghiệm Nhánh Phat](BAO_CAO_TIEN_DO_PHAT_GUI_LEADER.md) để review và nghiệm thu toàn bộ tính năng UI/UX, Dark/Light Mode, Auth & Profile Settings.
+
+
 Cài đặt & chạy
 Clone repo, tạo virtual environment:
    python -m venv venv
