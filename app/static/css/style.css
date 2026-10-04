@@ -324,3 +324,61 @@ main.main-content {
     color: #F8FAFC !important;
 }
 
+[data-bs-theme="dark"] .sidebar-card,
+[data-bs-theme="dark"] .post-card,
+[data-bs-theme="dark"] .ges-card {
+    background-color: var(--ges-card-bg) !important;
+    border-color: var(--ges-border-color) !important;
+    color: var(--ges-text-main) !important;
+}
+
+[data-bs-theme="dark"] .sidebar-card h6,
+[data-bs-theme="dark"] .sidebar-card .text-dark,
+[data-bs-theme="dark"] .post-card h6,
+[data-bs-theme="dark"] .post-card .text-dark {
+    color: #F8FAFC !important;
+}
+
+[data-bs-theme="dark"] .sidebar-card .text-muted,
+[data-bs-theme="dark"] .sidebar-card small,
+[data-bs-theme="dark"] .post-card .text-muted,
+[data-bs-theme="dark"] .post-card small {
+    color: #94A3B8 !important;
+}
+
+[data-bs-theme="dark"] .btn-ges-outline {
+    border-color: var(--ges-primary);
+    color: var(--ges-primary);
+}
+
+[data-bs-theme="dark"] .btn-ges-outline:hover {
+    background-color: var(--ges-primary);
+    color: #0F172A;
+}
+
+[data-bs-theme="dark"] .badge-role-traveler {
+    background-color: #0369A1;
+    color: #E0F2FE;
+}
+
+[data-bs-theme="dark"] .badge-role-local {
+    background-color: #166534;
+    color: #DCFCE7;
+}
+
+[data-bs-theme="dark"] .badge-role-creator {
+    background-color: #6B21A8;
+    color: #F3E8FF;
+}
+
+[data-bs-theme="dark"] .badge-role-owner {
+    background-color: #854D0E;
+    color: #FEF3C7;
+}
+
+[data-bs-theme="dark"] .badge-role-user {
+    background-color: #334155;
+    color: #E2E8F0;
+}
+
+

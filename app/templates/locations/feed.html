@@ -46,13 +46,13 @@
         text-align: center;
     }
     .post-card {
-        background: #ffffff;
+        background: var(--ges-card-bg);
         border: 1px solid var(--ges-border-color);
         border-radius: var(--ges-radius-md);
         margin-bottom: 1.5rem;
         box-shadow: var(--ges-shadow-sm);
         overflow: hidden;
-        transition: box-shadow 0.2s ease;
+        transition: box-shadow 0.2s ease, background-color 0.25s ease, border-color 0.25s ease;
     }
     .post-card:hover {
         box-shadow: var(--ges-shadow-md);
@@ -109,12 +109,68 @@
         font-size: 0.88rem;
     }
     .sidebar-card {
-        background: #ffffff;
+        background: var(--ges-card-bg);
         border: 1px solid var(--ges-border-color);
         border-radius: var(--ges-radius-md);
         box-shadow: var(--ges-shadow-sm);
         margin-bottom: 1.25rem;
         padding: 1.25rem;
+        transition: background-color 0.25s ease, border-color 0.25s ease;
+    }
+
+    /* Dark Mode specific overrides for feed & sidebar */
+    [data-bs-theme="dark"] .sidebar-card,
+    [data-bs-theme="dark"] .post-card {
+        background-color: #1E293B !important;
+        border-color: #334155 !important;
+        color: #F8FAFC !important;
+    }
+    [data-bs-theme="dark"] .sidebar-card h6,
+    [data-bs-theme="dark"] .sidebar-card .text-dark,
+    [data-bs-theme="dark"] .post-card h6,
+    [data-bs-theme="dark"] .post-card .text-dark {
+        color: #F8FAFC !important;
+    }
+    [data-bs-theme="dark"] .sidebar-card .text-muted,
+    [data-bs-theme="dark"] .sidebar-card small,
+    [data-bs-theme="dark"] .post-card .text-muted,
+    [data-bs-theme="dark"] .post-card small {
+        color: #94A3B8 !important;
+    }
+    [data-bs-theme="dark"] .sidebar-card hr {
+        border-color: #334155 !important;
+        opacity: 0.5;
+    }
+    [data-bs-theme="dark"] .sidebar-card .bg-light {
+        background-color: #0F172A !important;
+        color: #38BDF8 !important;
+    }
+    [data-bs-theme="dark"] .sidebar-card .hover-bg-light:hover {
+        background-color: #334155 !important;
+    }
+    [data-bs-theme="dark"] .comment-box {
+        background-color: #0F172A !important;
+        border: 1px solid #334155;
+        color: #E2E8F0;
+    }
+    [data-bs-theme="dark"] .comment-box strong {
+        color: #F8FAFC !important;
+    }
+    [data-bs-theme="dark"] .comment-box .text-secondary {
+        color: #CBD5E1 !important;
+    }
+    [data-bs-theme="dark"] .post-action-btn:hover {
+        background-color: #334155 !important;
+        color: #F8FAFC !important;
+    }
+    [data-bs-theme="dark"] .quick-post-box {
+        background-color: #1E293B !important;
+        border-color: #334155 !important;
+    }
+    [data-bs-theme="dark"] .quick-post-btn-action {
+        background-color: #0F172A !important;
+        color: #38BDF8 !important;
+        border-color: #334155 !important;
     }
 </style>
 {% endblock %}
@@ -388,20 +444,27 @@
         <div class="sidebar-card">
             <div class="d-flex align-items-center gap-3">
                 {% if current_user.avatar_url %}
-                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-md">
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-md" onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=0ea5e9&color=fff'">
                 {% else %}
-                    <span class="avatar-placeholder avatar-md">{{ current_user.username[0]|upper }}</span>
+                    <span class="avatar-placeholder avatar-md">{{ (current_user.nickname or current_user.username)[0]|upper }}</span>
                 {% endif %}
                 <div class="flex-grow-1 min-w-0">
-                    <h6 class="mb-0 fw-bold text-dark truncate">{{ current_user.username }}</h6>
-                    <small class="text-muted d-block truncate">{{ current_user.email }}</small>
-                    <span class="badge badge-role badge-role-{{ current_user.role }} mt-1">{{ current_user.role }}</span>
+                    <h6 class="mb-0 fw-bold truncate">{{ current_user.nickname or current_user.username }}</h6>
+                    <small class="text-muted d-block truncate">
+                        {% if current_user.nickname %}@{{ current_user.username }} • {% endif %}{{ current_user.email }}
+                    </small>
+                    <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                        <span class="badge badge-role badge-role-{{ current_user.role }}">{{ current_user.role }}</span>
+                        {% if current_user.profile_tag %}
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill" style="font-size: 0.7rem;">{{ current_user.profile_tag }}</span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-            <hr class="my-3 text-muted opacity-25">
+            <hr class="my-3 opacity-25">
             <div class="d-grid gap-2">
                 <a href="{{ url_for('locations.create_post') }}" class="btn btn-ges-primary btn-sm">
-                    <i class="bi bi-plus-lg me-1"></i> Đăng bài viết mới
+                    <i class="bi bi-pencil-square me-1"></i> Đăng bài viết mới
                 </a>
                 <a href="/plans/create" class="btn btn-ges-outline btn-sm">
                     <i class="bi bi-map me-1"></i> Tạo lịch trình mới
