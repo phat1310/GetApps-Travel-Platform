@@ -25,9 +25,10 @@ def register():
     # 1. Nếu client gửi JSON (API / Automation tests)
     if request.is_json:
         data = request.get_json() or {}
-        username = data.get('username')
-        email = data.get('email')
+        username = (data.get('username') or '').strip()
+        email = (data.get('email') or '').strip().lower()
         password = data.get('password')
+        role = data.get('role', 'traveler')
 
         if not username or not email or not password:
             return jsonify({"error": "Thiếu username/email/password"}), 400
@@ -35,7 +36,10 @@ def register():
         if User.query.filter_by(username=username).first():
             return jsonify({"error": "Username đã tồn tại"}), 400
 
-        user = User(username=username, email=email)
+        if User.query.filter_by(email=email).first():
+            return jsonify({"error": "Email đã tồn tại"}), 400
+
+        user = User(username=username, email=email, role=role)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()

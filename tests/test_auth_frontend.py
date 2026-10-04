@@ -24,13 +24,16 @@ def test_login_page_get(client):
 
 
 def test_register_page_get(client):
-    """GET /register hiển thị giao diện đăng ký 200 OK."""
+    """GET /register hiển thị giao diện đăng ký 200 OK và đầy đủ nhãn vai trò mới."""
     res = client.get("/register")
     assert res.status_code == 200
     html = res.data.decode("utf-8")
     assert "Tạo tài khoản GETAPPS" in html
     assert "register-form" in html
     assert "email" in html
+    assert "Traveler Enthusiast • Người đam mê du lịch" in html
+    assert "Local Guides • Hướng dẫn viên địa phương" in html
+    assert "Travel content creator • Người sáng tạo nội dung du lịch" in html
 
 
 def test_login_form_post_success(client):
