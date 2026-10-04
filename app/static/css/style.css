@@ -24,6 +24,21 @@
     --ges-shadow-lg: 0 12px 32px -4px rgba(17, 24, 39, 0.08);
 }
 
+[data-bs-theme="dark"] {
+    --ges-primary: #38BDF8;        /* Sky-400: Nổi bật trên nền tối */
+    --ges-primary-hover: #0EA5E9;  /* Sky-500 */
+    --ges-primary-active: #0284C7; /* Sky-600 */
+    --ges-primary-light: #1E293B;  /* Nền tối phụ */
+    --ges-bg-body: #0F172A;        /* Slate-900: Nền tối sâu */
+    --ges-text-main: #F8FAFC;      /* Chữ chính sáng (Slate-50) */
+    --ges-text-muted: #94A3B8;     /* Chữ phụ (Slate-400) */
+    --ges-card-bg: #1E293B;        /* Slate-800: Nền thẻ Card */
+    --ges-border-color: #334155;   /* Slate-700: Viền card */
+    --ges-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+    --ges-shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+    --ges-shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.6);
+}
+
 body {
     background-color: var(--ges-bg-body);
     color: var(--ges-text-main);
@@ -31,6 +46,7 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 main.main-content {
@@ -42,10 +58,34 @@ main.main-content {
    NAVBAR STYLES
    -------------------------------------------------------------------------- */
 .navbar-ges {
-    background-color: #ffffff;
+    background-color: var(--ges-card-bg);
     border-bottom: 1px solid var(--ges-border-color);
     box-shadow: var(--ges-shadow-sm);
     padding: 0.75rem 0;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Nút chuyển đổi Theme Nền Sáng / Tối */
+.theme-toggle-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--ges-border-color);
+    background-color: var(--ges-card-bg);
+    color: var(--ges-text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.25s ease;
+}
+
+.theme-toggle-btn:hover {
+    color: var(--ges-primary);
+    border-color: var(--ges-primary);
+    transform: rotate(20deg) scale(1.08);
+    box-shadow: var(--ges-shadow-sm);
 }
 
 .brand-logo-img {
@@ -210,12 +250,13 @@ main.main-content {
    FOOTER
    -------------------------------------------------------------------------- */
 .footer-ges {
-    background-color: #ffffff;
+    background-color: var(--ges-card-bg);
     border-top: 1px solid var(--ges-border-color);
     padding: 1.5rem 0;
     color: var(--ges-text-muted);
     font-size: 0.88rem;
     margin-top: auto;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .footer-ges a {
@@ -227,3 +268,59 @@ main.main-content {
 .footer-ges a:hover {
     color: var(--ges-primary);
 }
+
+/* --------------------------------------------------------------------------
+   DARK THEME COMPONENT OVERRIDES
+   -------------------------------------------------------------------------- */
+[data-bs-theme="dark"] .card {
+    background-color: var(--ges-card-bg);
+    border-color: var(--ges-border-color);
+    color: var(--ges-text-main);
+}
+
+[data-bs-theme="dark"] .auth-card {
+    background-color: var(--ges-card-bg) !important;
+    border-color: var(--ges-border-color) !important;
+    color: var(--ges-text-main) !important;
+}
+
+[data-bs-theme="dark"] .profile-header-card {
+    background-color: var(--ges-card-bg) !important;
+    border-color: var(--ges-border-color) !important;
+}
+
+[data-bs-theme="dark"] .stats-card {
+    background-color: #0F172A !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: #0F172A;
+    border-color: var(--ges-border-color);
+    color: var(--ges-text-main);
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: #0F172A;
+    border-color: var(--ges-primary);
+    color: var(--ges-text-main);
+}
+
+[data-bs-theme="dark"] .dropdown-menu {
+    background-color: var(--ges-card-bg);
+    border-color: var(--ges-border-color);
+}
+
+[data-bs-theme="dark"] .bg-white {
+    background-color: var(--ges-card-bg) !important;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: #0F172A !important;
+}
+
+[data-bs-theme="dark"] .text-dark {
+    color: #F8FAFC !important;
+}
+
