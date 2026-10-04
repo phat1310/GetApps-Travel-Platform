@@ -314,3 +314,176 @@ def test_change_password_api_json(client, users):
     assert res.status_code == 200
     assert res.get_json()["message"] == "Đổi mật khẩu thành công"
 
+
+def test_forgot_password_page_get(client):
+    """GET /forgot-password hiển thị form khôi phục mật khẩu 200 OK."""
+    res = client.get("/forgot-password")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "Quên mật khẩu?" in html
+    assert "Qua Email" in html
+    assert "Qua SĐT" in html
+
+
+def test_forgot_password_unknown_target(client, users):
+    """POST /forgot-password với email/SĐT không tồn tại trả về lỗi 400."""
+    res = client.post(
+        "/forgot-password",
+        data={
+            "method": "email",
+            "target": "notfound@example.com"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 400
+    assert "Không tìm thấy tài khoản" in res.data.decode("utf-8")
+
+
+def test_forgot_password_via_email_and_reset_flow(client, users):
+    """Quy trình khôi phục mật khẩu hoàn chỉnh qua Email: Quên -> Nhận OTP -> Đặt lại MK mới -> Đăng nhập."""
+    # 1. Gửi yêu cầu qua Email
+    res_forgot = client.post(
+        "/forgot-password",
+        data={
+            "method": "email",
+            "target": "test1@example.com"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_forgot.status_code == 302
+    assert "/reset-password" in res_forgot.headers["Location"]
+
+    # 2. Kiểm tra trang reset-password hiển thị đúng
+    with client.session_transaction() as sess:
+        otp = sess.get("reset_otp")
+        assert otp is not None
+        assert len(otp) == 6
+
+    res_get_reset = client.get("/reset-password")
+    assert res_get_reset.status_code == 200
+    assert "Xác thực OTP & Mật khẩu mới" in res_get_reset.data.decode("utf-8")
+
+    # 3. Nhập sai OTP -> 400
+    res_wrong_otp = client.post(
+        "/reset-password",
+        data={
+            "otp": "000000",
+            "new_password": "NewResetPassword123@",
+            "confirm_new_password": "NewResetPassword123@"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_wrong_otp.status_code == 400
+    assert "Mã xác thực OTP không chính xác" in res_wrong_otp.data.decode("utf-8")
+
+    # 4. Nhập đúng OTP nhưng mật khẩu trùng mật khẩu cũ ("123456") -> 400
+    res_same_pwd = client.post(
+        "/reset-password",
+        data={
+            "otp": otp,
+            "new_password": "123456",
+            "confirm_new_password": "123456"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_same_pwd.status_code == 400
+
+    # 5. Nhập đúng OTP và mật khẩu mới an toàn -> 302 chuyển về /login
+    res_success = client.post(
+        "/reset-password",
+        data={
+            "otp": otp,
+            "new_password": "SuperSecureResetPassword@2026",
+            "confirm_new_password": "SuperSecureResetPassword@2026"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_success.status_code == 302
+    assert "/login" in res_success.headers["Location"]
+
+    # 6. Đăng nhập lại với mật khẩu mới thành công
+    res_login = client.post(
+        "/login",
+        json={
+            "username": "testuser1",
+            "password": "SuperSecureResetPassword@2026"
+        }
+    )
+    assert res_login.status_code == 200
+    assert res_login.get_json()["message"] == "Đăng nhập thành công"
+
+
+def test_forgot_password_via_phone_and_resend_otp(client, users):
+    """Quy trình khôi phục mật khẩu qua Số điện thoại (SĐT) và kiểm thử gửi lại OTP."""
+    # Cập nhật số điện thoại cho user2
+    with client.application.app_context():
+        u2 = User.query.filter_by(username="testuser2").first()
+        u2.phone_number = "0988776655"
+        db.session.commit()
+
+    # 1. Gửi yêu cầu qua SĐT
+    res_forgot = client.post(
+        "/forgot-password",
+        data={
+            "method": "phone",
+            "target": "0988776655"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_forgot.status_code == 302
+    assert "/reset-password" in res_forgot.headers["Location"]
+
+    # Lấy OTP ban đầu
+    with client.session_transaction() as sess:
+        initial_otp = sess.get("reset_otp")
+        assert initial_otp is not None
+
+    # 2. Bấm Gửi lại mã OTP
+    res_resend = client.post("/resend-otp")
+    assert res_resend.status_code == 302
+    assert "/reset-password" in res_resend.headers["Location"]
+
+    # Lấy OTP mới
+    with client.session_transaction() as sess:
+        new_otp = sess.get("reset_otp")
+        assert new_otp is not None
+
+    # 3. Đặt lại mật khẩu thành công với OTP mới
+    res_reset = client.post(
+        "/reset-password",
+        data={
+            "otp": new_otp,
+            "new_password": "PhoneUserNewPassword999!",
+            "confirm_new_password": "PhoneUserNewPassword999!"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_reset.status_code == 302
+    assert "/login" in res_reset.headers["Location"]
+
+
+def test_forgot_password_api_json(client, users):
+    """Kiểm thử JSON API cho chức năng Quên mật khẩu và Reset mật khẩu."""
+    # 1. API Forgot Password
+    res_forgot = client.post(
+        "/forgot-password",
+        json={"target": "test2@example.com"}
+    )
+    assert res_forgot.status_code == 200
+    data = res_forgot.get_json()
+    assert "otp" in data
+    otp = data["otp"]
+
+    # 2. API Reset Password
+    res_reset = client.post(
+        "/reset-password",
+        json={
+            "otp": otp,
+            "new_password": "ApiResetPass#2026",
+            "confirm_new_password": "ApiResetPass#2026"
+        }
+    )
+    assert res_reset.status_code == 200
+    assert res_reset.get_json()["message"] == "Đặt lại mật khẩu thành công"
+
+

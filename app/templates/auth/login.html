@@ -106,7 +106,7 @@
         <div class="mb-3">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <label for="password" class="form-label fw-semibold text-dark small mb-0">Mật khẩu</label>
-                <a href="javascript:void(0)" onclick="alert('Tính năng khôi phục mật khẩu sẽ được hỗ trợ qua email trong bản cập nhật tới!')" class="text-decoration-none small text-primary fw-semibold">Quên mật khẩu?</a>
+                <a href="{{ url_for('auth.forgot_password') }}" class="text-decoration-none small text-primary fw-semibold">Quên mật khẩu?</a>
             </div>
             <div class="auth-input-group">
                 <i class="bi bi-lock auth-input-icon"></i>

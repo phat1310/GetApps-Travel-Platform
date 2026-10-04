@@ -135,3 +135,59 @@ class ChangePasswordForm(FlaskForm):
         if not re.search(r'[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]', pwd):
             raise ValidationError("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt (!@#$%^&*...).")
 
+
+class ForgotPasswordForm(FlaskForm):
+    """Biểu mẫu Quên mật khẩu — Hỗ trợ phục hồi qua Email hoặc Số điện thoại."""
+    method = SelectField(
+        "Phương thức nhận mã xác nhận",
+        choices=[
+            ("email", "Địa chỉ Email"),
+            ("phone", "Số điện thoại (SĐT)")
+        ],
+        default="email"
+    )
+    target = StringField(
+        "Email hoặc Số điện thoại",
+        validators=[DataRequired(message="Vui lòng nhập Email hoặc Số điện thoại đã đăng ký")]
+    )
+    submit = SubmitField("Gửi mã xác thực")
+
+
+class ResetPasswordForm(FlaskForm):
+    """Biểu mẫu Xác thực OTP và Đặt lại mật khẩu mới."""
+    otp = StringField(
+        "Mã xác thực OTP (6 chữ số)",
+        validators=[
+            DataRequired(message="Vui lòng nhập mã OTP 6 chữ số"),
+            Length(min=6, max=6, message="Mã OTP gồm chính xác 6 chữ số")
+        ]
+    )
+    new_password = PasswordField(
+        "Mật khẩu mới",
+        validators=[
+            DataRequired(message="Vui lòng nhập mật khẩu mới"),
+            Length(min=8, message="Mật khẩu mới phải có ít nhất 8 ký tự")
+        ]
+    )
+    confirm_new_password = PasswordField(
+        "Xác nhận mật khẩu mới",
+        validators=[
+            DataRequired(message="Vui lòng xác nhận mật khẩu mới"),
+            EqualTo("new_password", message="Mật khẩu xác nhận không khớp")
+        ]
+    )
+    submit = SubmitField("Xác nhận & Đặt lại mật khẩu")
+
+    def validate_new_password(self, field):
+        """Kiểm tra độ phức tạp của mật khẩu mới theo chuẩn bảo mật."""
+        pwd = field.data or ""
+        if len(pwd) < 8:
+            raise ValidationError("Mật khẩu mới phải có ít nhất 8 ký tự.")
+        if not re.search(r'[A-Z]', pwd):
+            raise ValidationError("Mật khẩu mới phải chứa ít nhất 1 chữ in hoa (A-Z).")
+        if not re.search(r'[a-z]', pwd):
+            raise ValidationError("Mật khẩu mới phải chứa ít nhất 1 chữ thường (a-z).")
+        if not re.search(r'[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]', pwd):
+            raise ValidationError("Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt (!@#$%^&*...).")
+
+

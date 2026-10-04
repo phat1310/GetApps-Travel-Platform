@@ -2,10 +2,15 @@
 Hỗ trợ song song cả giao diện HTML (Jinja2 + Flask-WTF + CSRF) lẫn API JSON (Postman/Mobile).
 """
 import re
-from flask import request, jsonify, render_template, redirect, url_for, flash
+import random
+from datetime import datetime, timedelta
+from flask import request, jsonify, render_template, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
 from app.auth import auth_bp
-from app.auth.forms import LoginForm, RegisterForm, EditProfileForm, ChangePasswordForm
+from app.auth.forms import (
+    LoginForm, RegisterForm, EditProfileForm, ChangePasswordForm,
+    ForgotPasswordForm, ResetPasswordForm
+)
 from app.extensions import db
 from app.models import User, Follow, Post, Photo, Like, Comment, SavedPost, Location, Itinerary
 
@@ -322,4 +327,205 @@ def change_password():
         return redirect(url_for('auth.profile'))
 
     return render_template('auth/change_password.html', form=form), 400 if form.errors else 200
+
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Yêu cầu khôi phục mật khẩu qua Email hoặc Số điện thoại (SĐT)."""
+    if current_user.is_authenticated:
+        return redirect(url_for('locations.feed'))
+
+    form = ForgotPasswordForm()
+
+    # 1. API JSON
+    if request.is_json:
+        data = request.get_json() or {}
+        target = (data.get('target') or '').strip()
+        method = data.get('method') or ('email' if '@' in target else 'phone')
+
+        if not target:
+            return jsonify({"error": "Vui lòng cung cấp Email hoặc Số điện thoại"}), 400
+
+        user = None
+        if '@' in target or method == 'email':
+            user = User.query.filter_by(email=target).first()
+            if not user:
+                user = User.query.filter_by(phone_number=target).first()
+        else:
+            user = User.query.filter_by(phone_number=target).first()
+            if not user:
+                user = User.query.filter_by(email=target).first()
+
+        if not user:
+            return jsonify({"error": "Không tìm thấy tài khoản tương ứng với thông tin đã nhập"}), 404
+
+        otp_code = f"{random.randint(100000, 999999)}"
+        session['reset_user_id'] = user.id
+        session['reset_otp'] = otp_code
+        session['reset_target'] = target
+        session['reset_method'] = method
+        session['reset_expires_at'] = (datetime.utcnow() + timedelta(minutes=10)).timestamp()
+
+        masked_target = target[:3] + "***" + target[-3:] if len(target) > 6 else target
+        return jsonify({
+            "message": f"Mã xác nhận OTP đã được gửi đến {masked_target}",
+            "otp": otp_code,
+            "target": masked_target
+        }), 200
+
+    # 2. Xử lý Form HTML
+    if form.validate_on_submit():
+        target = form.target.data.strip()
+        method = form.method.data
+
+        user = None
+        if method == 'email' or '@' in target:
+            user = User.query.filter_by(email=target).first()
+            if not user:
+                user = User.query.filter_by(phone_number=target).first()
+        else:
+            user = User.query.filter_by(phone_number=target).first()
+            if not user:
+                user = User.query.filter_by(email=target).first()
+
+        if not user:
+            channel_name = "Email" if (method == 'email' or '@' in target) else "Số điện thoại"
+            form.target.errors.append(f"Không tìm thấy tài khoản nào gắn với {channel_name} này.")
+            return render_template('auth/forgot_password.html', form=form), 400
+
+        otp_code = f"{random.randint(100000, 999999)}"
+        session['reset_user_id'] = user.id
+        session['reset_otp'] = otp_code
+        session['reset_target'] = target
+        session['reset_method'] = method
+        session['reset_expires_at'] = (datetime.utcnow() + timedelta(minutes=10)).timestamp()
+
+        masked_target = target[:3] + "***" + target[-3:] if len(target) > 6 else target
+        channel_label = "Email" if (method == 'email' or '@' in target) else "Số điện thoại"
+        flash(f"Mã xác nhận OTP đã được gửi đến {channel_label} {masked_target}. (Mã kiểm thử: {otp_code} — có hiệu lực 10 phút)", "info")
+
+        return redirect(url_for('auth.reset_password'))
+
+    return render_template('auth/forgot_password.html', form=form)
+
+
+@auth_bp.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """Xác thực mã OTP và Đặt lại mật khẩu mới."""
+    if current_user.is_authenticated:
+        return redirect(url_for('locations.feed'))
+
+    user_id = session.get('reset_user_id')
+    stored_otp = session.get('reset_otp')
+    expires_at = session.get('reset_expires_at', 0)
+    target = session.get('reset_target', '')
+    method = session.get('reset_method', 'email')
+
+    if not user_id or not stored_otp:
+        flash("Vui lòng gửi yêu cầu khôi phục mật khẩu trước.", "warning")
+        return redirect(url_for('auth.forgot_password'))
+
+    if datetime.utcnow().timestamp() > expires_at:
+        session.pop('reset_user_id', None)
+        session.pop('reset_otp', None)
+        session.pop('reset_expires_at', None)
+        session.pop('reset_target', None)
+        flash("Mã xác nhận OTP đã hết hạn (quá 10 phút). Vui lòng yêu cầu mã mới.", "error")
+        return redirect(url_for('auth.forgot_password'))
+
+    form = ResetPasswordForm()
+
+    # 1. API JSON
+    if request.is_json:
+        data = request.get_json() or {}
+        otp = (data.get('otp') or '').strip()
+        new_pwd = data.get('new_password', '')
+        confirm_pwd = data.get('confirm_new_password', '')
+
+        if otp != stored_otp:
+            return jsonify({"error": "Mã xác thực OTP không chính xác"}), 400
+
+        if new_pwd != confirm_pwd:
+            return jsonify({"error": "Mật khẩu xác nhận không khớp"}), 400
+
+        if len(new_pwd) < 8 or not re.search(r'[A-Z]', new_pwd) or not re.search(r'[a-z]', new_pwd) or not re.search(r'[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]', new_pwd):
+            return jsonify({"error": "Mật khẩu mới phải từ 8 ký tự, gồm chữ hoa, chữ thường và ký tự đặc biệt"}), 400
+
+        user = db.session.get(User, user_id)
+        if not user:
+            return jsonify({"error": "Tài khoản không tồn tại"}), 404
+
+        if user.check_password(new_pwd):
+            return jsonify({"error": "Mật khẩu mới không được trùng với mật khẩu cũ"}), 400
+
+        user.set_password(new_pwd)
+        db.session.commit()
+
+        session.pop('reset_user_id', None)
+        session.pop('reset_otp', None)
+        session.pop('reset_expires_at', None)
+        session.pop('reset_target', None)
+        session.pop('reset_method', None)
+
+        return jsonify({"message": "Đặt lại mật khẩu thành công"}), 200
+
+    # 2. Xử lý Form HTML
+    if form.validate_on_submit():
+        if form.otp.data.strip() != stored_otp:
+            form.otp.errors.append("Mã xác thực OTP không chính xác.")
+            return render_template('auth/reset_password.html', form=form, target=target, method=method), 400
+
+        user = db.session.get(User, user_id)
+        if not user:
+            flash("Tài khoản không tồn tại hoặc đã bị xóa.", "error")
+            return redirect(url_for('auth.forgot_password'))
+
+        if user.check_password(form.new_password.data):
+            form.new_password.errors.append("Mật khẩu mới không được trùng với mật khẩu cũ.")
+            return render_template('auth/reset_password.html', form=form, target=target, method=method), 400
+
+        user.set_password(form.new_password.data)
+        db.session.commit()
+
+        session.pop('reset_user_id', None)
+        session.pop('reset_otp', None)
+        session.pop('reset_expires_at', None)
+        session.pop('reset_target', None)
+        session.pop('reset_method', None)
+
+        flash("Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.", "success")
+        return redirect(url_for('auth.login'))
+
+    return render_template('auth/reset_password.html', form=form, target=target, method=method), 400 if form.errors else 200
+
+
+@auth_bp.route('/resend-otp', methods=['POST'])
+def resend_otp():
+    """Gửi lại mã xác nhận OTP mới."""
+    user_id = session.get('reset_user_id')
+    target = session.get('reset_target')
+    method = session.get('reset_method', 'email')
+
+    if not user_id or not target:
+        if request.is_json:
+            return jsonify({"error": "Không tìm thấy phiên khôi phục mật khẩu hợp lệ"}), 400
+        flash("Vui lòng thực hiện yêu cầu khôi phục mật khẩu từ đầu.", "warning")
+        return redirect(url_for('auth.forgot_password'))
+
+    new_otp = f"{random.randint(100000, 999999)}"
+    session['reset_otp'] = new_otp
+    session['reset_expires_at'] = (datetime.utcnow() + timedelta(minutes=10)).timestamp()
+
+    masked_target = target[:3] + "***" + target[-3:] if len(target) > 6 else target
+    channel_label = "Email" if method == 'email' else "Số điện thoại"
+
+    if request.is_json:
+        return jsonify({
+            "message": f"Đã gửi lại mã OTP đến {masked_target}",
+            "otp": new_otp
+        }), 200
+
+    flash(f"Mã OTP mới đã được gửi lại tới {channel_label} {masked_target}. (Mã kiểm thử: {new_otp})", "info")
+    return redirect(url_for('auth.reset_password'))
+
 
