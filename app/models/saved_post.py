@@ -1,4 +1,4 @@
-"""Model SAVED POST — bài viết được người dùng lưu lại."""
+"""Model SAVED POST — bài viết hoặc lịch trình được người dùng lưu lại."""
 
 from datetime import datetime
 from app.extensions import db
@@ -18,7 +18,13 @@ class SavedPost(db.Model):
     post_id = db.Column(
         db.Integer,
         db.ForeignKey("posts.id"),
-        nullable=False
+        nullable=True
+    )
+
+    itinerary_id = db.Column(
+        db.Integer,
+        db.ForeignKey("itineraries.id"),
+        nullable=True
     )
 
     created_at = db.Column(
@@ -28,4 +34,6 @@ class SavedPost(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint("user_id", "post_id", name="unique_saved_post"),
+        db.UniqueConstraint("user_id", "itinerary_id", name="unique_saved_itinerary"),
+        db.CheckConstraint("(post_id IS NOT NULL) != (itinerary_id IS NOT NULL)", name="chk_saved_target"),
     )
