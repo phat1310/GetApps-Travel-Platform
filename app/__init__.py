@@ -98,6 +98,22 @@ def create_app(config_override=None):
                     if 'note' not in stop_cols:
                         conn.execute(text("ALTER TABLE itinerary_stops ADD COLUMN note TEXT"))
 
+                if 'saved_posts' in tables:
+                    sp_cols = [col['name'] for col in inspector.get_columns('saved_posts')]
+                    if 'itinerary_id' not in sp_cols:
+                        conn.execute(text("ALTER TABLE saved_posts ADD COLUMN itinerary_id INTEGER REFERENCES itineraries(id)"))
+
+                if 'itinerary_lodgings' in tables:
+                    lodg_cols = [col['name'] for col in inspector.get_columns('itinerary_lodgings')]
+                    if 'itinerary_id' not in lodg_cols:
+                        conn.execute(text("ALTER TABLE itinerary_lodgings ADD COLUMN itinerary_id INTEGER REFERENCES itineraries(id)"))
+                    if 'name' not in lodg_cols:
+                        conn.execute(text("ALTER TABLE itinerary_lodgings ADD COLUMN name VARCHAR(200)"))
+                    if 'note' not in lodg_cols:
+                        conn.execute(text("ALTER TABLE itinerary_lodgings ADD COLUMN note TEXT"))
+                    if 'booking_link' not in lodg_cols:
+                        conn.execute(text("ALTER TABLE itinerary_lodgings ADD COLUMN booking_link VARCHAR(500)"))
+
                 conn.commit()
         except Exception:
             pass
