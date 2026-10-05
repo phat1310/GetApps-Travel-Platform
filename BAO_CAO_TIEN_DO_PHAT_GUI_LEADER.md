@@ -4,41 +4,41 @@
 > **Người thực hiện:** **Phát (SE173285)** — *Frontend UI/UX & Phân hệ Lịch trình (Plan/Itinerary)*  
 > **Người nhận / Reviewer:** **Quốc Khánh (Team Leader)**  
 > **Nhánh làm việc (Branch):** `feature/phat-frontend-plan`  
-> **Trạng thái kiểm thử:** ✅ **56/56 Unit Test Suites PASSED (100%)**  
-> **Link Pull Request trên GitHub:** [Compare & Pull Request Nhánh Phat](https://github.com/quockhanhtkh2com-cell/GetApps/pull/new/feature/phat-frontend-plan)
+> **Trạng thái đồng bộ:** ✅ **Đã Hợp Nhất (Merged) Hoàn Toàn Với Nhánh `Dev` Mới Nhất**  
+> **Trạng thái kiểm thử:** ✅ **58/58 Unit Test Suites PASSED (100%)**  
+> **Link Pull Request trên GitHub:** [Compare & Pull Request vào nhánh Dev](https://github.com/quockhanhtkh2com-cell/GetApps/compare/Dev...feature/phat-frontend-plan)
 
 ---
 
-## 📊 1. TỔNG QUAN TIẾN ĐỘ & CÁC CHỨC NĂNG ĐÃ HOÀN THÀNH
+## 📊 1. TỔNG QUAN TIẾN ĐỘ & HỢP NHẤT VỚI NHÁNH DEV
 
-Chào Khánh! Để Khánh có cái nhìn trực quan và dễ dàng nghiệm thu tiến độ công việc của mình trên nhánh `feature/phat-frontend-plan`, dưới đây là bản tóm tắt toàn bộ các tính năng UI/UX và logic đã được xây dựng, trau chuốt tỉ mỉ theo đúng tài liệu thiết kế **Proposal GEs** và **Figma/Stitch Design**:
+Chào Khánh! Để hỗ trợ Khánh review và nghiệm thu một cách thuận tiện, an toàn nhất, Phát đã chủ động **kéo nhánh `Dev` mới nhất (chứa mã nguồn của Tuấn & Trúc)** về nhánh `feature/phat-frontend-plan` và **giải quyết triệt để 100% các xung đột (8 files conflict)**:
 
 ```mermaid
 flowchart TD
-    A["Nhánh main gốc (17838cc)"] --> B["feature/phat-frontend-plan"]
+    A["Nhánh Dev (Tuấn + Trúc: Google OAuth, Docker, Hashtags, Notifications, Search)"] --> M["Merge Commit (120da37)"]
+    B["Nhánh feature/phat-frontend-plan (Phát: UI/UX, Dark Mode, Proposal Settings, Plan Module)"] --> M
     
-    subgraph S1["Chặng 1 & 2: Nhận diện & Nền tảng"]
-        B --> C1["Thiết kế Logo Vector SVG (Sáng / Tối)"]
-        B --> C2["Bộ chuyển đổi Chế độ Nền Sáng / Nền Tối (Dark/Light Mode)"]
-        B --> C3["Chuẩn hóa bộ Icon Design System (18 Icons)"]
+    subgraph S1["Bảo toàn 100% tính năng Dev"]
+        M --> C1["Google OAuth 2.0 + CSRF Token + Docker"]
+        M --> C2["Hệ thống Thông báo (Notification on Follow)"]
+        M --> C3["Hashtags & Tìm kiếm Discovery"]
+        M --> C4["User Privacy & Secondary Email"]
     end
 
-    subgraph S2["Chặng 3: Xác thực & Bảo mật (Auth & Security)"]
-        C3 --> D1["Sửa triệt để Đăng nhập Email / SĐT / Username (Không phân biệt hoa thường)"]
-        C3 --> D2["Quên mật khẩu đa kênh (Email & SĐT qua OTP 6 số)"]
-        C3 --> D3["Đổi mật khẩu an toàn chuẩn 8 ký tự"]
+    subgraph S2["Toàn bộ thành quả UI/UX & Module của Phát"]
+        M --> D1["Logo Vector SVG 2 phiên bản Sáng / Tối"]
+        M --> D2["Bộ chuyển chế độ Dark / Light Mode"]
+        M --> D3["Đăng nhập đa kênh (Email không phân biệt hoa/thường, SĐT, Username)"]
+        M --> D4["Quên mật khẩu đa kênh qua OTP 6 số"]
+        M --> D5["Giao diện Cài đặt chuẩn Proposal GEs + Modal Chọn Nhãn"]
+        M --> D6["Toàn bộ Module Lịch trình (Itinerary CRUD + Days + Stops)"]
     end
 
-    subgraph S3["Chặng 4: Hồ sơ & Cài đặt (Profile Settings)"]
-        D1 --> E1["Trang Cài đặt tài khoản /settings (Chuẩn Proposal)"]
-        E1 --> E2["Modal Chọn Nhãn Hồ Sơ (Chips danh xưng du lịch)"]
-        E1 --> E3["Cập nhật Biệt danh, SĐT, Tiểu sử, Avatar tức thì"]
-        E1 --> E4["Tối ưu độ tương phản Sidebar Nền tối (100% rõ nét)"]
-    end
-
-    subgraph S4["Chất lượng & Sẵn sàng Merge"]
-        E4 --> F1["56/56 Unit Tests Passed 100%"]
-        F1 --> F2["Sẵn sàng Review & Merge vào main"]
+    subgraph S3["Kiểm thử tự động"]
+        C4 --> E1["58/58 Unit Tests PASSED 100%"]
+        D6 --> E1
+        E1 --> E2["Sẵn sàng 1-Click Merge vào Dev"]
     end
 ```
 
@@ -51,11 +51,13 @@ flowchart TD
 | **1** | **Logo Thương hiệu GEs** | Vẽ vector SVG chính thức (`logo.svg`, `logo_dark.svg`, `logo_icon.svg`), sắc nét ở mọi độ phân giải, tự đổi màu máy bay/chữ theo nền sáng/tối. | `app/static/images/logo*.svg` |
 | **2** | **Dark / Light Mode** | Công tắc Mặt trời / Mặt trăng trên Header. Lưu trạng thái vào `localStorage` và tự động nhận diện `prefers-color-scheme`. | `app/templates/base.html`, `style.css` |
 | **3** | **Đăng nhập linh hoạt** | **Sửa lỗi không đăng nhập được bằng Email**: Tự động `.strip()` khoảng trắng thừa, so sánh không phân biệt hoa/thường (`func.lower()`), hỗ trợ đăng nhập bằng cả 3: `Email`, `Username`, hoặc `Số điện thoại`. Dọn sạch session cũ trước khi đăng nhập. | `app/auth/routes.py`, `app/auth/forms.py` |
-| **4** | **Quên mật khẩu đa kênh** | Người dùng có thể nhận mã OTP 6 chữ số qua Email hoặc Số điện thoại để tự đặt lại mật khẩu mới. Hỗ trợ cả Web Form và JSON API. | `app/auth/routes.py` (`/forgot-password`) |
+| **4** | **Quên mật khẩu đa kênh** | Người dùng có thể nhận mã OTP 6 chữ số qua Email hoặc Số điện thoại để tự đặt lại mật khẩu mới. Hỗ trợ cả Web Form và JSON API. | `app/auth/routes.py` (`/forgot-password`, `/reset-password`, `/resend-otp`) |
 | **5** | **Giao diện Cài đặt (Settings)** | Thiết kế chuẩn theo ảnh Proposal: Avatar kèm nút Camera Cyan (`#0EA5E9`), Biệt danh, Nhãn, Email, SĐT, Tiểu sử, Khối BẢO MẬT đổi mật khẩu, Nút Đăng xuất màu đỏ nhạt mềm mại. | `app/templates/auth/settings.html` |
 | **6** | **Modal Chọn Nhãn Hồ Sơ** | Modal chuẩn Stitch: Chọn các chip danh xưng (`Người du lịch`, `Dân địa phương`, `Đi phượt`, `Hướng dẫn viên`, `Người nổi tiếng`) kèm nhãn đã thêm có dấu `x` gỡ bỏ. | `app/templates/auth/settings.html` |
 | **7** | **Đồng bộ hệ thống Icon** | Chuẩn hóa toàn bộ 18 icon theo Design System: Home, Explore, Plan, Post, Add, Like, Comment, Save, Share, Setting, Friends, More... | Toàn bộ templates |
 | **8** | **Độ tương phản Dark Mode** | Sửa dứt điểm lỗi chữ xám mờ trên nền trắng ở cột Sidebar phải của Bảng tin (`feed.html`). Nền thẻ chuyển sang Slate-800 (`#1E293B`) với chữ sáng rõ nét. | `feed.html`, `style.css` |
+| **9** | **Phân hệ Lịch trình (Plan/Itinerary)** | Đầy đủ chức năng Khám phá lịch trình, Tạo hành trình, Thêm ngày (Day), Thêm chặng dừng (Stop), Chi tiết timeline trực quan. Hỗ trợ song song cả Web HTML lẫn RESTful JSON API. | `app/plans/*`, `app/templates/plans/*` |
+| **10** | **Tương thích toàn diện với `Dev`** | Hợp nhất trơn tru Google OAuth, Onboarding, Contact update, CSRF token, Notification on follow, Hashtags, Search. | `app/auth/routes.py`, `app/models/*` |
 
 ---
 
@@ -81,16 +83,16 @@ git pull origin feature/phat-frontend-plan
 # Trên Windows PowerShell:
 .\venv\Scripts\activate
 
-# Nếu chưa cài đủ thư viện, chạy:
-pip install -r requirements.txt
+# Cài đặt thư viện nếu cần:
+pip install -r app/Report/requirements.txt
 ```
 
 ### Bước 3: Chạy toàn bộ bộ kiểm thử tự động (Verification)
-Khánh có thể chạy lệnh sau để kiểm tra tính toàn vẹn của mã nguồn:
+Khánh có thể chạy lệnh sau để kiểm tra tính toàn vẹn của toàn bộ mã nguồn:
 ```bash
 pytest -v
 ```
-> 👉 **Kết quả kỳ vọng:** Toàn bộ **56 passed** trong ~30 giây, không có bất kỳ lỗi nào (`exit code 0`).
+> 👉 **Kết quả kiểm thử:** Toàn bộ **58 passed (100%)**, bao gồm cả tests của Tuấn & Trúc (`test_like`, `test_comment`, `test_share`, `test_saved_post`) và tests của Phát (`test_auth_frontend`, `test_frontend`, `test_plans`).
 
 ### Bước 4: Khởi chạy ứng dụng Web
 ```bash
@@ -100,48 +102,69 @@ python run.py
 
 ---
 
-## 🧭 4. KỊCH BẢN TRẢI NGHIỆM TRỰC QUAN TRÊN TRÌNH DUYỆT (WALKTHROUGH)
+## 🧪 4. KỊCH BẢN TRẢI NGHIỆM TÍNH NĂNG (DEMO SCENARIOS)
 
-Để kiểm tra nhanh và trực quan nhất các tính năng Phát đã làm, Khánh có thể duyệt theo kịch bản 5 bước sau:
+Khánh có thể dùng các tài khoản test có sẵn (`testuser1` / `123456`) hoặc tự đăng ký tài khoản mới:
 
-### ✅ Bước 1: Trải nghiệm Nền Sáng / Nền Tối & Logo Vector
-1. Truy cập `http://127.0.0.1:5000/`.
-2. Bấm vào icon **Mặt trăng / Mặt trời** trên thanh Navbar bên góc phải.
-3. Quan sát: Giao diện chuyển đổi tức thì giữa nền sáng `#F8FAFC` và nền tối `#0F172A`, Logo `GEs` tự động đảo màu chữ và máy bay tương thích màu nền mà không hề bị giật/nháy màn hình.
+### Kịch bản 1: Kiểm tra Logo & Dark/Light Mode
+1. Truy cập `http://127.0.0.1:5000`.
+2. Quan sát logo GEs góc trái navbar (máy bay xanh ngọc lướt qua chữ GEs).
+3. Bấm vào icon **Mặt trăng / Mặt trời** trên navbar:
+   - Toàn bộ giao diện chuyển sang tông nền tối sang trọng (Dark Slate).
+   - Logo tự động đổi sang phiên bản nền tối với độ sáng chuẩn.
+   - F5 tải lại trang: Trạng thái Dark/Light Mode vẫn được lưu giữ nguyên vẹn.
 
-### ✅ Bước 2: Trải nghiệm Đăng nhập linh hoạt (Khắc phục lỗi Email)
-1. Bấm vào **"Đăng ký"** để tạo một tài khoản mới (hoặc dùng tài khoản sẵn có: username `user1`, mật khẩu `123456`).
-2. Tại trang **"Đăng nhập"** (`/login`), thử đăng nhập bằng các cách:
-   - Nhập email viết hoa có khoảng trắng ở hai đầu: ví dụ `"  NT.PHAT9A1@GMAIL.COM  "`.
-   - Hoặc nhập số điện thoại: `"0987654321"`.
-   - Hoặc nhập username: `"user1"`.
-3. 👉 Đăng nhập thành công 100% và chuyển hướng vào Bảng tin.
+### Kịch bản 2: Kiểm tra Đăng nhập linh hoạt (Email / SĐT / Username)
+1. Đăng xuất tài khoản nếu đang đăng nhập.
+2. Tại trang Đăng nhập (`/login`), Khánh có thể thử:
+   - Nhập email viết hoa/thường: `TEST1@EXAMPLE.COM` hoặc `test1@example.com` kèm mật khẩu `123456`.
+   - Nhập Username: `testuser1`.
+   - Nhập SĐT đã bổ sung vào hồ sơ.
+   - 👉 Cả 3 cách đều đăng nhập thành công mượt mà, không còn lỗi phân biệt chữ hoa thường hay khoảng trắng.
 
-### ✅ Bước 3: Trải nghiệm Quên mật khẩu qua OTP
-1. Bấm vào **"Quên mật khẩu?"** tại trang đăng nhập (`/forgot-password`).
-2. Chọn phương thức: qua **Email** hoặc **Số điện thoại**.
-3. Hệ thống sinh mã OTP 6 số và hiển thị thông báo flash (trong môi trường dev) $\rightarrow$ Nhập mã OTP và đặt lại mật khẩu mới.
+### Kịch bản 3: Quên mật khẩu & Khôi phục bằng OTP
+1. Tại trang Đăng nhập, bấm **"Quên mật khẩu?"** hoặc vào `http://127.0.0.1:5000/forgot-password`.
+2. Chọn nhận qua Email hoặc Số điện thoại.
+3. Nhập `test1@example.com` và bấm **"Gửi mã xác nhận"**.
+4. Hệ thống sẽ hiển thị mã OTP 6 số (mã test được flash trực tiếp lên màn hình và có hiệu lực 10 phút).
+5. Nhập mã OTP và đặt mật khẩu mới (ví dụ: `PassNew123!`).
+6. Bấm **"Xác nhận đổi mật khẩu"** -> Hoàn tất và đăng nhập lại bằng mật khẩu mới.
 
-### ✅ Bước 4: Trải nghiệm Trang Cài đặt Profile & Modal Chọn Nhãn
-1. Bấm vào Avatar của mình trên Navbar $\rightarrow$ chọn **"Cài đặt tài khoản"** (hoặc truy cập `http://127.0.0.1:5000/settings`).
-2. **Chiêm ngưỡng giao diện chuẩn Proposal:**
-   - Bấm vào nút **Camera xanh Cyan** ở góc Avatar để cập nhật link ảnh đại diện mới.
-   - Bấm vào dòng **Nhãn (Tags)** $\rightarrow$ Modal *"Chọn Nhãn Hồ Sơ"* sẽ hiện lên:
-     - Chọn các danh xưng: *Người du lịch*, *Dân địa phương*, *Đi phượt*, *Hướng dẫn viên*, *Người nổi tiếng*.
-     - Bấm **"Xác nhận"** $\rightarrow$ Nhãn được lưu ngay lập tức qua AJAX.
-   - Thử bấm vào dòng **Biệt danh**, **Số điện thoại**, **Tiểu sử** để cập nhật thông tin cá nhân.
-   - Mục **"Chỉnh sửa mật khẩu"** dẫn tới trang Đổi mật khẩu.
-   - Nút **"Đăng xuất"** màu đỏ nhạt bo góc mềm mại.
+### Kịch bản 4: Màn hình Cài đặt & Modal Chọn Nhãn
+1. Đăng nhập và truy cập `http://127.0.0.1:5000/settings`.
+2. Quan sát bố cục chuẩn Proposal GEs:
+   - Avatar kèm icon Camera Cyan.
+   - Ô Biệt danh, Nhãn hồ sơ, Email, Số điện thoại, Tiểu sử.
+   - Bấm nút **"Chọn nhãn"** -> Modal mở lên với các chip danh xưng (`Người du lịch`, `Dân địa phương`, `Đi phượt`...).
+   - Bấm chọn chip -> Nhãn được gán ngay lập tức vào hồ sơ.
+3. Bấm **"Lưu cài đặt"** -> Dữ liệu cập nhật thành công và hiển thị đồng bộ lên trang Cá nhân (`/profile`).
 
-### ✅ Bước 5: Trải nghiệm Bảng tin Du lịch (Feed) ở Chế độ Nền tối
-1. Truy cập `http://127.0.0.1:5000/locations/feed`.
-2. Bật chế độ Nền tối (Dark Mode).
-3. Quan sát: Cột bên phải (Sidebar) hiển thị nền thẻ Slate-800 sang trọng, chữ `user1`, email, role badge và các mục gợi ý hiển thị màu sắc tương phản rõ nét, không còn hiện tượng chữ xám mờ trên nền trắng.
+### Kịch bản 5: Phân hệ Lịch trình (Plans)
+1. Bấm vào mục **"Lịch trình"** trên Navbar (`/plans`).
+2. Xem danh sách hành trình cộng đồng, bấm **"Tạo lịch trình mới"**.
+3. Điền thông tin chuyến đi, thêm các ngày (Day 1, Day 2) và các điểm dừng (Stop), chỉnh sửa hoặc xóa điểm dừng.
 
 ---
 
-## 🤝 5. CAM KẾT VÀ ĐỀ XUẤT MERGE NHÁNH
+## 🔀 5. QUY TRÌNH MERGE VÀO NHÁNH `Dev` TRÊN GITHUB
 
-- **Không đụng chạm code logic của các thành viên khác:** Các chức năng của Tuấn, Trúc và Khánh đều được giữ nguyên vẹn và hoạt động trơn tru.
-- **Không xảy ra Merge Conflict:** Các tệp bổ sung thuộc tầng giao diện (Presentation) và route settings hoàn toàn độc lập.
-- Khánh xem qua báo cáo này, nếu thấy mọi thứ đã chuẩn chỉnh thì có thể duyệt Pull Request và tiến hành Merge nhánh `feature/phat-frontend-plan` vào `main` nhé! Cảm ơn nhóm trưởng!
+Nhánh `feature/phat-frontend-plan` đã tích hợp đầy đủ và đồng bộ hoàn toàn với `Dev`. Khánh chỉ cần thực hiện 1 trong 2 cách sau:
+
+### Cách 1: Tạo Pull Request trên giao diện GitHub (Khuyến nghị)
+1. Truy cập link: **[Create Pull Request](https://github.com/quockhanhtkh2com-cell/GetApps/compare/Dev...feature/phat-frontend-plan)**.
+2. Chọn Base branch là **`Dev`** và Compare branch là **`feature/phat-frontend-plan`**.
+3. GitHub sẽ báo **"Able to merge"** (không có xung đột).
+4. Bấm **"Create pull request"** và nhấn **"Merge pull request"**.
+
+### Cách 2: Merge trực tiếp bằng dòng lệnh Git
+Nếu Khánh muốn merge trực tiếp trên máy:
+```bash
+git checkout Dev
+git pull origin Dev
+git merge feature/phat-frontend-plan --no-ff -m "merge: integrate UI/UX, Dark Mode, Proposal Settings & Plan module from feature/phat-frontend-plan"
+git push origin Dev
+```
+
+---
+
+*Báo cáo được tổng hợp bởi **Phát (SE173285)** — Sẵn sàng phối hợp cùng Khánh và nhóm để hoàn thiện đồ án PWD301 đạt điểm tối đa!*
