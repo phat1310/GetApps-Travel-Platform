@@ -554,7 +554,7 @@
 
 <!-- MODAL: ĐỔI ẢNH ĐẠI DIỆN -->
 <div class="modal fade" id="avatarModal" tabindex="-1" aria-labelledby="avatarModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
         <div class="modal-content" style="border-radius: 20px; padding: 1.25rem;">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold" id="avatarModalLabel">Cập nhật ảnh đại diện</h5>
@@ -564,21 +564,59 @@
                 <div class="text-center mb-3">
                     <img src="{{ current_user.avatar_url or url_for('static', filename='images/default_avatar.svg') }}" 
                          id="avatar-preview-box" 
-                         style="width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid var(--ges-primary);"
+                         style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--ges-primary); box-shadow: 0 4px 12px rgba(14,165,233,0.25);"
                          onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.username }}&background=0ea5e9&color=fff'">
                 </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold">Đường dẫn URL ảnh</label>
-                    <input type="url" class="form-control" id="avatar-url-input" 
-                           placeholder="https://example.com/avatar.jpg" 
-                           value="{{ current_user.avatar_url or '' }}"
-                           oninput="previewAvatarUrl(this.value)">
-                    <div class="form-text small text-muted">Nhập đường dẫn trực tiếp tới hình ảnh đại diện của bạn.</div>
+
+                <!-- Tab chọn: Từ thiết bị / Nhập URL -->
+                <ul class="nav nav-pills nav-fill mb-3 p-1 bg-light rounded-3" id="avatarTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active py-2 small fw-bold" id="device-tab" data-bs-toggle="tab" data-bs-target="#tab-device" type="button" role="tab">
+                            <i class="bi bi-laptop me-1"></i> Tải từ thiết bị
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link py-2 small fw-bold" id="url-tab" data-bs-toggle="tab" data-bs-target="#tab-url" type="button" role="tab">
+                            <i class="bi bi-link-45deg me-1"></i> Đường dẫn URL
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Tab 1: Tải từ thiết bị -->
+                    <div class="tab-pane fade show active" id="tab-device" role="tabpanel">
+                        <div class="p-3 border border-2 border-dashed rounded-3 text-center bg-light-subtle" 
+                             style="cursor: pointer; transition: all 0.2s ease;" 
+                             onclick="document.getElementById('avatar-file-input').click()">
+                            <i class="bi bi-cloud-arrow-up-fill fs-1 text-primary"></i>
+                            <div class="fw-bold small mt-1">Bấm để chọn ảnh từ máy tính / điện thoại</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Hỗ trợ JPG, PNG, WEBP, GIF (tối đa 10MB)</div>
+                            <div id="selected-filename-badge" class="badge bg-primary-subtle text-primary-emphasis mt-2" style="display: none;"></div>
+                        </div>
+                        <input type="file" id="avatar-file-input" class="d-none" accept="image/*" onchange="handleAvatarFileSelect(event)">
+                    </div>
+
+                    <!-- Tab 2: Nhập URL -->
+                    <div class="tab-pane fade" id="tab-url" role="tabpanel">
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Đường dẫn URL ảnh</label>
+                            <input type="url" class="form-control form-control-sm" id="avatar-url-input" 
+                                   placeholder="https://example.com/avatar.jpg" 
+                                   value="{{ current_user.avatar_url or '' }}"
+                                   oninput="previewAvatarUrl(this.value)">
+                            <div class="form-text small text-muted">Nhập đường dẫn trực tiếp tới ảnh đại diện của bạn.</div>
+                        </div>
+                    </div>
                 </div>
+
+                <div id="avatar-error-msg" class="text-danger small mt-2 text-center" style="display: none;"></div>
             </div>
             <div class="modal-footer border-0 pt-0">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal" style="border-radius: 10px;">Hủy</button>
-                <button type="button" class="btn btn-ges-primary px-4 fw-bold" onclick="saveAvatarUrl()" style="border-radius: 10px;">Lưu ảnh</button>
+                <button type="button" class="btn btn-ges-primary px-4 fw-bold" id="btn-save-avatar" onclick="saveAvatar()" style="border-radius: 10px;">
+                    <span id="save-avatar-spinner" class="spinner-border spinner-border-sm me-1" style="display: none;"></span>
+                    Lưu ảnh
+                </button>
             </div>
         </div>
     </div>
@@ -661,9 +699,30 @@
         }, 300);
     }
 
+    let selectedAvatarFile = null;
+
     function openAvatarModal() {
         const modal = new bootstrap.Modal(document.getElementById('avatarModal'));
         modal.show();
+    }
+
+    function handleAvatarFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        selectedAvatarFile = file;
+
+        const badge = document.getElementById('selected-filename-badge');
+        if (badge) {
+            badge.innerText = "✓ " + file.name;
+            badge.style.display = 'inline-block';
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('avatar-preview-box');
+            if (img) img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     }
 
     function previewAvatarUrl(url) {
@@ -673,33 +732,111 @@
         }
     }
 
-    function saveAvatarUrl() {
-        const input = document.getElementById('avatar-url-input');
-        const url = input.value.trim();
-        if (!url) return;
+    async function saveAvatar() {
+        const saveBtn = document.getElementById('btn-save-avatar');
+        const spinner = document.getElementById('save-avatar-spinner');
+        const errorBox = document.getElementById('avatar-error-msg');
+        if (errorBox) errorBox.style.display = 'none';
 
-        fetch("{{ url_for('auth.update_profile_avatar') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-Requested-With": "XMLHttpRequest"
-            },
-            body: JSON.stringify({ avatar_url: url })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.avatar_url) {
-                const img = document.getElementById('settings-avatar-img');
-                if (img) img.src = data.avatar_url;
-                const modalEl = document.getElementById('avatarModal');
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) modal.hide();
+        const isDeviceTab = document.getElementById('device-tab')?.classList.contains('active');
+
+        if (isDeviceTab) {
+            if (!selectedAvatarFile) {
+                if (errorBox) {
+                    errorBox.innerText = "Vui lòng chọn một file ảnh từ thiết bị của bạn.";
+                    errorBox.style.display = 'block';
+                }
+                return;
             }
-        })
-        .catch(err => {
-            console.error("Lỗi cập nhật avatar:", err);
-            window.location.reload();
-        });
+
+            const formData = new FormData();
+            formData.append('avatar_file', selectedAvatarFile);
+
+            if (saveBtn) saveBtn.disabled = true;
+            if (spinner) spinner.style.display = 'inline-block';
+
+            try {
+                const res = await fetch("{{ url_for('auth.update_profile_avatar') }}", {
+                    method: "POST",
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok && data.avatar_url) {
+                    onAvatarUpdated(data.avatar_url);
+                } else {
+                    if (errorBox) {
+                        errorBox.innerText = data.error || "Không thể tải ảnh lên.";
+                        errorBox.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                if (errorBox) {
+                    errorBox.innerText = "Lỗi kết nối máy chủ khi tải ảnh.";
+                    errorBox.style.display = 'block';
+                }
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+                if (spinner) spinner.style.display = 'none';
+            }
+        } else {
+            const input = document.getElementById('avatar-url-input');
+            const url = input ? input.value.trim() : '';
+            if (!url) {
+                if (errorBox) {
+                    errorBox.innerText = "Vui lòng nhập đường dẫn URL ảnh.";
+                    errorBox.style.display = 'block';
+                }
+                return;
+            }
+
+            if (saveBtn) saveBtn.disabled = true;
+            if (spinner) spinner.style.display = 'inline-block';
+
+            try {
+                const res = await fetch("{{ url_for('auth.update_profile_avatar') }}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: JSON.stringify({ avatar_url: url })
+                });
+                const data = await res.json();
+                if (res.ok && data.avatar_url) {
+                    onAvatarUpdated(data.avatar_url);
+                } else {
+                    if (errorBox) {
+                        errorBox.innerText = data.error || "Đường dẫn ảnh không hợp lệ.";
+                        errorBox.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                if (errorBox) {
+                    errorBox.innerText = "Lỗi kết nối máy chủ.";
+                    errorBox.style.display = 'block';
+                }
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+                if (spinner) spinner.style.display = 'none';
+            }
+        }
+    }
+
+    function onAvatarUpdated(avatarUrl) {
+        const mainImg = document.getElementById('settings-avatar-img');
+        if (mainImg) mainImg.src = avatarUrl;
+        const navImg = document.querySelector('.navbar .avatar');
+        if (navImg && navImg.tagName === 'IMG') navImg.src = avatarUrl;
+
+        const modalEl = document.getElementById('avatarModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    }
+
+    // Alias tương thích
+    function saveAvatarUrl() {
+        saveAvatar();
     }
 
     document.addEventListener('DOMContentLoaded', () => {

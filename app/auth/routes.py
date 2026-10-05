@@ -4,6 +4,7 @@ thông tin liên hệ, CSRF token, và đăng nhập Google OAuth.
 Hỗ trợ song song cả giao diện HTML (Jinja2 + Flask-WTF + CSRF) lẫn API JSON (Postman/Mobile).
 """
 import json
+import os
 import random
 import re
 import secrets
@@ -11,6 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
+from werkzeug.utils import secure_filename
 
 from flask import (
     current_app,
@@ -490,6 +492,7 @@ def settings():
 
 @auth_bp.route('/api/profile/tag', methods=['POST'])
 @login_required
+@csrf.exempt
 def update_profile_tag():
     """API cập nhật nhanh nhãn hồ sơ từ modal Chọn Nhãn Hồ Sơ."""
     data = request.get_json(silent=True) if request.is_json else request.form
@@ -508,13 +511,38 @@ def update_profile_tag():
 
 @auth_bp.route('/api/profile/avatar', methods=['POST'])
 @login_required
+@csrf.exempt
 def update_profile_avatar():
-    """API cập nhật nhanh đường dẫn ảnh đại diện."""
+    """API cập nhật ảnh đại diện: hỗ trợ upload trực tiếp từ thiết bị lẫn đường dẫn URL."""
+    # 1. Kiểm tra nếu có upload file ảnh từ thiết bị
+    if 'avatar_file' in request.files or 'file' in request.files or 'avatar' in request.files:
+        uploaded_file = request.files.get('avatar_file') or request.files.get('file') or request.files.get('avatar')
+        if uploaded_file and uploaded_file.filename:
+            filename = secure_filename(uploaded_file.filename)
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            allowed_exts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
+            if ext not in allowed_exts:
+                return jsonify({"error": "Định dạng file không hỗ trợ. Vui lòng chọn ảnh JPG, PNG, WEBP hoặc GIF"}), 400
+
+            unique_filename = f"avatar_{current_user.id}_{secrets.token_hex(6)}.{ext}"
+            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'avatars')
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, unique_filename)
+            uploaded_file.save(file_path)
+
+            current_user.avatar_url = f"/static/uploads/avatars/{unique_filename}"
+            db.session.commit()
+            return jsonify({
+                "message": "Cập nhật ảnh đại diện thành công",
+                "avatar_url": current_user.avatar_url
+            })
+
+    # 2. Hoặc cập nhật bằng link URL
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
     avatar_url = (data.get('avatar_url') or '').strip()
     if not avatar_url:
-        return jsonify({"error": "Đường dẫn ảnh đại diện không hợp lệ"}), 400
+        return jsonify({"error": "Vui lòng chọn file ảnh từ thiết bị hoặc nhập đường dẫn ảnh hợp lệ"}), 400
 
     current_user.avatar_url = avatar_url
     db.session.commit()
