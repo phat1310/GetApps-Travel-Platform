@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Cài đặt — {{ config.APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <h2 class="fw-bold mb-4"><i class="bi bi-gear"></i> Cài đặt tài khoản</h2>
+
+        <!-- ============ 1. ĐỔI MẬT KHẨU ============ -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h5 class="card-title fw-bold mb-3"><i class="bi bi-shield-lock"></i> Đổi mật khẩu</h5>
+                <div id="password-alert"></div>
+                <form id="password-form" novalidate>
+                    <div class="mb-3">
+                        <label for="old_password" class="form-label">Mật khẩu hiện tại</label>
+                        <input type="password" class="form-control" id="old_password" autocomplete="current-password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">Mật khẩu mới</label>
+                        <input type="password" class="form-control" id="new_password" autocomplete="new-password" required>
+                        <div class="form-text">Ít nhất 8 ký tự, gồm chữ và số.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Nhập lại mật khẩu mới</label>
+                        <input type="password" class="form-control" id="confirm_password" autocomplete="new-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-ges-primary">Đổi mật khẩu</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============ 2. THÔNG TIN LIÊN HỆ ============ -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h5 class="card-title fw-bold mb-3"><i class="bi bi-telephone"></i> Thông tin liên hệ</h5>
+                <div id="contact-alert"></div>
+                <form id="contact-form" novalidate>
+                    <div class="mb-3">
+                        <label for="phone_number" class="form-label">Số điện thoại</label>
+                        <input type="tel" class="form-control" id="phone_number" value="{{ current_user.phone_number or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="secondary_email" class="form-label">Email phụ</label>
+                        <input type="email" class="form-control" id="secondary_email" value="{{ current_user.secondary_email or '' }}">
+                        <div class="form-text">Không được trùng email chính hoặc email của tài khoản khác.</div>
+                    </div>
+                    <button type="submit" class="btn btn-ges-primary">Lưu thông tin</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============ 3. RIÊNG TƯ (GIỮ CHỖ) ============ -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h5 class="card-title fw-bold mb-3"><i class="bi bi-lock"></i> Riêng tư tài khoản</h5>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="private-account" disabled>
+                    <label class="form-check-label" for="private-account">Đặt tài khoản ở chế độ riêng tư</label>
+                </div>
+                <div class="form-text">Tính năng đang chờ API riêng tư toàn trang, sẽ mở sau.</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+
+    function showAlert(boxId, type, text) {
+        const box = document.getElementById(boxId);
+        box.innerHTML = "";
+        const div = document.createElement("div");
+        div.className = "alert alert-" + type + " py-2";
+        div.setAttribute("role", "alert");
+        div.textContent = text;   // textContent: không chèn HTML từ server vào trang
+        box.appendChild(div);
+    }
+
+    function fallbackError(status) {
+        if (status === 400) return "Phiên làm việc đã hết hạn, hãy tải lại trang rồi thử lại.";
+        if (status === 401) return "Bạn cần đăng nhập lại.";
+        return "Có lỗi xảy ra, vui lòng thử lại.";
+    }
+
+    async function postJson(url, body) {
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN},
+            body: JSON.stringify(body)
+        });
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* phản hồi không phải JSON */ }
+        return {ok: res.ok, status: res.status, data: data};
+    }
+
+    // ---- Đổi mật khẩu ----
+    document.getElementById("password-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const oldPw = document.getElementById("old_password").value;
+        const newPw = document.getElementById("new_password").value;
+        const confirmPw = document.getElementById("confirm_password").value;
+
+        if (!oldPw || !newPw) {
+            showAlert("password-alert", "danger", "Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới.");
+            return;
+        }
+        if (newPw !== confirmPw) {
+            showAlert("password-alert", "danger", "Mật khẩu nhập lại không khớp.");
+            return;
+        }
+
+        const btn = e.target.querySelector("button[type=submit]");
+        btn.disabled = true;
+        try {
+            const r = await postJson("/change-password", {old_password: oldPw, new_password: newPw});
+            if (r.ok) {
+                showAlert("password-alert", "success", r.data.message || "Đổi mật khẩu thành công");
+                e.target.reset();
+            } else {
+                showAlert("password-alert", "danger", r.data.error || fallbackError(r.status));
+            }
+        } catch (err) {
+            showAlert("password-alert", "danger", "Không kết nối được máy chủ.");
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // ---- Thông tin liên hệ ----
+    document.getElementById("contact-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const phone = document.getElementById("phone_number").value.trim();
+        const email = document.getElementById("secondary_email").value.trim();
+
+        const body = {};
+        if (phone) body.phone_number = phone;
+        if (email) body.secondary_email = email;
+        if (!phone && !email) {
+            showAlert("contact-alert", "danger", "Nhập ít nhất số điện thoại hoặc email phụ.");
+            return;
+        }
+
+        const btn = e.target.querySelector("button[type=submit]");
+        btn.disabled = true;
+        try {
+            const r = await postJson("/settings/contact", body);
+            if (r.ok) {
+                showAlert("contact-alert", "success", r.data.message || "Đã lưu thông tin liên hệ");
+            } else {
+                showAlert("contact-alert", "danger", r.data.error || fallbackError(r.status));
+            }
+        } catch (err) {
+            showAlert("contact-alert", "danger", "Không kết nối được máy chủ.");
+        } finally {
+            btn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

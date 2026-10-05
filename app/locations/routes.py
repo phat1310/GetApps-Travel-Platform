@@ -1,5 +1,5 @@
-"""Routes LOCATIONS — route đăng bài (nhiều ảnh/video), bảng tin, like.
-Cần mở rộng thêm Place, Album, Tag.
+"""Routes LOCATIONS — đăng bài (nhiều ảnh/video + hashtag), bảng tin Discovery,
+chi tiết bài viết, like, comment, share, save, địa điểm, lịch trình.
 """
 import os
 import uuid
@@ -10,6 +10,9 @@ from app.locations import locations_bp
 from app.extensions import db
 from app.models import Post, Photo, Like, Comment, Share, SavedPost, Location, Itinerary, ItineraryDay, ItineraryStop, ItineraryLodging, ItineraryAttachment
 from app.locations.utils import get_or_create_location, normalize_location_name
+from app.locations.hashtag_utils import parse_hashtags, get_or_create_hashtag
+from app.locations.serializers import serialize_posts
+
 
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 VIDEO_EXTENSIONS = {'mp4', 'mov', 'webm'}
@@ -61,8 +64,13 @@ def create_post():
     if visibility not in ("public", "private"):
         return jsonify({"error": "visibility phải là 'public' hoặc 'private'"}), 400
 
-    location_name = request.form.get("location_name", "")
-    location = get_or_create_location(location_name)
+    # Kiểm tra hashtag TRƯỚC khi tạo bất cứ thứ gì (địa điểm, bài viết)
+    hashtag_names, hashtag_error = parse_hashtags(request.form.getlist("hashtags"))
+    if hashtag_error:
+        return jsonify({"error": hashtag_error}), 400
+
+    # Tạo/tìm địa điểm TRƯỚC khi tạo Post, vì get_or_create_location có thể commit
+    location = get_or_create_location(request.form.get("location_name", ""))
 
     warning = None
     extra_names = request.form.getlist("extra_location_names")
@@ -71,6 +79,12 @@ def create_post():
         extra_names = extra_names[:2]
         extra_links = extra_links[:2]
         warning = "Bạn đã thêm tối đa 2 địa điểm phụ, các địa điểm còn lại đã bị bỏ qua"
+
+    extra_locations = []
+    for name, link in zip(extra_names, extra_links):
+        extra_loc = get_or_create_location(name, map_link=link)
+        if extra_loc and extra_loc not in extra_locations:
+            extra_locations.append(extra_loc)
 
     post = Post(
         user_id=current_user.id,
@@ -81,16 +95,16 @@ def create_post():
     db.session.add(post)
     db.session.flush()  # để lấy post.id trước khi commit, dùng gán cho Photo bên dưới
 
-    for name, link in zip(extra_names, extra_links):
-        extra_loc = get_or_create_location(name, map_link=link)
-        if extra_loc:
-            post.extra_locations.append(extra_loc)
+    post.extra_locations.extend(extra_locations)
 
     upload_folder = os.path.join(current_app.root_path, "static", "uploads")
     os.makedirs(upload_folder, exist_ok=True)
 
     saved_paths = []  # theo dõi các file đã ghi lên đĩa để dọn dẹp nếu có lỗi giữa chừng
     try:
+        for name in hashtag_names:
+            post.hashtags.append(get_or_create_hashtag(name))
+
         for file in files:
             media_type = get_media_type(file.filename)
             ext = secure_filename(file.filename).rsplit(".", 1)[1]
@@ -114,41 +128,50 @@ def create_post():
                 os.remove(path)
         return jsonify({"error": "Có lỗi xảy ra khi lưu bài viết, vui lòng thử lại"}), 500
 
-    response = {"message": "Đăng bài thành công", "post_id": post.id}
+    response = {"message": "Đăng bài thành công", "post_id": post.id, "hashtags": hashtag_names}
     if warning:
         response["warning"] = warning
     return jsonify(response), 201
 
+
 @locations_bp.route("/feed", methods=["GET"])
 @login_required
 def feed():
-    from app.models import Follow
+    """Feed kiểu Discovery: mọi bài Public, mới nhất trước.
+    Hỗ trợ phân trang: ?page=1&per_page=10 (per_page tối đa 50)."""
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = min(max(request.args.get("per_page", 10, type=int), 1), 50)
 
-    following_ids = [
-        f.followed_id for f in Follow.query.filter_by(follower_id=current_user.id).all()
-    ]
-
+    # TODO: khi Trúc làm xong "riêng tư toàn trang", thêm điều kiện loại bài của tài khoản riêng tư
     posts = (
-        Post.query.filter(Post.user_id.in_(following_ids))
-        .order_by(Post.created_at.desc())
+        Post.query.filter(Post.visibility == "public")
+        .order_by(Post.created_at.desc(), Post.id.desc())
+        .limit(per_page + 1)          # lấy dư 1 bài để biết còn trang sau không
+        .offset((page - 1) * per_page)
         .all()
     )
+    has_next = len(posts) > per_page
+    posts = posts[:per_page]
 
-    result = [
-        {
-            "post_id": p.id,
-            "user_id": p.user_id,
-            "caption": p.caption,
-            "created_at": p.created_at.isoformat(),
-            "media": [
-                {"file_path": ph.file_path, "media_type": ph.media_type}
-                for ph in Photo.query.filter_by(post_id=p.id).all()
-            ],
-        }
-        for p in posts
-    ]
+    return jsonify({
+        "feed": serialize_posts(posts, current_user.id),
+        "page": page,
+        "per_page": per_page,
+        "has_next": has_next,
+    })
 
-    return jsonify({"feed": result})
+
+@locations_bp.route("/posts/<int:post_id>", methods=["GET"])
+@login_required
+def get_post(post_id):
+    """Chi tiết 1 bài viết (thay cho route địa điểm cũ đã không còn)."""
+    post = db.session.get(Post, post_id)
+    if not post:
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if not user_can_access_post(post):
+        return jsonify({"error": "Bạn không có quyền xem bài viết này"}), 403
+
+    return jsonify({"post": serialize_posts([post], current_user.id)[0]})
 
 @locations_bp.route("/posts/<int:post_id>/like", methods=["POST"])
 @login_required

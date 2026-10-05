@@ -13,6 +13,8 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    secondary_email = db.Column(db.String(120), unique=True, nullable=True)
+    google_id = db.Column(db.String(64), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default="user")
     avatar_url = db.Column(db.String(255), nullable=True)
@@ -22,6 +24,10 @@ class User(UserMixin, db.Model):
     tags = db.Column(db.String(255), nullable=True)  # CSV tối đa 3 nhãn cố định, VD "dan_dia_phuong,di_phuot"
     profile_completed = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint("google_id", name="uq_users_google_id"),
+    )
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
