@@ -24,6 +24,8 @@ from app.models import (
     Share,
     Location
 )
+from app.models.hashtag import Hashtag
+from app.locations.hashtag_utils import normalize_hashtag
 
 
 # =========================================================
@@ -603,21 +605,21 @@ def search_hashtags():
     /api/hashtags/search?q=dalat
     """
 
-    keyword = request.args.get(
-        "q",
-        ""
-    ).strip().lstrip("#").lower()
+    keyword = normalize_hashtag(request.args.get("q", ""))
 
     if not keyword:
         return jsonify({
             "error": "Thiếu hashtag cần tìm"
         }), 400
 
-    posts = Post.query.filter(
-        Post.hashtags.ilike(f"%{keyword}%")
-    ).order_by(
-        Post.created_at.desc()
-    ).limit(20).all()
+    posts = (
+        Post.query
+        .join(Post.hashtags)
+        .filter(Hashtag.name == keyword)
+        .order_by(Post.created_at.desc())
+        .limit(20)
+        .all()
+    )
 
     result = []
 
@@ -626,7 +628,7 @@ def search_hashtags():
             "id": post.id,
             "user_id": post.user_id,
             "caption": post.caption,
-            "hashtags": post.hashtags,
+            "hashtags": [h.name for h in post.hashtags],
             "visibility": post.visibility,
             "created_at": (
                 post.created_at.isoformat()
@@ -676,12 +678,14 @@ def search_all():
 
     posts = (
         Post.query
+        .outerjoin(Post.hashtags)
         .filter(
             db.or_(
                 Post.caption.ilike(f"%{keyword}%"),
-                Post.hashtags.ilike(f"%{keyword}%")
+                Hashtag.name.ilike(f"%{keyword}%")
             )
         )
+        .distinct()
         .all()
     )
 
@@ -713,25 +717,16 @@ def search_all():
         # -------------------------------------------------
         # HASHTAG POPULARITY
         # -------------------------------------------------
+        tag_names = [h.name for h in post.hashtags]
         hashtag_popularity = 0
 
-        if post.hashtags:
-            hashtags = [
-                tag.strip().lstrip("#").lower()
-                for tag in post.hashtags.split(",")
-                if tag.strip()
-            ]
-
-            for tag in hashtags:
-                hashtag_popularity += (
-                    Post.query
-                    .filter(
-                        Post.hashtags.ilike(
-                            f"%{tag}%"
-                        )
-                    )
-                    .count()
-                )
+        for tag in tag_names:
+            hashtag_popularity += (
+                Post.query
+                .join(Post.hashtags)
+                .filter(Hashtag.name == tag)
+                .count()
+            )
 
         # -------------------------------------------------
         # TOTAL SCORE
@@ -747,7 +742,7 @@ def search_all():
             "id": post.id,
             "user_id": post.user_id,
             "caption": post.caption,
-            "hashtags": post.hashtags,
+            "hashtags": tag_names,
             "visibility": post.visibility,
             "created_at": (
                 post.created_at.isoformat()
