@@ -33,11 +33,14 @@ flowchart TD
         M --> D4["Quên mật khẩu đa kênh qua OTP 6 số"]
         M --> D5["Giao diện Cài đặt chuẩn Proposal GEs + Modal Chọn Nhãn"]
         M --> D6["Toàn bộ Module Lịch trình (Itinerary CRUD + Days + Stops)"]
+        M --> D7["Tải ảnh đại diện thật từ thiết bị & Hỗ trợ Kéo-Thả (Drag & Drop)"]
+        M --> D8["Cơ chế Auto-Migration SQLite tự động vá thiếu sót schema"]
+        M --> D9["Bảo mật CSRF Fetch Header toàn diện & Fix triệt để lỗi Logout"]
     end
 
     subgraph S3["Kiểm thử tự động"]
         C4 --> E1["58/58 Unit Tests PASSED 100%"]
-        D6 --> E1
+        D9 --> E1
         E1 --> E2["Sẵn sàng 1-Click Merge vào Dev"]
     end
 ```
@@ -58,6 +61,9 @@ flowchart TD
 | **8** | **Độ tương phản Dark Mode** | Sửa dứt điểm lỗi chữ xám mờ trên nền trắng ở cột Sidebar phải của Bảng tin (`feed.html`). Nền thẻ chuyển sang Slate-800 (`#1E293B`) với chữ sáng rõ nét. | `feed.html`, `style.css` |
 | **9** | **Phân hệ Lịch trình (Plan/Itinerary)** | Đầy đủ chức năng Khám phá lịch trình, Tạo hành trình, Thêm ngày (Day), Thêm chặng dừng (Stop), Chi tiết timeline trực quan. Hỗ trợ song song cả Web HTML lẫn RESTful JSON API. | `app/plans/*`, `app/templates/plans/*` |
 | **10** | **Tương thích toàn diện với `Dev`** | Hợp nhất trơn tru Google OAuth, Onboarding, Contact update, CSRF token, Notification on follow, Hashtags, Search. | `app/auth/routes.py`, `app/models/*` |
+| **11** | **Upload Avatar Kéo & Thả (Drag & Drop)** | Hỗ trợ người dùng kéo & thả trực tiếp file ảnh từ File Explorer của Windows/máy tính hoặc click duyệt file. Xem trước (Preview) tức thì bằng HTML5 `FileReader`, kiểm tra định dạng và giới hạn 10MB. Hiệu ứng viền sáng/nền chuẩn cho cả Light & Dark Mode. Lưu file an toàn tại `static/uploads/avatars/`. | `app/templates/auth/settings.html`, `app/auth/routes.py` |
+| **12** | **Tự động vá SQLite Schema (Auto-Migration)** | Bổ sung cơ chế tự động kiểm tra và thêm cột/bảng thiếu sót (như `saved_posts.itinerary_id`, `itinerary_lodgings`...) khi ứng dụng khởi chạy mà không làm mất dữ liệu hiện có trong `instance/app.db`. Loại bỏ triệt để lỗi 500 `OperationalError: no such column`. | `app/__init__.py` |
+| **13** | **Bảo mật CSRF & Khắc phục Đăng xuất (Logout)** | Khắc phục dứt điểm lỗi `400 Bad Request: The CSRF token is missing` khi đăng xuất. Tích hợp Global Fetch CSRF Header Interceptor tự động gán token cho toàn bộ thao tác AJAX của ứng dụng. | `app/templates/base.html`, `app/auth/routes.py` |
 
 ---
 
@@ -143,6 +149,18 @@ Khánh có thể dùng các tài khoản test có sẵn (`testuser1` / `123456`)
 1. Bấm vào mục **"Lịch trình"** trên Navbar (`/plans`).
 2. Xem danh sách hành trình cộng đồng, bấm **"Tạo lịch trình mới"**.
 3. Điền thông tin chuyến đi, thêm các ngày (Day 1, Day 2) và các điểm dừng (Stop), chỉnh sửa hoặc xóa điểm dừng.
+
+### Kịch bản 6: Kéo & Thả Đổi Ảnh Đại Diện (Avatar Drag & Drop) & Đăng Xuất An Toàn
+1. Đăng nhập và truy cập `http://127.0.0.1:5000/settings`.
+2. Bấm vào ảnh đại diện hoặc nút **"Đổi ảnh đại diện"**.
+3. Tại tab **"Tải từ thiết bị"**, mở Thư mục (File Explorer) trên máy tính, nắm kéo một bức ảnh bất kỳ (`.jpg`, `.png`, `.webp`, `.gif`) và **thả trực tiếp** vào ô *"Kéo thả ảnh vào đây hoặc bấm để chọn"*.
+4. Quan sát:
+   - Khung dropzone tự động phát sáng viền và đổi màu nền hiệu ứng `dragover` (tương thích cả Light/Dark Mode).
+   - Tên file kèm dung lượng hiển thị chi tiết (ví dụ: `✓ my_photo.png (1.2 MB)`).
+   - Ảnh xem trước (Preview) thay đổi ngay lập tức.
+   - *(Tùy chọn)* Thử thả file không phải ảnh (như file `.txt`) hoặc file > 10MB -> Hệ thống sẽ cảnh báo lỗi chi tiết.
+5. Bấm **"Lưu ảnh"** -> Ảnh đại diện được tải lên thư mục an toàn `static/uploads/avatars/` và cập nhật tức thì trên trang Cài đặt lẫn thanh Menu (Navbar).
+6. Thử bấm **"Đăng xuất"** -> Hệ thống dọn session và đăng xuất mượt mà, không gặp bất kỳ lỗi CSRF token nào.
 
 ---
 
