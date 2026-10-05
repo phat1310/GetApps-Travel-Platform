@@ -331,6 +331,40 @@
         color: #e0f2fe;
         border-color: #0369a1;
     }
+
+    /* Drag & Drop Avatar Dropzone */
+    .avatar-dropzone {
+        border: 2px dashed #94a3b8;
+        border-radius: 14px;
+        padding: 1.5rem 1rem;
+        background-color: #f8fafc;
+        cursor: pointer;
+        transition: all 0.25s ease-in-out;
+        position: relative;
+    }
+    .avatar-dropzone:hover {
+        border-color: #0ea5e9;
+        background-color: #f0f9ff;
+    }
+    .avatar-dropzone.dragover {
+        border-color: #0ea5e9 !important;
+        background-color: #e0f2fe !important;
+        transform: scale(1.02);
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25);
+    }
+    [data-bs-theme="dark"] .avatar-dropzone {
+        border-color: #475569;
+        background-color: #1e293b;
+    }
+    [data-bs-theme="dark"] .avatar-dropzone:hover {
+        border-color: #38bdf8;
+        background-color: #0f172a;
+    }
+    [data-bs-theme="dark"] .avatar-dropzone.dragover {
+        border-color: #38bdf8 !important;
+        background-color: #0c4a6e !important;
+        box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.25);
+    }
 </style>
 {% endblock %}
 
@@ -583,13 +617,13 @@
                 </ul>
 
                 <div class="tab-content">
-                    <!-- Tab 1: Tải từ thiết bị -->
+                    <!-- Tab 1: Tải từ thiết bị & Kéo thả -->
                     <div class="tab-pane fade show active" id="tab-device" role="tabpanel">
-                        <div class="p-3 border border-2 border-dashed rounded-3 text-center bg-light-subtle" 
-                             style="cursor: pointer; transition: all 0.2s ease;" 
+                        <div id="avatar-dropzone" 
+                             class="avatar-dropzone text-center" 
                              onclick="document.getElementById('avatar-file-input').click()">
-                            <i class="bi bi-cloud-arrow-up-fill fs-1 text-primary"></i>
-                            <div class="fw-bold small mt-1">Bấm để chọn ảnh từ máy tính / điện thoại</div>
+                            <i class="bi bi-cloud-arrow-up-fill fs-1 text-primary mb-2 d-block"></i>
+                            <div class="fw-bold small" id="avatar-dropzone-prompt">Kéo thả ảnh vào đây hoặc bấm để chọn</div>
                             <div class="text-muted" style="font-size: 0.75rem;">Hỗ trợ JPG, PNG, WEBP, GIF (tối đa 10MB)</div>
                             <div id="selected-filename-badge" class="badge bg-primary-subtle text-primary-emphasis mt-2" style="display: none;"></div>
                         </div>
@@ -701,28 +735,121 @@
 
     let selectedAvatarFile = null;
 
-    function openAvatarModal() {
-        const modal = new bootstrap.Modal(document.getElementById('avatarModal'));
-        modal.show();
+    function formatFileSize(bytes) {
+        if (!bytes) return '0 B';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    function handleAvatarFileSelect(event) {
-        const file = event.target.files[0];
+    function processAvatarFile(file) {
+        const errorBox = document.getElementById('avatar-error-msg');
+        if (errorBox) errorBox.style.display = 'none';
+
         if (!file) return;
+
+        // 1. Kiểm tra loại file (chỉ cho phép định dạng ảnh)
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+        const isImage = file.type.startsWith('image/') || validTypes.includes(file.type);
+        if (!isImage) {
+            if (errorBox) {
+                errorBox.innerText = "Tệp không hợp lệ! Vui lòng chọn hoặc kéo thả file ảnh (JPG, PNG, WEBP, GIF).";
+                errorBox.style.display = 'block';
+            }
+            return;
+        }
+
+        // 2. Giới hạn dung lượng tối đa 10MB
+        if (file.size > 10 * 1024 * 1024) {
+            if (errorBox) {
+                errorBox.innerText = `Dung lượng ảnh (${formatFileSize(file.size)}) vượt quá giới hạn 10MB. Vui lòng chọn file nhẹ hơn.`;
+                errorBox.style.display = 'block';
+            }
+            return;
+        }
+
         selectedAvatarFile = file;
 
+        // 3. Hiển thị badge tên file & dung lượng
         const badge = document.getElementById('selected-filename-badge');
         if (badge) {
-            badge.innerText = "✓ " + file.name;
+            badge.innerText = `✓ ${file.name} (${formatFileSize(file.size)})`;
             badge.style.display = 'inline-block';
         }
 
+        const prompt = document.getElementById('avatar-dropzone-prompt');
+        if (prompt) {
+            prompt.innerText = "Đã chọn: " + file.name;
+        }
+
+        // 4. Preview ảnh tức thì
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = document.getElementById('avatar-preview-box');
             if (img) img.src = e.target.result;
         };
         reader.readAsDataURL(file);
+    }
+
+    function handleAvatarFileSelect(event) {
+        const file = event.target.files && event.target.files[0];
+        if (file) {
+            processAvatarFile(file);
+        }
+    }
+
+    function setupAvatarDragAndDrop() {
+        const dropzone = document.getElementById('avatar-dropzone');
+        if (!dropzone || dropzone._dragDropInitialized) return;
+        dropzone._dragDropInitialized = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'dragend'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                processAvatarFile(dt.files[0]);
+            }
+        }, false);
+    }
+
+    // Ngăn chặn trình duyệt mở ảnh ra tab mới khi lỡ thả bên ngoài dropzone trong modal
+    window.addEventListener('dragover', (e) => {
+        const modal = document.getElementById('avatarModal');
+        if (modal && modal.classList.contains('show')) {
+            e.preventDefault();
+        }
+    }, false);
+
+    window.addEventListener('drop', (e) => {
+        const modal = document.getElementById('avatarModal');
+        if (modal && modal.classList.contains('show')) {
+            e.preventDefault();
+        }
+    }, false);
+
+    function openAvatarModal() {
+        setupAvatarDragAndDrop();
+        const modal = new bootstrap.Modal(document.getElementById('avatarModal'));
+        modal.show();
     }
 
     function previewAvatarUrl(url) {
@@ -743,7 +870,7 @@
         if (isDeviceTab) {
             if (!selectedAvatarFile) {
                 if (errorBox) {
-                    errorBox.innerText = "Vui lòng chọn một file ảnh từ thiết bị của bạn.";
+                    errorBox.innerText = "Vui lòng chọn hoặc kéo thả một file ảnh từ thiết bị của bạn.";
                     errorBox.style.display = 'block';
                 }
                 return;
@@ -829,6 +956,15 @@
         const navImg = document.querySelector('.navbar .avatar');
         if (navImg && navImg.tagName === 'IMG') navImg.src = avatarUrl;
 
+        // Reset dropzone state
+        selectedAvatarFile = null;
+        const fileInput = document.getElementById('avatar-file-input');
+        if (fileInput) fileInput.value = '';
+        const badge = document.getElementById('selected-filename-badge');
+        if (badge) badge.style.display = 'none';
+        const prompt = document.getElementById('avatar-dropzone-prompt');
+        if (prompt) prompt.innerText = "Kéo thả ảnh vào đây hoặc bấm để chọn";
+
         const modalEl = document.getElementById('avatarModal');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
@@ -841,6 +977,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         highlightCurrentTagChip(currentTag);
+        setupAvatarDragAndDrop();
     });
 </script>
 {% endblock %}
