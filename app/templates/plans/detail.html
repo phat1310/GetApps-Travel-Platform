@@ -151,6 +151,7 @@
                             <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa
                         </a>
                         <form action="{{ url_for('plans.delete', plan_id=plan.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bạn có chắc muốn xóa toàn bộ lịch trình này?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold">
                                 <i class="bi bi-trash me-1"></i> Xóa
                             </button>
@@ -244,6 +245,7 @@
 
                                             {% if is_owner %}
                                                 <form action="{{ url_for('plans.delete_stop', stop_id=stop.id) }}" method="POST" class="m-0" onsubmit="return confirm('Xóa điểm dừng này?')">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                     <button type="submit" class="btn btn-link text-danger p-0 border-0" title="Xóa điểm dừng">
                                                         <i class="bi bi-x-circle fs-6"></i>
                                                     </button>

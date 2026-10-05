@@ -37,7 +37,7 @@ from app.auth.forms import (
     SettingsForm,
 )
 from app.auth.utils import validate_password
-from app.extensions import db
+from app.extensions import db, csrf
 from app.models import (
     Comment,
     Follow,
@@ -242,13 +242,14 @@ def login():
 
 @auth_bp.route("/logout", methods=["GET", "POST"])
 @login_required
+@csrf.exempt
 def logout():
     """Đăng xuất người dùng."""
     logout_user()
-    if request.accept_mimetypes.accept_html and not request.is_json:
-        flash("Bạn đã đăng xuất tài khoản an toàn.", "info")
-        return redirect(url_for('auth.login'))
-    return jsonify({"message": "Đăng xuất thành công"})
+    if request.is_json or (request.headers.get("X-Requested-With") == "XMLHttpRequest" and not request.accept_mimetypes.accept_html):
+        return jsonify({"message": "Đăng xuất thành công"})
+    flash("Bạn đã đăng xuất tài khoản an toàn.", "info")
+    return redirect(url_for('auth.login'))
 
 
 # =========================================================

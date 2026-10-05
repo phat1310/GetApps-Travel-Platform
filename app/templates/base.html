@@ -9,6 +9,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ config.APP_NAME }} — Get Up & Explore{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Favicon / App Icon -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/logo_icon.svg') }}">
@@ -139,6 +140,7 @@
                                     <li><hr class="dropdown-divider my-1"></li>
                                     <li>
                                         <form action="{{ url_for('auth.logout') }}" method="POST" class="m-0 p-0">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <button type="submit" class="dropdown-item py-2 text-danger d-flex align-items-center gap-2 border-0 bg-transparent w-100 text-start">
                                                 <i class="bi bi-box-arrow-right"></i> Đăng xuất
                                             </button>
@@ -242,6 +244,35 @@
             const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
             updateThemeUI(currentTheme);
         });
+    </script>
+
+    <!-- Global CSRF Token Fetch Interceptor -->
+    <script>
+        (function() {
+            const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+            const token = metaCsrf ? metaCsrf.getAttribute('content') : '';
+            if (token) {
+                const originalFetch = window.fetch;
+                window.fetch = function(url, options = {}) {
+                    const method = (options.method || 'GET').toUpperCase();
+                    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+                        options.headers = options.headers || {};
+                        if (options.headers instanceof Headers) {
+                            if (!options.headers.has('X-CSRFToken') && !options.headers.has('X-CSRF-Token')) {
+                                options.headers.append('X-CSRFToken', token);
+                            }
+                        } else if (Array.isArray(options.headers)) {
+                            options.headers.push(['X-CSRFToken', token]);
+                        } else {
+                            if (!options.headers['X-CSRFToken'] && !options.headers['X-CSRF-Token']) {
+                                options.headers['X-CSRFToken'] = token;
+                            }
+                        }
+                    }
+                    return originalFetch(url, options);
+                };
+            }
+        })();
     </script>
 
     {% block extra_js %}{% endblock %}
