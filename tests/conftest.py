@@ -4,29 +4,45 @@ import pytest
 
 from app import create_app
 from app.extensions import db
-from app.models import User, Post
+from app.models import User, Post, Photo
 
 
 @pytest.fixture
-def app(tmp_path, monkeypatch):
+def app(tmp_path):
     """Tạo Flask app và database riêng cho pytest."""
 
+    # Database tạm riêng của pytest
     db_path = tmp_path / "test.db"
 
-    # Cho app dùng database SQLite riêng của pytest
-    monkeypatch.setenv(
-        "DATABASE_URL",
-        f"sqlite:///{db_path}"
+    # Quan trọng:
+    # Truyền DB test vào create_app TRƯỚC khi db.init_app(app) chạy.
+    # Như vậy pytest sẽ không đụng vào instance/app.db thật.
+    app = create_app({
+        "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
+        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}",
+    })
+
+    # Tạo thư mục upload test
+    upload_folder = os.path.join(
+        app.root_path,
+        "static",
+        "uploads"
     )
 
-    app = create_app()
+    os.makedirs(upload_folder, exist_ok=True)
 
-    app.config.update(
-        TESTING=True,
-        WTF_CSRF_ENABLED=False,
+    # Tạo file ảnh giả để test Download
+    test_file = os.path.join(
+        upload_folder,
+        "test.png"
     )
+
+    with open(test_file, "wb") as f:
+        f.write(b"test image")
 
     with app.app_context():
+        # Chỉ tạo bảng trong test.db
         db.create_all()
 
         # User 1
@@ -51,11 +67,23 @@ def app(tmp_path, monkeypatch):
             user_id=user1.id,
             caption="Test post"
         )
+
         db.session.add(post)
+        db.session.commit()
+
+        # Photo của Post
+        photo = Photo(
+            post_id=post.id,
+            file_path="static/uploads/test.png",
+            media_type="image"
+        )
+
+        db.session.add(photo)
         db.session.commit()
 
     yield app
 
+    # Chỉ xóa database TEST
     with app.app_context():
         db.session.remove()
         db.drop_all()
@@ -72,8 +100,13 @@ def users(app):
     """Trả về 2 user test."""
     with app.app_context():
         return {
-            "user1": User.query.filter_by(username="testuser1").first(),
-            "user2": User.query.filter_by(username="testuser2").first(),
+            "user1": User.query.filter_by(
+                username="testuser1"
+            ).first(),
+
+            "user2": User.query.filter_by(
+                username="testuser2"
+            ).first(),
         }
 
 

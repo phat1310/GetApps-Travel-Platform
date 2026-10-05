@@ -9,9 +9,14 @@ from flask import Flask
 from app.config import Config
 from app.extensions import db, login_manager, migrate, jwt, csrf
 
-def create_app():
+
+def create_app(config_override=None):
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Cho phép test ghi đè config trước khi khởi tạo database
+    if config_override:
+        app.config.update(config_override)
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -25,6 +30,7 @@ def create_app():
     from app.auth import auth_bp
     from app.locations import locations_bp
     from app.api import api_bp
+
     app.register_blueprint(auth_bp)
     app.register_blueprint(locations_bp, url_prefix="/locations")
     app.register_blueprint(api_bp, url_prefix="/api")
