@@ -1,4 +1,4 @@
-"""Model COMMENT — bình luận của người dùng trên một Post."""
+"""Model COMMENT — bình luận của người dùng trên một Post hoặc Itinerary."""
 
 from datetime import datetime
 from app.extensions import db
@@ -16,10 +16,22 @@ class Comment(db.Model):
     post_id = db.Column(
         db.Integer,
         db.ForeignKey("posts.id"),
-        nullable=False
+        nullable=True          # ← đổi từ False thành True
+    )
+    itinerary_id = db.Column(                           # ← THÊM MỚI, đặt ngay sau post_id
+        db.Integer,
+        db.ForeignKey("itineraries.id"),
+        nullable=True
     )
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(
         db.DateTime,
         default=datetime.utcnow
+    )
+
+    __table_args__ = (                                  # ← THÊM MỚI, đặt sau created_at, cùng cấp thụt lề với các Column
+        db.CheckConstraint(
+            "(post_id IS NOT NULL) != (itinerary_id IS NOT NULL)",
+            name="chk_comment_target"
+        ),
     )

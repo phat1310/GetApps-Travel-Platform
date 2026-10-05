@@ -1,9 +1,11 @@
-"""Model ITINERARY / PLAN — Quản lý Lịch trình du lịch phân cấp.
+"""Model LỊCH TRÌNH (Itinerary / Plan) — kế hoạch du lịch nhiều ngày, nhiều chặng.
+Hợp nhất đầy đủ giữa Backend CRUD của nhóm và Giao diện Lịch trình của Phát.
 Gồm:
 - Itinerary (Lịch trình tổng quan)
 - ItineraryDay (Từng ngày trong chuyến đi)
-- ItineraryStop (Các điểm dừng chân / tham quan theo ngày)
-- ItineraryLodging (Nơi lưu trú / khách sạn theo ngày)
+- ItineraryStop (Các điểm dừng chân / tham quan / hoạt động theo ngày)
+- ItineraryLodging (Nơi lưu trú / khách sạn / homestay)
+- ItineraryAttachment (File đính kèm chuyến đi)
 """
 from datetime import datetime
 from app.extensions import db
@@ -15,22 +17,31 @@ class Itinerary(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    title = db.Column(db.String(150), nullable=False)
-    destination = db.Column(db.String(150), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    destination = db.Column(db.String(150), nullable=True, default="")
+    description = db.Column(db.Text, nullable=True)
+    cover_image = db.Column(db.String(255), nullable=True)
+    location_id = db.Column(db.Integer, db.ForeignKey("locations.id"), nullable=True)
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
+    trip_type = db.Column(db.String(50), nullable=True)   # "2N1D", "Phượt"...
+    participants_count = db.Column(db.Integer, nullable=True)
+    budget_estimate = db.Column(db.Integer, nullable=True)
     estimated_budget = db.Column(db.Float, default=0.0)
     currency = db.Column(db.String(10), default="VND")
     visibility = db.Column(db.String(20), default="public")  # 'public' hoặc 'private'
-    cover_image = db.Column(db.String(255), nullable=True)
-    attachment_file = db.Column(db.String(255), nullable=True)  # .pdf, .docx, .xlsx, .pptx
-    description = db.Column(db.Text, nullable=True)
+    attachment_file = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     author = db.relationship("User", backref=db.backref("itineraries", lazy=True, cascade="all, delete-orphan"))
-    days = db.relationship("ItineraryDay", backref="itinerary", lazy="select", cascade="all, delete-orphan", order_by="ItineraryDay.day_number")
+    days = db.relationship("ItineraryDay", backref="itinerary", lazy="select",
+                            cascade="all, delete-orphan", order_by="ItineraryDay.day_number")
+    lodgings = db.relationship("ItineraryLodging", backref="itinerary", lazy="select",
+                                cascade="all, delete-orphan")
+    attachments = db.relationship("ItineraryAttachment", backref="itinerary", lazy="select",
+                                   cascade="all, delete-orphan")
 
     @property
     def total_days(self):
@@ -46,10 +57,12 @@ class Itinerary(db.Model):
         cost = 0.0
         for d in self.days:
             for s in d.stops:
-                cost += float(s.estimated_cost or 0.0)
-            for l in d.lodgings:
+                cost += float(s.estimated_cost or s.price or 0.0)
+            for l in getattr(d, 'lodgings', []):
                 cost += float(l.price_per_night or 0.0)
-        return cost if cost > 0 else (self.estimated_budget or 0.0)
+        if cost > 0:
+            return cost
+        return float(self.estimated_budget or self.budget_estimate or 0.0)
 
     def to_dict(self):
         """Chuyển đổi thành từ điển JSON phục vụ API."""
@@ -59,11 +72,14 @@ class Itinerary(db.Model):
             "author_username": self.author.username if self.author else None,
             "author_avatar": self.author.avatar_url if self.author else None,
             "title": self.title,
-            "destination": self.destination,
+            "destination": self.destination or "",
+            "location_id": self.location_id,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,
             "total_days": self.total_days,
-            "estimated_budget": self.estimated_budget,
+            "trip_type": self.trip_type,
+            "participants_count": self.participants_count,
+            "estimated_budget": self.estimated_budget or self.budget_estimate,
             "currency": self.currency,
             "visibility": self.visibility,
             "cover_image": self.cover_image,
@@ -91,8 +107,10 @@ class ItineraryDay(db.Model):
     note = db.Column(db.Text, nullable=True)
 
     # Relationships
-    stops = db.relationship("ItineraryStop", backref="day", lazy="select", cascade="all, delete-orphan", order_by="ItineraryStop.order_index")
-    lodgings = db.relationship("ItineraryLodging", backref="day", lazy="select", cascade="all, delete-orphan")
+    stops = db.relationship("ItineraryStop", backref="day", lazy="select",
+                             cascade="all, delete-orphan", order_by="ItineraryStop.order_index")
+    lodgings = db.relationship("ItineraryLodging", backref="day", lazy="select",
+                                cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -107,66 +125,113 @@ class ItineraryDay(db.Model):
         }
 
 
-# Alias PlanDay
 PlanDay = ItineraryDay
 
 
 class ItineraryStop(db.Model):
-    """Điểm dừng chân / Tham quan / Ẩm thực trong ngày."""
+    """Điểm dừng chân / Tham quan / Hoạt động trong ngày."""
     __tablename__ = "itinerary_stops"
 
     id = db.Column(db.Integer, primary_key=True)
     day_id = db.Column(db.Integer, db.ForeignKey("itinerary_days.id"), nullable=False)
-    order_index = db.Column(db.Integer, default=1)
-    location_name = db.Column(db.String(150), nullable=False)
+    order_index = db.Column(db.Integer, default=0)
+    location_name = db.Column(db.String(200), nullable=True)
+    activity_name = db.Column(db.String(200), nullable=True)
     address = db.Column(db.String(255), nullable=True)
+    location_link = db.Column(db.String(500), nullable=True)
     arrival_time = db.Column(db.String(20), nullable=True)  # "08:30"
+    start_time = db.Column(db.Time, nullable=True)
+    end_time = db.Column(db.Time, nullable=True)
     estimated_cost = db.Column(db.Float, default=0.0)
+    price = db.Column(db.Integer, nullable=True)
     transportation = db.Column(db.String(50), nullable=True)  # Xe máy, Taxi, Đi bộ, v.v.
+    image_path = db.Column(db.String(255), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    note = db.Column(db.Text, nullable=True)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.location_name and self.activity_name:
+            self.location_name = self.activity_name
+        elif not self.activity_name and self.location_name:
+            self.activity_name = self.location_name
+        if not self.notes and self.note:
+            self.notes = self.note
+        elif not self.note and self.notes:
+            self.note = self.notes
 
     def to_dict(self):
         return {
             "id": self.id,
             "day_id": self.day_id,
             "order_index": self.order_index,
-            "location_name": self.location_name,
+            "location_name": self.location_name or self.activity_name,
+            "activity_name": self.activity_name or self.location_name,
             "address": self.address,
+            "location_link": self.location_link,
             "arrival_time": self.arrival_time,
-            "estimated_cost": self.estimated_cost,
+            "estimated_cost": self.estimated_cost or self.price or 0.0,
             "transportation": self.transportation,
-            "notes": self.notes
+            "image_path": self.image_path,
+            "notes": self.notes or self.note
         }
 
 
-# Alias PlanStop / PlanItem
 PlanStop = ItineraryStop
 PlanItem = ItineraryStop
 
 
 class ItineraryLodging(db.Model):
-    """Nơi lưu trú / Khách sạn / Homestay của ngày."""
+    """Nơi lưu trú / Khách sạn / Homestay."""
     __tablename__ = "itinerary_lodgings"
 
     id = db.Column(db.Integer, primary_key=True)
-    day_id = db.Column(db.Integer, db.ForeignKey("itinerary_days.id"), nullable=False)
-    hotel_name = db.Column(db.String(150), nullable=False)
+    itinerary_id = db.Column(db.Integer, db.ForeignKey("itineraries.id"), nullable=True)
+    day_id = db.Column(db.Integer, db.ForeignKey("itinerary_days.id"), nullable=True)
+    hotel_name = db.Column(db.String(200), nullable=True)
+    name = db.Column(db.String(200), nullable=True)
     address = db.Column(db.String(255), nullable=True)
     check_in_time = db.Column(db.String(20), nullable=True)
     price_per_night = db.Column(db.Float, default=0.0)
     booking_reference = db.Column(db.String(100), nullable=True)
+    booking_link = db.Column(db.String(500), nullable=True)
+    note = db.Column(db.Text, nullable=True)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.name and self.hotel_name:
+            self.name = self.hotel_name
+        elif not self.hotel_name and self.name:
+            self.hotel_name = self.name
+        if not self.booking_link and self.booking_reference:
+            self.booking_link = self.booking_reference
+        elif not self.booking_reference and self.booking_link:
+            self.booking_reference = self.booking_link
 
     def to_dict(self):
         return {
             "id": self.id,
             "day_id": self.day_id,
-            "hotel_name": self.hotel_name,
+            "hotel_name": self.hotel_name or self.name,
+            "name": self.name or self.hotel_name,
             "address": self.address,
             "check_in_time": self.check_in_time,
             "price_per_night": self.price_per_night,
-            "booking_reference": self.booking_reference
+            "booking_reference": self.booking_reference or self.booking_link,
+            "booking_link": self.booking_link or self.booking_reference,
+            "note": self.note
         }
 
 
-# Alias PlanLodging
 PlanLodging = ItineraryLodging
+
+
+class ItineraryAttachment(db.Model):
+    """File đính kèm / tài liệu chuyến đi."""
+    __tablename__ = "itinerary_attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    itinerary_id = db.Column(db.Integer, db.ForeignKey("itineraries.id"), nullable=False)
+    file_path = db.Column(db.String(255), nullable=False)
+    original_name = db.Column(db.String(255), nullable=True)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)

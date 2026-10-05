@@ -14,5 +14,9 @@ from app.models.itinerary import (
     Itinerary, Plan,
     ItineraryDay, PlanDay,
     ItineraryStop, PlanStop, PlanItem,
-    ItineraryLodging, PlanLodging
+    ItineraryLodging, PlanLodging,
+    ItineraryAttachment
 )
+from app.models.hashtag import Hashtag
+from app.models.notification import Notification
+

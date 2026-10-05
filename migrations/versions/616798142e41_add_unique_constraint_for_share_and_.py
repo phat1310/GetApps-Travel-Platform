@@ -1,0 +1,33 @@
+"""add unique constraint for saved_post
+
+Revision ID: 616798142e41
+Revises: 5102018c1c35
+Create Date: 2026-09-23 13:34:57.089816
+
+"""
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision = '616798142e41'
+down_revision = '5102018c1c35'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # Mỗi user chỉ được lưu một post một lần.
+    with op.batch_alter_table('saved_posts', schema=None) as batch_op:
+        batch_op.create_unique_constraint(
+            'unique_saved_post',
+            ['user_id', 'post_id']
+        )
+
+
+def downgrade():
+    with op.batch_alter_table('saved_posts', schema=None) as batch_op:
+        batch_op.drop_constraint(
+            'unique_saved_post',
+            type_='unique'
+        )

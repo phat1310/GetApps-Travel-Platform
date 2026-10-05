@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Đăng Lịch trình — GetApps{% endblock %}
+
+{% block extra_css %}
+<style>
+  .it-section { background: #fff; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .it-chip { border: 1px solid #dee2e6; border-radius: 20px; padding: 6px 16px; background: #fff; cursor: pointer; font-size: .9rem; }
+  .it-chip.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+  .cover-preview { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 12px; background: #f1f3f5; }
+  .day-card { border: 1px solid #e9ecef; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .stop-card { border: 1px solid #e9ecef; border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fafafa; }
+  .stop-image-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="fw-bold mb-0"><i class="bi bi-map-fill text-primary"></i> Đăng Lịch trình</h3>
+  <a href="{{ url_for('locations.itinerary_feed') }}" class="btn btn-sm btn-outline-secondary">Hủy</a>
+</div>
+
+<form id="itineraryForm">
+  <!-- ẢNH BÌA + THÔNG TIN TỔNG QUAN -->
+  <div class="it-section">
+    <h6 class="fw-bold mb-3">Thông tin tổng quan chuyến đi <span class="badge bg-danger-subtle text-danger">Bắt buộc</span></h6>
+
+    <label class="form-label small text-muted">Ảnh bìa chuyến đi (tỉ lệ 16:9)</label>
+    <div class="mb-3">
+      <img id="coverPreview" class="cover-preview mb-2" src="https://placehold.co/800x450?text=Chon+anh+bia">
+      <input type="file" id="coverInput" accept="image/*" class="form-control form-control-sm">
+    </div>
+
+    <label class="form-label small text-muted">Tên chuyến đi</label>
+    <input type="text" id="title" class="form-control mb-3" placeholder="Vd: Đà Lạt 3N2D - Chuyến đi săn mây & thư" required>
+
+    <label class="form-label small text-muted">Đoạn mô tả ngắn, cảm nghĩ / tổng quan chuyến đi</label>
+    <textarea id="description" class="form-control mb-3" rows="3" placeholder="Lịch trình săn mây đổi chè, thư giãn ngắm hoàng hôn..."></textarea>
+
+    <label class="form-label small text-muted">Nhãn địa điểm chính (Destination)</label>
+    <input type="text" id="locationName" class="form-control mb-3" placeholder="Vd: Đà Lạt, Lâm Đồng">
+
+    <div class="row g-2 mb-3">
+      <div class="col-6">
+        <label class="form-label small text-muted">Ngày bắt đầu</label>
+        <input type="date" id="startDate" class="form-control">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Ngày kết thúc</label>
+        <input type="date" id="endDate" class="form-control">
+      </div>
+    </div>
+
+    <label class="form-label small text-muted d-block">Dạng chuyến đi (Trip Style)</label>
+    <div class="d-flex flex-wrap gap-2 mb-3" id="tripTypeChips">
+      <span class="it-chip" data-value="2N1D">2N1D</span>
+      <span class="it-chip" data-value="3N2D">3N2D</span>
+      <span class="it-chip" data-value="1 tuần">1 tuần</span>
+      <span class="it-chip" data-value="2 tuần">2 tuần</span>
+      <span class="it-chip" data-value="1 tháng">1 tháng</span>
+      <span class="it-chip" data-value="Đi phượt">Đi phượt</span>
+      <span class="it-chip" data-value="Nghỉ dưỡng">Nghỉ dưỡng</span>
+      <span class="it-chip" data-value="Gia đình">Gia đình</span>
+    </div>
+    <input type="hidden" id="tripType">
+
+    <div class="row g-2">
+      <div class="col-6">
+        <label class="form-label small text-muted"><i class="bi bi-people"></i> Số người tham gia</label>
+        <input type="number" id="participantsCount" class="form-control" min="1" placeholder="2">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted"><i class="bi bi-wallet2"></i> Dự toán ngân sách</label>
+        <input type="number" id="budgetEstimate" class="form-control" placeholder="3500000">
+      </div>
+    </div>
+  </div>
+
+  <!-- LỊCH TRÌNH CHI TIẾT TỪNG NGÀY -->
+  <div class="it-section">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="fw-bold mb-0"><i class="bi bi-calendar-event"></i> Lịch trình chi tiết từng ngày</h6>
+      <button type="button" id="addDayBtn" class="btn btn-sm btn-ges-outline"><i class="bi bi-plus-lg"></i> Thêm ngày</button>
+    </div>
+    <div id="daysContainer"></div>
+  </div>
+
+  <!-- NƠI LƯU TRÚ -->
+  <div class="it-section">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="fw-bold mb-0"><i class="bi bi-house-heart"></i> Khối lưu trú & dịch vụ</h6>
+      <button type="button" id="addLodgingBtn" class="btn btn-sm btn-ges-outline"><i class="bi bi-plus-lg"></i> Thêm nơi lưu trú</button>
+    </div>
+    <div id="lodgingsContainer"></div>
+  </div>
+
+  <!-- ĐÍNH KÈM TÀI LIỆU -->
+  <div class="it-section">
+    <h6 class="fw-bold mb-3"><i class="bi bi-paperclip"></i> Đính kèm tài liệu lịch trình</h6>
+    <small class="text-muted d-block mb-2">.docx, .xlsx, .pdf, .pptx</small>
+    <input type="file" id="attachmentInput" accept=".docx,.xlsx,.pdf,.pptx" multiple class="form-control form-control-sm mb-2">
+    <div id="attachmentList"></div>
+  </div>
+
+  <div id="formAlert"></div>
+
+  <button type="submit" id="submitBtn" class="btn btn-ges-primary w-100 py-2 fw-bold">
+    <i class="bi bi-send-fill"></i> Đăng lịch trình ngay
+  </button>
+  <p class="text-center text-muted small mt-2">
+    Lịch trình được công khai và hiển thị trực tiếp tại mục Kế hoạch du lịch cộng đồng GETAPPS.
+  </p>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  let dayCount = 0;
+
+  // ---- Chip chọn Trip Style (chỉ chọn 1) ----
+  document.getElementById("tripTypeChips").addEventListener("click", (e) => {
+    const chip = e.target.closest(".it-chip");
+    if (!chip) return;
+    document.querySelectorAll("#tripTypeChips .it-chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    document.getElementById("tripType").value = chip.dataset.value;
+  });
+
+  // ---- Preview ảnh bìa ----
+  document.getElementById("coverInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) document.getElementById("coverPreview").src = URL.createObjectURL(file);
+  });
+
+  // ---- Thêm Ngày ----
+  document.getElementById("addDayBtn").addEventListener("click", addDay);
+  function addDay() {
+    dayCount++;
+    const dayNumber = dayCount;
+    const div = document.createElement("div");
+    div.className = "day-card";
+    div.dataset.dayNumber = dayNumber;
+    div.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge bg-primary">Ngày ${dayNumber}</span>
+        <button type="button" class="btn btn-sm btn-outline-danger remove-day"><i class="bi bi-trash"></i></button>
+      </div>
+      <div class="stops-container"></div>
+      <button type="button" class="btn btn-sm btn-outline-primary add-stop mt-1"><i class="bi bi-plus"></i> Thêm chặng hoạt động</button>
+    `;
+    document.getElementById("daysContainer").appendChild(div);
+
+    div.querySelector(".remove-day").addEventListener("click", () => div.remove());
+    div.querySelector(".add-stop").addEventListener("click", () => addStop(div.querySelector(".stops-container")));
+    addStop(div.querySelector(".stops-container")); // mỗi ngày mặc định có sẵn 1 chặng
+  }
+
+  function addStop(container) {
+    const div = document.createElement("div");
+    div.className = "stop-card";
+    div.innerHTML = `
+      <div class="d-flex justify-content-between mb-1">
+        <strong class="small">Chặng</strong>
+        <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-stop"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="row g-2 mb-1">
+        <div class="col-6"><input type="time" class="form-control form-control-sm stop-start"></div>
+        <div class="col-6"><input type="time" class="form-control form-control-sm stop-end"></div>
+      </div>
+      <input type="text" class="form-control form-control-sm mb-1 stop-name" placeholder="Tên hoạt động (vd: Check-in Quảng trường Lâm Viên)">
+      <input type="text" class="form-control form-control-sm mb-1 stop-link" placeholder="Link địa điểm (Google Maps)">
+      <input type="number" class="form-control form-control-sm mb-1 stop-price" placeholder="Giá / chi phí (vnđ)">
+      <textarea class="form-control form-control-sm mb-1 stop-note" rows="2" placeholder="Ghi chú đặc biệt (quán ăn/địa điểm, mẹo...)"></textarea>
+      <input type="file" accept="image/*" class="form-control form-control-sm stop-image">
+    `;
+    container.appendChild(div);
+    div.querySelector(".remove-stop").addEventListener("click", () => div.remove());
+  }
+
+  // ---- Thêm nơi lưu trú ----
+  document.getElementById("addLodgingBtn").addEventListener("click", () => {
+    const div = document.createElement("div");
+    div.className = "stop-card";
+    div.innerHTML = `
+      <div class="d-flex justify-content-between mb-1">
+        <strong class="small">Nơi lưu trú</strong>
+        <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-lodging"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <input type="text" class="form-control form-control-sm mb-1 lodging-name" placeholder="Tên khách sạn / homestay">
+      <div class="row g-2 mb-1">
+        <div class="col-6"><input type="number" class="form-control form-control-sm lodging-price" placeholder="Giá / đêm (vnđ)"></div>
+        <div class="col-6"><input type="text" class="form-control form-control-sm lodging-link" placeholder="Link đặt phòng"></div>
+      </div>
+      <textarea class="form-control form-control-sm lodging-note" rows="2" placeholder="Ghi chú (mẹo nhận phòng, view phòng...)"></textarea>
+    `;
+    document.getElementById("lodgingsContainer").appendChild(div);
+    div.querySelector(".remove-lodging").addEventListener("click", () => div.remove());
+  });
+
+  // ---- Danh sách file đính kèm ----
+  let pendingAttachments = [];
+  document.getElementById("attachmentInput").addEventListener("change", (e) => {
+    pendingAttachments = Array.from(e.target.files);
+    const list = document.getElementById("attachmentList");
+    list.innerHTML = pendingAttachments.map(f => `<div class="small text-muted"><i class="bi bi-file-earmark"></i> ${f.name}</div>`).join("");
+  });
+
+  // ---- Thu thập dữ liệu Day/Stop thành JSON đúng schema backend ----
+  function collectDays() {
+    const days = [];
+    document.querySelectorAll("#daysContainer .day-card").forEach(dayEl => {
+      const stops = [];
+      dayEl.querySelectorAll(".stop-card").forEach(stopEl => {
+        const name = stopEl.querySelector(".stop-name").value.trim();
+        if (!name) return; // bỏ qua chặng chưa điền tên
+        stops.push({
+          activity_name: name,
+          location_link: stopEl.querySelector(".stop-link").value.trim() || null,
+          price: stopEl.querySelector(".stop-price").value ? Number(stopEl.querySelector(".stop-price").value) : null,
+          note: stopEl.querySelector(".stop-note").value.trim() || null,
+          start_time: stopEl.querySelector(".stop-start").value || null,
+          end_time: stopEl.querySelector(".stop-end").value || null,
+          _imageFile: stopEl.querySelector(".stop-image").files[0] || null, // dùng nội bộ, không gửi lên server
+        });
+      });
+      days.push({ day_number: Number(dayEl.dataset.dayNumber), stops });
+    });
+    return days;
+  }
+
+  function collectLodgings() {
+    const lodgings = [];
+    document.querySelectorAll("#lodgingsContainer .stop-card").forEach(el => {
+      const name = el.querySelector(".lodging-name").value.trim();
+      if (!name) return;
+      lodgings.push({
+        name,
+        price_per_night: el.querySelector(".lodging-price").value ? Number(el.querySelector(".lodging-price").value) : null,
+        booking_link: el.querySelector(".lodging-link").value.trim() || null,
+        note: el.querySelector(".lodging-note").value.trim() || null,
+      });
+    });
+    return lodgings;
+  }
+
+  function showAlert(type, msg) {
+    document.getElementById("formAlert").innerHTML =
+      `<div class="alert alert-${type} py-2">${msg}</div>`;
+  }
+
+  // ---- Submit: 1) tạo lịch trình (JSON) -> 2) upload ảnh bìa -> 3) upload ảnh từng chặng -> 4) upload file đính kèm ----
+  document.getElementById("itineraryForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const submitBtn = document.getElementById("submitBtn");
+    const title = document.getElementById("title").value.trim();
+    if (!title) { showAlert("danger", "Vui lòng nhập tên chuyến đi"); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang đăng...';
+
+    const days = collectDays();
+    const payload = {
+      title,
+      description: document.getElementById("description").value.trim() || null,
+      location_name: document.getElementById("locationName").value.trim() || null,
+      start_date: document.getElementById("startDate").value || null,
+      end_date: document.getElementById("endDate").value || null,
+      trip_type: document.getElementById("tripType").value || null,
+      participants_count: document.getElementById("participantsCount").value ? Number(document.getElementById("participantsCount").value) : null,
+      budget_estimate: document.getElementById("budgetEstimate").value ? Number(document.getElementById("budgetEstimate").value) : null,
+      days: days.map(d => ({ day_number: d.day_number, stops: d.stops.map(({_imageFile, ...rest}) => rest) })),
+      lodgings: collectLodgings(),
+    };
+
+    try {
+      const res = await fetch("{{ url_for('locations.create_itinerary') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) { showAlert("danger", data.error || "Có lỗi xảy ra"); submitBtn.disabled = false; submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Đăng lịch trình ngay'; return; }
+
+      const itineraryId = data.itinerary.id;
+
+      // Upload ảnh bìa (nếu có chọn)
+      const coverFile = document.getElementById("coverInput").files[0];
+      if (coverFile) {
+        const fd = new FormData();
+        fd.append("image", coverFile);
+        await fetch(`/locations/itineraries/${itineraryId}/cover-image`, { method: "POST", body: fd });
+      }
+
+      // Upload ảnh từng Chặng (ghép theo thứ tự day_number + order_index với id trả về từ server)
+      for (let di = 0; di < days.length; di++) {
+        const serverDay = data.itinerary.days[di];
+        if (!serverDay) continue;
+        const localStops = days[di].stops;
+        for (let si = 0; si < localStops.length; si++) {
+          const file = localStops[si]._imageFile;
+          const serverStop = serverDay.stops[si];
+          if (file && serverStop) {
+            const fd = new FormData();
+            fd.append("image", file);
+            await fetch(`/locations/itineraries/stops/${serverStop.id}/image`, { method: "POST", body: fd });
+          }
+        }
+      }
+
+      // Upload file đính kèm
+      for (const file of pendingAttachments) {
+        const fd = new FormData();
+        fd.append("file", file);
+        await fetch(`/locations/itineraries/${itineraryId}/attachments`, { method: "POST", body: fd });
+      }
+
+      window.location.href = `/locations/itineraries/${itineraryId}`;
+    } catch (err) {
+      showAlert("danger", "Lỗi kết nối, thử lại sau");
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="bi bi-send-fill"></i> Đăng lịch trình ngay';
+    }
+  });
+
+  addDay(); // mặc định có sẵn Ngày 1
+})();
+</script>
+{% endblock %}
