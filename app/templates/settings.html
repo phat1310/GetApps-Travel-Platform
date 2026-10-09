@@ -2,162 +2,621 @@
 
 {% block title %}Cài đặt — {{ config.APP_NAME }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    :root { --st-accent: #1a8fcf; --st-line: #eef2f5; }
+    .st-wrap { max-width: 760px; margin: 0 auto; padding: 1.5rem 0 3rem; }
+    .st-title { font-weight: 800; font-size: 2rem; margin-bottom: 1.25rem; }
+    .st-card { background: #fff; border-radius: 20px; box-shadow: 0 4px 24px rgba(20, 60, 90, .08); padding: .25rem 1.5rem; margin-bottom: 1.75rem; }
+    .st-section-label { font-size: .8rem; letter-spacing: .08em; font-weight: 700; color: #6b7a86; margin: 0 0 .6rem .5rem; text-transform: uppercase; }
+
+    .st-profile { display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 0; border-bottom: 1px solid var(--st-line); }
+    .st-avatar { position: relative; width: 88px; height: 88px; flex: none; }
+    .st-avatar img, .st-avatar .ph { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .st-avatar .ph { display: flex; align-items: center; justify-content: center; background: #d8eef8; color: #17688f; font-size: 2.2rem; font-weight: 700; }
+    .st-cam { position: absolute; right: -2px; bottom: -2px; width: 30px; height: 30px; border-radius: 50%; background: var(--st-accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .85rem; border: 2px solid #fff; }
+    .st-name { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+    .st-badge { display: inline-block; margin-left: .6rem; padding: .2rem .7rem; border-radius: 999px; background: #e4ecf7; color: #4a5f7a; font-size: .75rem; font-weight: 600; vertical-align: middle; }
+    .st-edit-link { color: #6b7a86; text-decoration: none; font-size: .95rem; }
+    .st-edit-link:hover { color: var(--st-accent); }
+
+    .st-row { display: flex; align-items: center; gap: 1rem; width: 100%; text-align: left; background: none; border: 0; padding: 1.05rem 0; border-bottom: 1px solid var(--st-line); cursor: pointer; font: inherit; color: inherit; }
+    .st-row:last-child, .st-row.st-last { border-bottom: 0; }
+    .st-row:hover .st-label { color: var(--st-accent); }
+    .st-ico { width: 46px; height: 46px; border-radius: 50%; background: #e4f4fb; color: var(--st-accent); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex: none; }
+    .st-grow { flex: 1; min-width: 0; }
+    .st-label { font-weight: 600; font-size: 1.05rem; }
+    .st-sub { color: #6b7a86; font-size: .92rem; margin-top: .15rem; }
+    .st-value { color: #444; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .st-accent { color: var(--st-accent); font-weight: 600; }
+    .st-chev { color: #9aa7b0; }
+
+    .st-switch.form-check-input { width: 3.2em; height: 1.7em; cursor: pointer; }
+    .st-switch.form-check-input:checked { background-color: var(--st-accent); border-color: var(--st-accent); }
+
+    .st-logout { display: flex; align-items: center; justify-content: center; gap: .6rem; width: 100%; padding: 1.05rem; border: 0; border-radius: 16px; background: #fde4e4; color: #c0392b; font-weight: 700; font-size: 1.05rem; }
+    .st-logout:hover { background: #fbd3d3; }
+
+    .st-pill { border: 1.5px solid #9fd3ea; background: #eaf6fc; color: #17688f; border-radius: 999px; padding: .5rem 1.1rem; font-weight: 600; cursor: pointer; }
+    .st-pill.active { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
+    .st-added-chip { display: inline-flex; align-items: center; gap: .45rem; border: 1.5px solid #9fd3ea; background: #eaf6fc; color: #17688f; border-radius: 999px; padding: .3rem .85rem; font-weight: 600; font-size: .92rem; }
+    .st-x { border: 0; background: none; color: inherit; padding: 0; line-height: 1; cursor: pointer; }
+
+    .st-modal { border: 0; border-radius: 20px; }
+    .st-btn-ok { background: var(--st-accent); color: #fff; border-radius: 12px; padding: .6rem 1.5rem; font-weight: 600; }
+    .st-btn-ok:hover { background: #157cb5; color: #fff; }
+    .st-btn-cancel { background: #eef2f5; color: #445; border-radius: 12px; padding: .6rem 1.5rem; font-weight: 600; }
+
+    /* ===== KHUNG MỚI: thanh trên + thanh bên trái dạng viên thuốc (theo hình mẫu) ===== */
+    :root { --st-inset: 40px; --st-side-w: 92px; }   /* --st-inset: khoảng cách từ mép trái màn hình (tăng lên nếu muốn dịch vào nhiều hơn) */
+    header.sticky-top, footer.footer-ges { display: none !important; }   /* ẩn thanh trên cũ của base.html */
+    body { padding-top: 64px; }
+    main.main-content { padding-left: calc(var(--st-inset) + var(--st-side-w) + 24px); }
+
+    .st-top { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #fff; border-bottom: 1px solid var(--st-line); display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem 0 var(--st-inset); z-index: 1030; }
+    .st-logo { display: inline-block; font-weight: 800; font-size: 2.1rem; letter-spacing: 0; color: #141a2b; text-decoration: none; line-height: 1; }
+    .st-logo b { color: #5ba3e6; font-weight: 800; }
+    .st-dot { display: inline-block; width: .24em; height: .24em; margin-left: .5em; border-radius: 50%; background: #5ba3e6; vertical-align: .4em; }
+    .st-top-actions { display: flex; gap: .5rem; }
+    .st-top-actions a { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4a5560; font-size: 1.35rem; text-decoration: none; }
+    .st-top-actions a:hover, .st-top-actions a.active { background: #e4f4fb; color: var(--st-accent); }
+
+    .st-side { position: fixed; top: calc(50vh - 44px); transform: translateY(-50%); left: var(--st-inset); width: var(--st-side-w); background: #fff; border: 2px solid var(--st-accent); border-radius: calc(var(--st-side-w) / 2); box-shadow: 0 8px 24px rgba(20, 60, 90, .12); display: flex; flex-direction: column; align-items: center; gap: .25rem; padding: 1.1rem .35rem; z-index: 1020; }
+    .st-nav { display: flex; flex-direction: column; align-items: center; gap: .2rem; width: 100%; padding: .55rem .2rem; color: #5a6772; text-decoration: none; font-size: .72rem; font-weight: 500; text-align: center; line-height: 1.15; }
+    .st-nav i { font-size: 1.4rem; }
+    .st-nav:hover, .st-nav.active { color: var(--st-accent); }
+    .st-create { width: 54px; height: 54px; border-radius: 50%; background: #0ea5e9; color: #fff; border: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(14, 165, 233, .4); margin: .5rem 0; }
+    .st-create svg { width: 28px; height: 28px; }
+    .st-create:hover { background: #0b8fcb; }
+
+    @media (max-width: 575.98px) {
+        :root { --st-inset: 16px; }
+        main.main-content { padding-left: 0; }
+        body { padding-bottom: 96px; }
+        .st-side { transform: none; top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; flex-direction: row; justify-content: space-around; padding: .4rem .5rem; border-radius: 40px; }
+        .st-nav { width: auto; padding: .3rem .4rem; }
+        .st-create { width: 46px; height: 46px; margin: 0; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-7">
-        <h2 class="fw-bold mb-4"><i class="bi bi-gear"></i> Cài đặt tài khoản</h2>
+<!-- ===== KHUNG (thanh trên + thanh trái): chuyển sang base.html khi áp dụng cho cả web ===== -->
+<div class="st-top">
+    <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps">GE<b>s</b><span class="st-dot" aria-hidden="true"></span></a>
+    <div class="st-top-actions">
+        <a href="/explore" aria-label="Tìm kiếm"><i class="bi bi-search"></i></a>
+        <a href="{{ url_for('auth.settings_page') }}" class="active" aria-label="Cài đặt" aria-current="page"><i class="bi bi-gear-fill"></i></a>
+    </div>
+</div>
+<nav class="st-side" aria-label="Điều hướng chính">
+    <a class="st-nav" href="{{ url_for('locations.feed') }}"><i class="bi bi-compass"></i>Bảng tin</a>
+    <a class="st-nav" href="/plans"><i class="bi bi-calendar3"></i>Lịch trình</a>
+    <div class="dropdown">
+        <button class="st-create" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tạo mới"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 1.82 3.16.77 1.33 1.6-.43 5.31-1.42 4.35-1.16L21 11.49c.81-.23 1.28-1.05 1.07-1.85z"/></svg></button>
+        <ul class="dropdown-menu shadow-sm border-0">
+            <li><a class="dropdown-item py-2" href="/locations/upload"><i class="bi bi-camera me-2"></i>Đăng ảnh</a></li>
+            <li><a class="dropdown-item py-2" href="/plans/create"><i class="bi bi-map me-2"></i>Tạo lịch trình</a></li>
+        </ul>
+    </div>
+    <a class="st-nav" href="/notifications"><i class="bi bi-bell"></i>Thông báo</a>
+    <a class="st-nav" href="/profile"><i class="bi bi-person"></i>Trang cá nhân</a>
+</nav>
+<!-- ===== HẾT KHUNG ===== -->
+{% set av = current_user.avatar_url %}
+<div class="st-wrap">
+    <h1 class="st-title">Cài đặt</h1>
+    <div id="page-alert"></div>
 
-        <!-- ============ 1. ĐỔI MẬT KHẨU ============ -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-body p-4">
-                <h5 class="card-title fw-bold mb-3"><i class="bi bi-shield-lock"></i> Đổi mật khẩu</h5>
-                <div id="password-alert"></div>
-                <form id="password-form" novalidate>
-                    <div class="mb-3">
-                        <label for="old_password" class="form-label">Mật khẩu hiện tại</label>
-                        <input type="password" class="form-control" id="old_password" autocomplete="current-password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="new_password" class="form-label">Mật khẩu mới</label>
-                        <input type="password" class="form-control" id="new_password" autocomplete="new-password" required>
-                        <div class="form-text">Ít nhất 8 ký tự, gồm chữ và số.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Nhập lại mật khẩu mới</label>
-                        <input type="password" class="form-control" id="confirm_password" autocomplete="new-password" required>
-                    </div>
-                    <button type="submit" class="btn btn-ges-primary">Đổi mật khẩu</button>
-                </form>
+    <!-- ============ THÔNG TIN CÁ NHÂN ============ -->
+    <section class="st-card">
+        <div class="st-profile">
+            <div class="st-avatar">
+                {% if av %}
+                    <img src="{% if av.startswith('http') or av.startswith('/') %}{{ av }}{% else %}/{{ av }}{% endif %}" alt="{{ current_user.username }}">
+                {% else %}
+                    <span class="ph">{{ current_user.username[0]|upper }}</span>
+                {% endif %}
+                <span class="st-cam" aria-hidden="true"><i class="bi bi-camera-fill"></i></span>
+            </div>
+            <div>
+                <div class="st-name">{{ current_user.username }}<span class="st-badge">Tài khoản cá nhân</span></div>
+                <a class="st-edit-link" href="/profile">Chỉnh sửa trang cá nhân</a>
             </div>
         </div>
 
-        <!-- ============ 2. THÔNG TIN LIÊN HỆ ============ -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-body p-4">
-                <h5 class="card-title fw-bold mb-3"><i class="bi bi-telephone"></i> Thông tin liên hệ</h5>
-                <div id="contact-alert"></div>
-                <form id="contact-form" novalidate>
-                    <div class="mb-3">
-                        <label for="phone_number" class="form-label">Số điện thoại</label>
-                        <input type="tel" class="form-control" id="phone_number" value="{{ current_user.phone_number or '' }}">
-                    </div>
-                    <div class="mb-3">
-                        <label for="secondary_email" class="form-label">Email phụ</label>
-                        <input type="email" class="form-control" id="secondary_email" value="{{ current_user.secondary_email or '' }}">
-                        <div class="form-text">Không được trùng email chính hoặc email của tài khoản khác.</div>
-                    </div>
-                    <button type="submit" class="btn btn-ges-primary">Lưu thông tin</button>
-                </form>
+        <button type="button" class="st-row" data-bs-toggle="modal" data-bs-target="#m-nickname">
+            <span class="st-ico"><i class="bi bi-person-vcard"></i></span>
+            <span class="st-label st-grow">Biệt danh (Nickname)</span>
+            <span class="st-value" id="nickname-value">{{ current_user.nickname or "Chưa đặt" }}</span>
+            <i class="bi bi-chevron-right st-chev"></i>
+        </button>
+
+        <button type="button" class="st-row" data-bs-toggle="modal" data-bs-target="#m-tags">
+            <span class="st-ico"><i class="bi bi-tag"></i></span>
+            <span class="st-label st-grow">Nhãn (Tags)</span>
+            <span class="st-value st-accent" id="tags-value"></span>
+            <i class="bi bi-chevron-right st-chev"></i>
+        </button>
+
+        <button type="button" class="st-row" data-bs-toggle="modal" data-bs-target="#m-email">
+            <span class="st-ico"><i class="bi bi-envelope"></i></span>
+            <span class="st-label st-grow">Email</span>
+            <span class="st-value">{{ current_user.email }}</span>
+            <i class="bi bi-chevron-right st-chev"></i>
+        </button>
+
+        <button type="button" class="st-row" data-bs-toggle="modal" data-bs-target="#m-phone">
+            <span class="st-ico"><i class="bi bi-telephone"></i></span>
+            <span class="st-label st-grow">Số điện thoại</span>
+            <span class="st-value" id="phone-value">{{ current_user.phone_number or "Chưa có" }}</span>
+            <i class="bi bi-chevron-right st-chev"></i>
+        </button>
+
+        <button type="button" class="st-row" data-bs-toggle="modal" data-bs-target="#m-bio">
+            <span class="st-ico"><i class="bi bi-pencil-square"></i></span>
+            <span class="st-grow">
+                <div class="st-label">Ghi chú / Tiểu sử</div>
+                <div class="st-sub" id="bio-text">{{ current_user.bio or "Chưa có tiểu sử." }}</div>
+            </span>
+            <i class="bi bi-chevron-right st-chev"></i>
+        </button>
+
+        <!-- Chế độ riêng tư. Khi Trúc thêm cột riêng tư vào User, đặt checked theo giá trị đó (hiện đọc current_user.is_private nếu có). -->
+        <div class="st-row st-last" style="cursor: default;">
+            <span class="st-ico"><i class="bi bi-lock"></i></span>
+            <span class="st-grow">
+                <div class="st-label">Chế độ riêng tư</div>
+                <div class="st-sub">Ẩn hồ sơ khỏi người lạ</div>
+            </span>
+            <div class="form-check form-switch m-0">
+                <input class="form-check-input st-switch" type="checkbox" role="switch" id="private-switch" aria-label="Chế độ riêng tư" {% if current_user.is_private %}checked{% endif %}>
             </div>
         </div>
+    </section>
 
-        <!-- ============ 3. RIÊNG TƯ (GIỮ CHỖ) ============ -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-body p-4">
-                <h5 class="card-title fw-bold mb-3"><i class="bi bi-lock"></i> Riêng tư tài khoản</h5>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="private-account" disabled>
-                    <label class="form-check-label" for="private-account">Đặt tài khoản ở chế độ riêng tư</label>
+    <!-- ============ BẢO MẬT ============ -->
+    <div class="st-section-label">Bảo mật</div>
+    <section class="st-card">
+        <button type="button" class="st-row st-last" data-bs-toggle="modal" data-bs-target="#m-password">
+            <span class="st-ico"><i class="bi bi-shield-lock"></i></span>
+            <span class="st-grow">
+                <div class="st-label">Chỉnh sửa mật khẩu</div>
+                <div class="st-sub">Đổi mật khẩu tài khoản đăng nhập</div>
+            </span>
+            <i class="bi bi-chevron-right st-chev"></i>
+        </button>
+    </section>
+
+    <div id="logout-alert"></div>
+    <button type="button" class="st-logout" id="btn-logout"><i class="bi bi-box-arrow-right"></i> Đăng xuất</button>
+
+    <div id="tags-added-wrap" class="mt-4" hidden>
+        <div class="st-section-label">Nhãn đã thêm</div>
+        <div id="tags-added" class="d-flex flex-wrap gap-2"></div>
+    </div>
+</div>
+
+<!-- ============ MODAL: BIỆT DANH ============ -->
+<div class="modal fade" id="m-nickname" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content st-modal" id="f-nickname" novalidate>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Biệt danh</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert"></div>
+                <label for="in-nickname" class="form-label">Biệt danh hiển thị</label>
+                <input type="text" class="form-control" id="in-nickname" maxlength="64">
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn st-btn-cancel" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn st-btn-ok">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ MODAL: CHỌN NHÃN ============ -->
+<div class="modal fade" id="m-tags" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content st-modal" id="f-tags" novalidate>
+            <div class="modal-header border-0 pb-0 justify-content-center">
+                <h5 class="modal-title fw-bold">Chọn Nhãn Hồ Sơ</h5>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert"></div>
+                <div class="d-flex flex-wrap justify-content-center gap-2" id="tag-pills"></div>
+                <div class="form-text text-center mt-3">Chọn tối đa 3 nhãn.</div>
+            </div>
+            <div class="modal-footer border-0 pt-0 justify-content-center">
+                <button type="submit" class="btn st-btn-ok">Xác nhận</button>
+                <button type="button" class="btn st-btn-cancel" data-bs-dismiss="modal">Hủy</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ MODAL: EMAIL ============ -->
+<div class="modal fade" id="m-email" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content st-modal" id="f-email" novalidate>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Email</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert"></div>
+                <label class="form-label">Email chính</label>
+                <input type="email" class="form-control mb-3" value="{{ current_user.email }}" disabled>
+                <label for="in-secondary" class="form-label">Email phụ</label>
+                <input type="email" class="form-control" id="in-secondary" maxlength="120">
+                <div class="form-text">Không được trùng email chính hoặc email của tài khoản khác.</div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn st-btn-cancel" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn st-btn-ok">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ MODAL: SỐ ĐIỆN THOẠI ============ -->
+<div class="modal fade" id="m-phone" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content st-modal" id="f-phone" novalidate>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Số điện thoại</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert"></div>
+                <label for="in-phone" class="form-label">Số điện thoại liên hệ</label>
+                <input type="tel" class="form-control" id="in-phone" maxlength="20">
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn st-btn-cancel" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn st-btn-ok">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ MODAL: TIỂU SỬ ============ -->
+<div class="modal fade" id="m-bio" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content st-modal" id="f-bio" novalidate>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Ghi chú / Tiểu sử</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert"></div>
+                <textarea class="form-control" id="in-bio" rows="4" maxlength="255" placeholder="Giới thiệu ngắn về bạn"></textarea>
+                <div class="form-text">Tối đa 255 ký tự.</div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn st-btn-cancel" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn st-btn-ok">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ MODAL: ĐỔI MẬT KHẨU ============ -->
+<div class="modal fade" id="m-password" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content st-modal" id="f-password" novalidate>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Chỉnh sửa mật khẩu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert"></div>
+                <div class="mb-3">
+                    <label for="old_password" class="form-label">Mật khẩu hiện tại</label>
+                    <input type="password" class="form-control" id="old_password" autocomplete="current-password">
                 </div>
-                <div class="form-text">Tính năng đang chờ API riêng tư toàn trang, sẽ mở sau.</div>
+                <div class="mb-3">
+                    <label for="new_password" class="form-label">Mật khẩu mới</label>
+                    <input type="password" class="form-control" id="new_password" autocomplete="new-password">
+                    <div class="form-text">Ít nhất 8 ký tự, gồm chữ và số.</div>
+                </div>
+                <div class="mb-1">
+                    <label for="confirm_password" class="form-label">Nhập lại mật khẩu mới</label>
+                    <input type="password" class="form-control" id="confirm_password" autocomplete="new-password">
+                </div>
             </div>
-        </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn st-btn-cancel" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn st-btn-ok">Đổi mật khẩu</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+{% set init = {
+    "nickname": current_user.nickname,
+    "avatar_url": current_user.avatar_url,
+    "tags": (current_user.tags or "").split(","),
+    "secondary_email": current_user.secondary_email,
+    "phone": current_user.phone_number,
+    "bio": current_user.bio
+} %}
 <script>
+(function () {
+    "use strict";
+
     const CSRF_TOKEN = "{{ csrf_token() }}";
+    const LOGIN_URL = null;          // đổi thành trang đăng nhập khi Phát làm xong (null = chỉ hiện thông báo)
+    const API = {                    // endpoint do Trúc làm. Điền URL là hoạt động, null = chưa có
+        bio: null,                   // ví dụ "/profile/update", nhận JSON {"bio": "..."}
+        privacy: null                // ví dụ "/profile/privacy", nhận JSON {"is_private": true}
+    };
+    const MAX_TAGS = 3;
+    const TAGS = [                   // [mã lưu trong database, tên hiển thị]. Mã phải nằm trong FIXED_TAGS ở auth/routes.py
+        ["nguoi_du_lich", "Người du lịch"],
+        ["dia_phuong", "Dân địa phương"],
+        ["phuot", "Đi phượt"],
+        ["huong_dan_vien", "Hướng dẫn viên"],
+        ["nguoi_noi_tieng", "Người nổi tiếng"]
+    ];
+    const INIT = {{ init|tojson }};
 
-    function showAlert(boxId, type, text) {
-        const box = document.getElementById(boxId);
-        box.innerHTML = "";
-        const div = document.createElement("div");
-        div.className = "alert alert-" + type + " py-2";
-        div.setAttribute("role", "alert");
-        div.textContent = text;   // textContent: không chèn HTML từ server vào trang
-        box.appendChild(div);
-    }
+    const state = {
+        nickname: INIT.nickname || "",
+        avatar_url: INIT.avatar_url || "",
+        tags: (INIT.tags || []).filter(function (t) { return TAGS.some(function (x) { return x[0] === t; }); }),
+        secondary_email: INIT.secondary_email || "",
+        phone: INIT.phone || "",
+        bio: INIT.bio || ""
+    };
 
-    function fallbackError(status) {
-        if (status === 400) return "Phiên làm việc đã hết hạn, hãy tải lại trang rồi thử lại.";
-        if (status === 401) return "Bạn cần đăng nhập lại.";
-        return "Có lỗi xảy ra, vui lòng thử lại.";
+    const $ = function (id) { return document.getElementById(id); };
+    const tagText = function (code) { return "#" + code.replace(/_/g, ""); };
+
+    function alertIn(el, type, text) {
+        el.innerHTML = "";
+        const d = document.createElement("div");
+        d.className = "alert alert-" + type + " py-2 mb-3";
+        d.setAttribute("role", "alert");
+        d.textContent = text;              // textContent: không chèn HTML từ server vào trang
+        el.appendChild(d);
     }
 
     async function postJson(url, body) {
         const res = await fetch(url, {
             method: "POST",
             headers: {"Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN},
-            body: JSON.stringify(body)
+            body: JSON.stringify(body || {})
         });
         let data = {};
         try { data = await res.json(); } catch (e) { /* phản hồi không phải JSON */ }
         return {ok: res.ok, status: res.status, data: data};
     }
 
+    function errText(r) {
+        if (r.data && r.data.error) return r.data.error;
+        if (r.status === 400) return "Phiên làm việc đã hết hạn, hãy tải lại trang rồi thử lại.";
+        if (r.status === 401) return "Bạn cần đăng nhập lại.";
+        return "Có lỗi xảy ra, vui lòng thử lại.";
+    }
+
+    function closeModal(id) {
+        const m = bootstrap.Modal.getInstance($(id));
+        if (m) m.hide();
+    }
+
+    async function run(form, work) {
+        const box = form.querySelector(".modal-alert");
+        const btn = form.querySelector("button[type=submit]");
+        btn.disabled = true;
+        try { await work(box); }
+        catch (e) { alertIn(box, "danger", "Không kết nối được máy chủ."); }
+        finally { btn.disabled = false; }
+    }
+
+    // /onboarding thay toàn bộ nhãn, nên luôn gửi kèm nhãn hiện có để không bị xóa
+    function profileBody(extra) {
+        const body = {tags: state.tags};
+        if (state.nickname) body.nickname = state.nickname;
+        if (state.avatar_url) body.avatar_url = state.avatar_url;
+        return Object.assign(body, extra || {});
+    }
+
+    // ---- Hiển thị nhãn ----
+    function renderTags() {
+        $("tags-value").textContent = state.tags.length ? state.tags.map(tagText).join(" ") : "+ Thêm nhãn";
+        const list = $("tags-added");
+        list.innerHTML = "";
+        state.tags.forEach(function (code) {
+            const chip = document.createElement("span");
+            chip.className = "st-added-chip";
+            chip.appendChild(document.createTextNode(tagText(code)));
+            const x = document.createElement("button");
+            x.type = "button";
+            x.className = "st-x";
+            x.setAttribute("aria-label", "Xóa nhãn " + tagText(code));
+            x.textContent = "×";
+            x.addEventListener("click", function () { removeTag(code); });
+            chip.appendChild(x);
+            list.appendChild(chip);
+        });
+        $("tags-added-wrap").hidden = state.tags.length === 0;
+    }
+
+    async function removeTag(code) {
+        const next = state.tags.filter(function (t) { return t !== code; });
+        const box = $("page-alert");
+        try {
+            const r = await postJson("/onboarding", profileBody({tags: next}));
+            if (!r.ok) return alertIn(box, "danger", errText(r));
+            state.tags = next;
+            box.innerHTML = "";
+            renderTags();
+        } catch (e) { alertIn(box, "danger", "Không kết nối được máy chủ."); }
+    }
+
+    // ---- Chọn nhãn ----
+    let picked = [];
+    TAGS.forEach(function (t) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "st-pill";
+        b.dataset.tag = t[0];
+        b.textContent = t[1];
+        $("tag-pills").appendChild(b);
+    });
+    function syncPills() {
+        document.querySelectorAll(".st-pill").forEach(function (p) {
+            p.classList.toggle("active", picked.indexOf(p.dataset.tag) >= 0);
+        });
+    }
+    $("tag-pills").addEventListener("click", function (e) {
+        const p = e.target.closest(".st-pill");
+        if (!p) return;
+        const box = $("f-tags").querySelector(".modal-alert");
+        const i = picked.indexOf(p.dataset.tag);
+        if (i >= 0) picked.splice(i, 1);
+        else if (picked.length >= MAX_TAGS) return alertIn(box, "warning", "Chỉ được chọn tối đa " + MAX_TAGS + " nhãn.");
+        else picked.push(p.dataset.tag);
+        box.innerHTML = "";
+        syncPills();
+    });
+    $("f-tags").addEventListener("submit", function (e) {
+        e.preventDefault();
+        run(e.target, async function (box) {
+            const r = await postJson("/onboarding", profileBody({tags: picked}));
+            if (!r.ok) return alertIn(box, "danger", errText(r));
+            state.tags = picked.slice();
+            renderTags();
+            closeModal("m-tags");
+        });
+    });
+
+    // ---- Biệt danh ----
+    $("f-nickname").addEventListener("submit", function (e) {
+        e.preventDefault();
+        run(e.target, async function (box) {
+            const v = $("in-nickname").value.trim();
+            if (!v) return alertIn(box, "danger", "Vui lòng nhập biệt danh.");
+            const r = await postJson("/onboarding", profileBody({nickname: v}));
+            if (!r.ok) return alertIn(box, "danger", errText(r));
+            state.nickname = v;
+            $("nickname-value").textContent = v;
+            closeModal("m-nickname");
+        });
+    });
+
+    // ---- Email phụ / Số điện thoại (/settings/contact) ----
+    $("f-email").addEventListener("submit", function (e) {
+        e.preventDefault();
+        run(e.target, async function (box) {
+            const v = $("in-secondary").value.trim();
+            if (!v) return alertIn(box, "danger", "Vui lòng nhập email phụ.");
+            const r = await postJson("/settings/contact", {secondary_email: v});
+            if (!r.ok) return alertIn(box, "danger", errText(r));
+            state.secondary_email = v;
+            closeModal("m-email");
+            alertIn($("page-alert"), "success", "Đã lưu email phụ.");
+        });
+    });
+    $("f-phone").addEventListener("submit", function (e) {
+        e.preventDefault();
+        run(e.target, async function (box) {
+            const v = $("in-phone").value.trim();
+            if (!v) return alertIn(box, "danger", "Vui lòng nhập số điện thoại.");
+            const r = await postJson("/settings/contact", {phone_number: v});
+            if (!r.ok) return alertIn(box, "danger", errText(r));
+            state.phone = v;
+            $("phone-value").textContent = v;
+            closeModal("m-phone");
+        });
+    });
+
+    // ---- Tiểu sử (chờ API của Trúc) ----
+    $("f-bio").addEventListener("submit", function (e) {
+        e.preventDefault();
+        run(e.target, async function (box) {
+            if (!API.bio) return alertIn(box, "warning", "Chức năng lưu tiểu sử đang chờ API của Trúc, chưa lưu được.");
+            const v = $("in-bio").value.trim();
+            const r = await postJson(API.bio, {bio: v});
+            if (!r.ok) return alertIn(box, "danger", errText(r));
+            state.bio = v;
+            $("bio-text").textContent = v || "Chưa có tiểu sử.";
+            closeModal("m-bio");
+        });
+    });
+
+    // ---- Chế độ riêng tư (chờ API của Trúc) ----
+    $("private-switch").addEventListener("change", async function (e) {
+        const sw = e.target, want = sw.checked, box = $("page-alert");
+        if (!API.privacy) {
+            sw.checked = !want;
+            return alertIn(box, "warning", "Chế độ riêng tư đang chờ API của Trúc, chưa bật được.");
+        }
+        sw.disabled = true;
+        try {
+            const r = await postJson(API.privacy, {is_private: want});
+            if (!r.ok) { sw.checked = !want; return alertIn(box, "danger", errText(r)); }
+            box.innerHTML = "";
+        } catch (err) {
+            sw.checked = !want;
+            alertIn(box, "danger", "Không kết nối được máy chủ.");
+        } finally { sw.disabled = false; }
+    });
+
     // ---- Đổi mật khẩu ----
-    document.getElementById("password-form").addEventListener("submit", async function (e) {
+    $("f-password").addEventListener("submit", function (e) {
         e.preventDefault();
-        const oldPw = document.getElementById("old_password").value;
-        const newPw = document.getElementById("new_password").value;
-        const confirmPw = document.getElementById("confirm_password").value;
-
-        if (!oldPw || !newPw) {
-            showAlert("password-alert", "danger", "Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới.");
-            return;
-        }
-        if (newPw !== confirmPw) {
-            showAlert("password-alert", "danger", "Mật khẩu nhập lại không khớp.");
-            return;
-        }
-
-        const btn = e.target.querySelector("button[type=submit]");
-        btn.disabled = true;
-        try {
+        run(e.target, async function (box) {
+            const oldPw = $("old_password").value;
+            const newPw = $("new_password").value;
+            if (!oldPw || !newPw) return alertIn(box, "danger", "Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới.");
+            if (newPw !== $("confirm_password").value) return alertIn(box, "danger", "Mật khẩu nhập lại không khớp.");
             const r = await postJson("/change-password", {old_password: oldPw, new_password: newPw});
-            if (r.ok) {
-                showAlert("password-alert", "success", r.data.message || "Đổi mật khẩu thành công");
-                e.target.reset();
-            } else {
-                showAlert("password-alert", "danger", r.data.error || fallbackError(r.status));
-            }
-        } catch (err) {
-            showAlert("password-alert", "danger", "Không kết nối được máy chủ.");
-        } finally {
-            btn.disabled = false;
-        }
+            if (!r.ok) return alertIn(box, "danger", errText(r));
+            closeModal("m-password");
+            alertIn($("page-alert"), "success", r.data.message || "Đổi mật khẩu thành công");
+        });
     });
 
-    // ---- Thông tin liên hệ ----
-    document.getElementById("contact-form").addEventListener("submit", async function (e) {
-        e.preventDefault();
-        const phone = document.getElementById("phone_number").value.trim();
-        const email = document.getElementById("secondary_email").value.trim();
-
-        const body = {};
-        if (phone) body.phone_number = phone;
-        if (email) body.secondary_email = email;
-        if (!phone && !email) {
-            showAlert("contact-alert", "danger", "Nhập ít nhất số điện thoại hoặc email phụ.");
-            return;
-        }
-
-        const btn = e.target.querySelector("button[type=submit]");
+    // ---- Đăng xuất ----
+    $("btn-logout").addEventListener("click", async function (e) {
+        const btn = e.currentTarget, box = $("logout-alert");
         btn.disabled = true;
         try {
-            const r = await postJson("/settings/contact", body);
-            if (r.ok) {
-                showAlert("contact-alert", "success", r.data.message || "Đã lưu thông tin liên hệ");
-            } else {
-                showAlert("contact-alert", "danger", r.data.error || fallbackError(r.status));
-            }
+            const r = await postJson("/logout", {});
+            if (!r.ok) { btn.disabled = false; return alertIn(box, "danger", errText(r)); }
+            alertIn(box, "success", "Đã đăng xuất.");
+            if (LOGIN_URL) window.location.href = LOGIN_URL;
         } catch (err) {
-            showAlert("contact-alert", "danger", "Không kết nối được máy chủ.");
-        } finally {
             btn.disabled = false;
+            alertIn(box, "danger", "Không kết nối được máy chủ.");
         }
     });
+
+    // ---- Điền sẵn dữ liệu mỗi lần mở cửa sổ ----
+    const prefill = {
+        "m-nickname": function () { $("in-nickname").value = state.nickname; },
+        "m-tags": function () { picked = state.tags.slice(); syncPills(); },
+        "m-email": function () { $("in-secondary").value = state.secondary_email; },
+        "m-phone": function () { $("in-phone").value = state.phone; },
+        "m-bio": function () { $("in-bio").value = state.bio; },
+        "m-password": function () { $("f-password").reset(); }
+    };
+    document.querySelectorAll(".modal").forEach(function (m) {
+        m.addEventListener("show.bs.modal", function () {
+            const box = m.querySelector(".modal-alert");
+            if (box) box.innerHTML = "";
+            if (prefill[m.id]) prefill[m.id]();
+        });
+    });
+
+    renderTags();
+})();
 </script>
 {% endblock %}

@@ -765,8 +765,57 @@ def search_all():
         reverse=True
     )
 
+    # =========================================================
+    # SEARCH LOCATIONS — sắp xếp theo tổng share_count
+    # =========================================================
+    locations = (
+        db.session.query(
+            Location,
+            db.func.count(Share.id).label("share_count")
+        )
+        .outerjoin(
+            Post,
+            db.and_(
+                Post.location_id == Location.id,
+                Post.visibility == "public"
+            )
+        )
+        .outerjoin(
+            Share,
+            Share.post_id == Post.id
+        )
+        .filter(
+            db.or_(
+                Location.name.ilike(f"%{keyword}%"),
+                Location.slug.ilike(f"%{keyword}%"),
+                Location.address.ilike(f"%{keyword}%")
+            )
+        )
+        .group_by(Location.id)
+        .order_by(
+            db.func.count(Share.id).desc(),
+            Location.name.asc()
+        )
+        .limit(20)
+        .all()
+    )
+
+    location_result = [
+        {
+            "id": location.id,
+            "name": location.name,
+            "slug": location.slug,
+            "address": location.address,
+            "map_link": location.map_link,
+            "share_count": share_count
+        }
+        for location, share_count in locations
+    ]
+
     return jsonify({
         "keyword": keyword,
-        "count": len(result),
-        "posts": result
+        "post_count": len(result),
+        "location_count": len(location_result),
+        "posts": result,
+        "locations": location_result
     }), 200
