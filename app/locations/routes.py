@@ -4,14 +4,14 @@ chi tiết bài viết, like, comment, share, save, địa điểm, lịch trìn
 
 import os
 import uuid
-from flask import request, jsonify, current_app, render_template, send_from_directory
+from flask import request, jsonify, current_app, render_template, redirect, url_for, flash, send_from_directory
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from app.locations import locations_bp
 from app.extensions import db
 from app.models import (
-    Post, Photo, Like, Comment, Share, SavedPost, Location,
+    Post, Photo, Like, Comment, Share, SavedPost, Location, User,
     Itinerary, ItineraryDay, ItineraryStop, ItineraryLodging, ItineraryAttachment,
     Notification,
 )
@@ -39,7 +39,6 @@ def get_media_type(filename):
 
     return None
 
-
 def user_can_access_post(post):
     """
     Post public -> ai cũng xem/tương tác được.
@@ -47,6 +46,9 @@ def user_can_access_post(post):
     """
     if post.visibility != "private":
         return True
+
+    if not current_user.is_authenticated:
+        return False
 
     if post.user_id == current_user.id:
         return True
@@ -66,26 +68,40 @@ def user_can_access_post(post):
 # POST - UPLOAD
 # =========================================================
 
-@locations_bp.route("/upload", methods=["POST"])
+@locations_bp.route("/upload", methods=["GET", "POST"])
 @login_required
 def create_post():
+    if request.method == "GET":
+        return render_template("locations/upload.html")
+
     files = request.files.getlist("images")
+    is_browser_form = request.accept_mimetypes.accept_html and not request.is_json and request.headers.get("X-Requested-With") != "XMLHttpRequest"
 
     if not files or files[0].filename == "":
+        if is_browser_form:
+            flash("Vui lòng chọn ít nhất 1 file ảnh hoặc video", "error")
+            return render_template("locations/upload.html"), 400
         return jsonify({
             "error": "Thiếu ít nhất 1 file ảnh/video"
         }), 400
 
     if len(files) > MAX_FILES_PER_POST:
+        if is_browser_form:
+            flash(f"Tối đa {MAX_FILES_PER_POST} file mỗi bài viết", "error")
+            return render_template("locations/upload.html"), 400
         return jsonify({
             "error": f"Tối đa {MAX_FILES_PER_POST} file mỗi bài viết"
         }), 400
 
     for file in files:
         if get_media_type(file.filename) is None:
+            if is_browser_form:
+                flash(f"File '{file.filename}' không đúng định dạng", "error")
+                return render_template("locations/upload.html"), 400
             return jsonify({
                 "error": f"File '{file.filename}' sai định dạng"
             }), 400
+
 
     caption = request.form.get("caption", "")
 
@@ -191,9 +207,17 @@ def create_post():
             if os.path.exists(path):
                 os.remove(path)
 
+        if is_browser_form:
+            flash("Có lỗi xảy ra khi lưu bài viết, vui lòng thử lại", "error")
+            return render_template("locations/upload.html"), 500
+
         return jsonify({
             "error": "Có lỗi xảy ra khi lưu bài viết, vui lòng thử lại"
         }), 500
+
+    if is_browser_form:
+        flash("Đăng bài viết thành công!", "success")
+        return redirect(url_for("locations.feed"))
 
     response = {
         "message": "Đăng bài thành công",
@@ -214,28 +238,99 @@ def create_post():
 @locations_bp.route("/feed", methods=["GET"])
 @login_required
 def feed():
-    """Feed kiểu Discovery: mọi bài Public, mới nhất trước.
-    Hỗ trợ phân trang: ?page=1&per_page=10 (per_page tối đa 50)."""
+    """Bảng tin Feed — Hỗ trợ song song cả Web HTML UI lẫn REST API JSON."""
+    from app.models import Follow
+
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 10, type=int), 1), 50)
 
-    # TODO: khi Trúc làm xong "riêng tư toàn trang", thêm điều kiện loại bài của tài khoản riêng tư
-    posts = (
-        Post.query.filter(Post.visibility == "public")
-        .order_by(Post.created_at.desc(), Post.id.desc())
-        .limit(per_page + 1)          # lấy dư 1 bài để biết còn trang sau không
-        .offset((page - 1) * per_page)
-        .all()
-    )
-    has_next = len(posts) > per_page
-    posts = posts[:per_page]
+    # 1. Trả về JSON cho Mobile / API / Automation tests
+    if request.args.get("format") == "json" or (
+        request.headers.get("Accept") == "application/json" and not request.accept_mimetypes.accept_html
+    ):
+        posts = (
+            Post.query.filter(Post.visibility == "public")
+            .order_by(Post.created_at.desc(), Post.id.desc())
+            .limit(per_page + 1)
+            .offset((page - 1) * per_page)
+            .all()
+        )
+        has_next = len(posts) > per_page
+        posts = posts[:per_page]
 
-    return jsonify({
-        "feed": serialize_posts(posts, current_user.id),
-        "page": page,
-        "per_page": per_page,
-        "has_next": has_next,
-    })
+        return jsonify({
+            "feed": serialize_posts(posts, current_user.id),
+            "page": page,
+            "per_page": per_page,
+            "has_next": has_next,
+        })
+
+    # 2. Render Template HTML cho Trình duyệt Web
+    following_ids = [
+        f.followed_id for f in Follow.query.filter_by(follower_id=current_user.id).all()
+    ]
+    feed_user_ids = list(set(following_ids + [current_user.id]))
+
+    if feed_user_ids:
+        posts = (
+            Post.query.filter(Post.user_id.in_(feed_user_ids))
+            .order_by(Post.created_at.desc())
+            .all()
+        )
+    else:
+        posts = []
+
+    if not posts:
+        posts = Post.query.order_by(Post.created_at.desc()).limit(20).all()
+
+    post_cards = []
+    for p in posts:
+        author = db.session.get(User, p.user_id) if hasattr(db.session, 'get') else User.query.get(p.user_id)
+        photos = Photo.query.filter_by(post_id=p.id).order_by(Photo.id.asc()).all()
+        loc = db.session.get(Location, p.location_id) if (p.location_id and hasattr(db.session, 'get')) else (Location.query.get(p.location_id) if p.location_id else None)
+        likes_count = Like.query.filter_by(post_id=p.id).count()
+        is_liked = bool(Like.query.filter_by(user_id=current_user.id, post_id=p.id).first())
+        comments = Comment.query.filter_by(post_id=p.id).order_by(Comment.created_at.asc()).all()
+        comments_count = len(comments)
+        is_saved = bool(SavedPost.query.filter_by(user_id=current_user.id, post_id=p.id).first())
+        shares_count = Share.query.filter_by(post_id=p.id).count()
+
+        formatted_comments = []
+        for c in comments:
+            c_author = db.session.get(User, c.user_id) if hasattr(db.session, 'get') else User.query.get(c.user_id)
+            formatted_comments.append({
+                "id": c.id,
+                "user_id": c.user_id,
+                "author_name": c_author.username if c_author else f"User #{c.user_id}",
+                "content": c.content,
+                "created_at": c.created_at.strftime("%H:%M %d/%m/%Y") if c.created_at else "",
+                "can_delete": (c.user_id == current_user.id)
+            })
+
+        post_cards.append({
+            "id": p.id,
+            "author": author,
+            "caption": p.caption,
+            "location": loc,
+            "created_at": p.created_at.strftime("%d/%m/%Y %H:%M") if p.created_at else "",
+            "photos": photos,
+            "likes_count": likes_count,
+            "is_liked": is_liked,
+            "comments_count": comments_count,
+            "comments": formatted_comments,
+            "is_saved": is_saved,
+            "shares_count": shares_count,
+        })
+
+    suggested_locations = Location.query.order_by(Location.id.desc()).limit(5).all()
+    suggested_users = User.query.filter(User.id != current_user.id).limit(5).all()
+
+    return render_template(
+        "locations/feed.html",
+        posts=post_cards,
+        suggested_locations=suggested_locations,
+        suggested_users=suggested_users,
+    )
 
 
 @locations_bp.route("/posts/<int:post_id>", methods=["GET"])
@@ -814,6 +909,7 @@ def create_location():
 # LOCATION - SEARCH
 # =========================================================
 
+@locations_bp.route("/search", methods=["GET"])
 @locations_bp.route(
     "/locations/search",
     methods=["GET"]

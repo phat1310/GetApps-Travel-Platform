@@ -6,19 +6,37 @@
    ========================================================================== */
 
 :root {
-    --ges-primary: #0284c7;        /* Xanh da trời điểm nhấn */
-    --ges-primary-hover: #0369a1;  /* Xanh đậm khi hover */
-    --ges-primary-light: #e0f2fe;  /* Xanh nhạt nền phụ */
-    --ges-bg-body: #f8fafc;        /* Nền trang sáng tối giản */
-    --ges-text-main: #0f172a;      /* Màu chữ chính */
-    --ges-text-muted: #64748b;     /* Màu chữ phụ */
-    --ges-card-bg: #ffffff;        /* Nền thẻ card */
-    --ges-border-color: #e2e8f0;   /* Viền mỏng nhẹ */
+    --ges-primary: #0EA5E9;        /* Sky-500: Màu nhấn thương hiệu chuẩn */
+    --ges-primary-hover: #0284C7;  /* Sky-600: Hover */
+    --ges-primary-active: #0369A1; /* Sky-700: Active / Pressed */
+    --ges-primary-light: #E0F2FE;  /* Sky-100: Nền phụ nhẹ */
+    --ges-bg-body: #F8FAFC;        /* Nền phụ toàn trang */
+    --ges-text-main: #111827;      /* Chữ chính (Slate-900) */
+    --ges-text-muted: #6B7280;     /* Chữ phụ (Gray-500) */
+    --ges-card-bg: #FFFFFF;        /* Nền thẻ card */
+    --ges-border-color: #E5E7EB;   /* Viền mỏng nhẹ chuẩn Design System */
     --ges-radius-sm: 8px;
     --ges-radius-md: 12px;
     --ges-radius-lg: 16px;
-    --ges-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --ges-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+    --ges-radius-xl: 24px;
+    --ges-shadow-sm: 0 1px 3px 0 rgba(17, 24, 39, 0.05);
+    --ges-shadow-md: 0 4px 20px -2px rgba(17, 24, 39, 0.06);
+    --ges-shadow-lg: 0 12px 32px -4px rgba(17, 24, 39, 0.08);
+}
+
+[data-bs-theme="dark"] {
+    --ges-primary: #38BDF8;        /* Sky-400: Nổi bật trên nền tối */
+    --ges-primary-hover: #0EA5E9;  /* Sky-500 */
+    --ges-primary-active: #0284C7; /* Sky-600 */
+    --ges-primary-light: #1E293B;  /* Nền tối phụ */
+    --ges-bg-body: #0F172A;        /* Slate-900: Nền tối sâu */
+    --ges-text-main: #F8FAFC;      /* Chữ chính sáng (Slate-50) */
+    --ges-text-muted: #94A3B8;     /* Chữ phụ (Slate-400) */
+    --ges-card-bg: #1E293B;        /* Slate-800: Nền thẻ Card */
+    --ges-border-color: #334155;   /* Slate-700: Viền card */
+    --ges-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+    --ges-shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+    --ges-shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.6);
 }
 
 body {
@@ -28,6 +46,7 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 main.main-content {
@@ -39,39 +58,52 @@ main.main-content {
    NAVBAR STYLES
    -------------------------------------------------------------------------- */
 .navbar-ges {
-    background-color: #ffffff;
+    background-color: var(--ges-card-bg);
     border-bottom: 1px solid var(--ges-border-color);
     box-shadow: var(--ges-shadow-sm);
     padding: 0.75rem 0;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
-.brand-badge {
+/* Nút chuyển đổi Theme Nền Sáng / Tối */
+.theme-toggle-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--ges-border-color);
+    background-color: var(--ges-card-bg);
+    color: var(--ges-text-muted);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0284c7, #38bdf8);
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 1.25rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: var(--ges-radius-sm);
-    letter-spacing: 0.5px;
-    margin-right: 0.5rem;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.25s ease;
 }
 
-.brand-title {
-    font-weight: 800;
-    font-size: 1.35rem;
-    color: var(--ges-text-main);
-    letter-spacing: -0.5px;
+.theme-toggle-btn:hover {
+    color: var(--ges-primary);
+    border-color: var(--ges-primary);
+    transform: rotate(20deg) scale(1.08);
+    box-shadow: var(--ges-shadow-sm);
 }
 
-.brand-tagline {
-    font-size: 0.7rem;
-    color: var(--ges-text-muted);
-    font-weight: 500;
-    display: block;
-    margin-top: -3px;
+.brand-logo-img {
+    height: 44px;
+    width: auto;
+    display: inline-block;
+    vertical-align: middle;
+    transition: transform 0.2s ease;
+}
+
+.brand-logo-img:hover {
+    transform: scale(1.03);
+}
+
+.brand-logo-footer {
+    height: 36px;
+    width: auto;
+    display: inline-block;
 }
 
 .nav-link-ges {
@@ -218,12 +250,13 @@ main.main-content {
    FOOTER
    -------------------------------------------------------------------------- */
 .footer-ges {
-    background-color: #ffffff;
+    background-color: var(--ges-card-bg);
     border-top: 1px solid var(--ges-border-color);
     padding: 1.5rem 0;
     color: var(--ges-text-muted);
     font-size: 0.88rem;
     margin-top: auto;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .footer-ges a {
@@ -235,3 +268,117 @@ main.main-content {
 .footer-ges a:hover {
     color: var(--ges-primary);
 }
+
+/* --------------------------------------------------------------------------
+   DARK THEME COMPONENT OVERRIDES
+   -------------------------------------------------------------------------- */
+[data-bs-theme="dark"] .card {
+    background-color: var(--ges-card-bg);
+    border-color: var(--ges-border-color);
+    color: var(--ges-text-main);
+}
+
+[data-bs-theme="dark"] .auth-card {
+    background-color: var(--ges-card-bg) !important;
+    border-color: var(--ges-border-color) !important;
+    color: var(--ges-text-main) !important;
+}
+
+[data-bs-theme="dark"] .profile-header-card {
+    background-color: var(--ges-card-bg) !important;
+    border-color: var(--ges-border-color) !important;
+}
+
+[data-bs-theme="dark"] .stats-card {
+    background-color: #0F172A !important;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: #0F172A;
+    border-color: var(--ges-border-color);
+    color: var(--ges-text-main);
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: #0F172A;
+    border-color: var(--ges-primary);
+    color: var(--ges-text-main);
+}
+
+[data-bs-theme="dark"] .dropdown-menu {
+    background-color: var(--ges-card-bg);
+    border-color: var(--ges-border-color);
+}
+
+[data-bs-theme="dark"] .bg-white {
+    background-color: var(--ges-card-bg) !important;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: #0F172A !important;
+}
+
+[data-bs-theme="dark"] .text-dark {
+    color: #F8FAFC !important;
+}
+
+[data-bs-theme="dark"] .sidebar-card,
+[data-bs-theme="dark"] .post-card,
+[data-bs-theme="dark"] .ges-card {
+    background-color: var(--ges-card-bg) !important;
+    border-color: var(--ges-border-color) !important;
+    color: var(--ges-text-main) !important;
+}
+
+[data-bs-theme="dark"] .sidebar-card h6,
+[data-bs-theme="dark"] .sidebar-card .text-dark,
+[data-bs-theme="dark"] .post-card h6,
+[data-bs-theme="dark"] .post-card .text-dark {
+    color: #F8FAFC !important;
+}
+
+[data-bs-theme="dark"] .sidebar-card .text-muted,
+[data-bs-theme="dark"] .sidebar-card small,
+[data-bs-theme="dark"] .post-card .text-muted,
+[data-bs-theme="dark"] .post-card small {
+    color: #94A3B8 !important;
+}
+
+[data-bs-theme="dark"] .btn-ges-outline {
+    border-color: var(--ges-primary);
+    color: var(--ges-primary);
+}
+
+[data-bs-theme="dark"] .btn-ges-outline:hover {
+    background-color: var(--ges-primary);
+    color: #0F172A;
+}
+
+[data-bs-theme="dark"] .badge-role-traveler {
+    background-color: #0369A1;
+    color: #E0F2FE;
+}
+
+[data-bs-theme="dark"] .badge-role-local {
+    background-color: #166534;
+    color: #DCFCE7;
+}
+
+[data-bs-theme="dark"] .badge-role-creator {
+    background-color: #6B21A8;
+    color: #F3E8FF;
+}
+
+[data-bs-theme="dark"] .badge-role-owner {
+    background-color: #854D0E;
+    color: #FEF3C7;
+}
+
+[data-bs-theme="dark"] .badge-role-user {
+    background-color: #334155;
+    color: #E2E8F0;
+}
+
+

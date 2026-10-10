@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Đăng nhập — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-card {
+        max-width: 440px;
+        margin: 2.5rem auto;
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: var(--ges-radius-lg);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        padding: 2.5rem 2rem;
+    }
+    .auth-input-group {
+        position: relative;
+    }
+    .auth-input-group input {
+        border-radius: 12px;
+        padding: 0.75rem 1rem 0.75rem 2.75rem;
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s ease;
+    }
+    .auth-input-group input:focus {
+        border-color: var(--ges-primary);
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+    .auth-input-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 1.1rem;
+        pointer-events: none;
+    }
+    .toggle-pwd-btn {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 0.25rem;
+        display: flex;
+        align-items: center;
+    }
+    .toggle-pwd-btn:hover {
+        color: var(--ges-text-main);
+    }
+    .divider-text {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        color: var(--ges-text-muted);
+        font-size: 0.82rem;
+        margin: 1.5rem 0;
+    }
+    .divider-text::before, .divider-text::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .divider-text:not(:empty)::before {
+        margin-right: .75em;
+    }
+    .divider-text:not(:empty)::after {
+        margin-left: .75em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    
+    <!-- Brand Header -->
+    <div class="text-center mb-4">
+        <a href="{{ url_for('locations.feed') }}" class="d-inline-block mb-1 text-decoration-none">
+            <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs - GetApps" class="brand-logo-img" style="height: 52px; width: auto;">
+        </a>
+        <h4 class="fw-bold text-dark mt-2 mb-1">Chào mừng trở lại!</h4>
+        <p class="text-muted small mb-0">Đăng nhập để tiếp tục chia sẻ hành trình du lịch của bạn</p>
+    </div>
+
+    <!-- Login Form -->
+    <form action="{{ url_for('auth.login') }}" method="POST" novalidate id="login-form">
+        {{ form.hidden_tag() }}
+
+        <!-- Username / Email -->
+        <div class="mb-3">
+            <label for="username" class="form-label fw-semibold text-dark small">Tên đăng nhập hoặc Email</label>
+            <div class="auth-input-group">
+                <i class="bi bi-person auth-input-icon"></i>
+                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="nhap_username hoặc email@domain.com", id="username", autofocus=true) }}
+            </div>
+            {% for error in form.username.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Password -->
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="password" class="form-label fw-semibold text-dark small mb-0">Mật khẩu</label>
+                <a href="{{ url_for('auth.forgot_password') }}" class="text-decoration-none small text-primary fw-semibold">Quên mật khẩu?</a>
+            </div>
+            <div class="auth-input-group">
+                <i class="bi bi-lock auth-input-icon"></i>
+                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="••••••••", id="password") }}
+                <button type="button" class="toggle-pwd-btn" onclick="togglePassword('password', this)" title="Ẩn/Hiện mật khẩu">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+            {% for error in form.password.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Remember Me Checkbox -->
+        <div class="mb-4 form-check">
+            {{ form.remember_me(class="form-check-input", id="remember_me") }}
+            <label class="form-check-label small text-muted" for="remember_me">
+                Ghi nhớ đăng nhập trên thiết bị này
+            </label>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="d-grid mb-3">
+            <button type="submit" class="btn btn-ges-primary py-2 fw-bold fs-6" style="border-radius: 12px;">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Đăng nhập
+            </button>
+        </div>
+
+    </form>
+
+    <!-- Social Login Divider -->
+    <div class="divider-text">Hoặc đăng nhập bằng</div>
+
+    <!-- Google Button Demo -->
+    <div class="d-grid mb-4">
+        <button type="button" class="btn btn-light border py-2 d-flex align-items-center justify-content-center gap-2 fw-semibold text-dark" style="border-radius: 12px;" onclick="alert('Đăng nhập Google sẽ được tích hợp qua OAuth2.')">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+            </svg>
+            <span>Tiếp tục với Google</span>
+        </button>
+    </div>
+
+    <!-- Register Link -->
+    <div class="text-center pt-2 border-top">
+        <p class="text-muted small mb-0">
+            Chưa có tài khoản?
+            <a href="{{ url_for('auth.register') }}" class="text-primary fw-bold text-decoration-none ms-1">Đăng ký ngay</a>
+        </p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+</script>
+{% endblock %}

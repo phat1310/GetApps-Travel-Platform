@@ -1,0 +1,983 @@
+{% extends "base.html" %}
+
+{% block title %}Cài đặt tài khoản — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-container {
+        max-width: 480px;
+        margin: 2rem auto 4rem auto;
+        padding: 0 0.75rem;
+    }
+    .settings-card {
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: 20px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.02);
+        padding: 1.5rem 1.25rem;
+        margin-bottom: 1.5rem;
+        transition: background-color 0.25s ease, border-color 0.25s ease;
+    }
+    [data-bs-theme="dark"] .settings-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+
+    /* Profile Header Section */
+    .profile-header-wrap {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid #f1f5f9;
+        margin-bottom: 0.75rem;
+    }
+    [data-bs-theme="dark"] .profile-header-wrap {
+        border-bottom-color: #334155;
+    }
+    .profile-avatar-box {
+        position: relative;
+        width: 64px;
+        height: 64px;
+        flex-shrink: 0;
+    }
+    .profile-avatar-box img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    [data-bs-theme="dark"] .profile-avatar-box img {
+        border-color: #334155;
+    }
+    .avatar-camera-btn {
+        position: absolute;
+        bottom: -2px;
+        right: -2px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: var(--ges-primary);
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        transition: transform 0.15s ease;
+    }
+    .avatar-camera-btn:hover {
+        transform: scale(1.1);
+    }
+    [data-bs-theme="dark"] .avatar-camera-btn {
+        border-color: #1e293b;
+    }
+    .profile-info-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--ges-text-main);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.15rem;
+    }
+    .badge-account-type {
+        background-color: #e0e7ff;
+        color: #4338ca;
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 0.2rem 0.55rem;
+        border-radius: 9999px;
+        white-space: nowrap;
+    }
+    [data-bs-theme="dark"] .badge-account-type {
+        background-color: #312e81;
+        color: #c7d2fe;
+    }
+    .profile-subtitle-link {
+        font-size: 0.82rem;
+        color: var(--ges-text-muted);
+        cursor: pointer;
+        text-decoration: none;
+        transition: color 0.15s;
+    }
+    .profile-subtitle-link:hover {
+        color: var(--ges-primary);
+    }
+
+    /* List item rows */
+    .setting-item-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.95rem 0.5rem;
+        border-bottom: 1px solid #f8fafc;
+        cursor: pointer;
+        border-radius: 12px;
+        transition: background-color 0.15s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+    .setting-item-row:last-child {
+        border-bottom: none;
+    }
+    .setting-item-row:hover {
+        background-color: #f8fafc;
+    }
+    [data-bs-theme="dark"] .setting-item-row {
+        border-bottom-color: #1e293b;
+    }
+    [data-bs-theme="dark"] .setting-item-row:hover {
+        background-color: #334155;
+    }
+    .setting-left {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .setting-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background-color: #e0f2fe;
+        color: #0284c7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+    [data-bs-theme="dark"] .setting-icon-box {
+        background-color: #0369a1;
+        color: #e0f2fe;
+    }
+    .setting-label {
+        font-size: 0.92rem;
+        font-weight: 500;
+        color: var(--ges-text-main);
+    }
+    .setting-right {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--ges-text-muted);
+        text-align: right;
+        max-width: 55%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .setting-right .chevron-icon {
+        color: #94a3b8;
+        font-size: 0.9rem;
+    }
+    .tag-chip-preview {
+        background-color: #e0f2fe;
+        color: #0284c7;
+        font-weight: 600;
+        font-size: 0.78rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 9999px;
+    }
+    [data-bs-theme="dark"] .tag-chip-preview {
+        background-color: #075985;
+        color: #bae6fd;
+    }
+    .bio-preview-box {
+        padding: 0.4rem 0.5rem 0.75rem 3.4rem;
+        font-size: 0.86rem;
+        color: var(--ges-text-muted);
+        line-height: 1.45;
+    }
+
+    /* Section Header */
+    .settings-section-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 0.65rem;
+        margin-left: 0.5rem;
+    }
+    [data-bs-theme="dark"] .settings-section-title {
+        color: #94a3b8;
+    }
+
+    /* Logout Button */
+    .btn-logout-soft {
+        width: 100%;
+        background-color: #fee2e2;
+        color: #dc2626;
+        font-weight: 600;
+        border: none;
+        border-radius: 16px;
+        padding: 0.85rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        font-size: 0.95rem;
+        transition: background-color 0.2s, transform 0.15s;
+        text-decoration: none;
+        box-shadow: 0 2px 4px rgba(220, 38, 38, 0.06);
+    }
+    .btn-logout-soft:hover {
+        background-color: #fecaca;
+        color: #b91c1c;
+        transform: translateY(-1px);
+    }
+    [data-bs-theme="dark"] .btn-logout-soft {
+        background-color: #450a0a;
+        color: #fca5a5;
+    }
+    [data-bs-theme="dark"] .btn-logout-soft:hover {
+        background-color: #7f1d1d;
+        color: #fee2e2;
+    }
+
+    /* Tag Modal Styling (Stitch / Figma) */
+    .modal-tag-dialog {
+        max-width: 360px;
+    }
+    .modal-tag-content {
+        border-radius: 24px;
+        border: none;
+        padding: 1.5rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    .tag-choice-chip {
+        display: inline-block;
+        padding: 0.45rem 1rem;
+        border-radius: 9999px;
+        border: 1.5px solid #38bdf8;
+        background-color: #f0f9ff;
+        color: #0369a1;
+        font-size: 0.88rem;
+        font-weight: 500;
+        cursor: pointer;
+        margin: 0.35rem 0.25rem;
+        transition: all 0.15s ease;
+        user-select: none;
+    }
+    .tag-choice-chip:hover {
+        background-color: #e0f2fe;
+    }
+    .tag-choice-chip.active {
+        background-color: #0ea5e9;
+        color: #ffffff;
+        border-color: #0ea5e9;
+        box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+    }
+    [data-bs-theme="dark"] .tag-choice-chip {
+        background-color: #0f172a;
+        color: #38bdf8;
+        border-color: #0284c7;
+    }
+    [data-bs-theme="dark"] .tag-choice-chip.active {
+        background-color: #0284c7;
+        color: #ffffff;
+        border-color: #38bdf8;
+    }
+    .btn-confirm-tag {
+        background-color: #0ea5e9;
+        color: #ffffff;
+        font-weight: 600;
+        border-radius: 12px;
+        padding: 0.65rem 1.5rem;
+        border: none;
+        flex: 1;
+    }
+    .btn-confirm-tag:hover {
+        background-color: #0284c7;
+        color: #ffffff;
+    }
+    .btn-cancel-tag {
+        background-color: #f1f5f9;
+        color: #64748b;
+        font-weight: 600;
+        border-radius: 12px;
+        padding: 0.65rem 1.5rem;
+        border: none;
+        flex: 1;
+    }
+    .btn-cancel-tag:hover {
+        background-color: #e2e8f0;
+        color: #475569;
+    }
+    [data-bs-theme="dark"] .btn-cancel-tag {
+        background-color: #334155;
+        color: #cbd5e1;
+    }
+    .added-tag-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background-color: #e0f2fe;
+        color: #0284c7;
+        padding: 0.35rem 0.8rem;
+        border-radius: 9999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: 1px solid #bae6fd;
+    }
+    [data-bs-theme="dark"] .added-tag-badge {
+        background-color: #075985;
+        color: #e0f2fe;
+        border-color: #0369a1;
+    }
+
+    /* Drag & Drop Avatar Dropzone */
+    .avatar-dropzone {
+        border: 2px dashed #94a3b8;
+        border-radius: 14px;
+        padding: 1.5rem 1rem;
+        background-color: #f8fafc;
+        cursor: pointer;
+        transition: all 0.25s ease-in-out;
+        position: relative;
+    }
+    .avatar-dropzone:hover {
+        border-color: #0ea5e9;
+        background-color: #f0f9ff;
+    }
+    .avatar-dropzone.dragover {
+        border-color: #0ea5e9 !important;
+        background-color: #e0f2fe !important;
+        transform: scale(1.02);
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25);
+    }
+    [data-bs-theme="dark"] .avatar-dropzone {
+        border-color: #475569;
+        background-color: #1e293b;
+    }
+    [data-bs-theme="dark"] .avatar-dropzone:hover {
+        border-color: #38bdf8;
+        background-color: #0f172a;
+    }
+    [data-bs-theme="dark"] .avatar-dropzone.dragover {
+        border-color: #38bdf8 !important;
+        background-color: #0c4a6e !important;
+        box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+
+    <!-- Card 1: Thông tin người dùng & Danh mục cài đặt -->
+    <div class="settings-card">
+        
+        <!-- Profile Header -->
+        <div class="profile-header-wrap">
+            <div class="profile-avatar-box">
+                <img src="{{ current_user.avatar_url or url_for('static', filename='images/default_avatar.svg') }}" 
+                     alt="{{ current_user.username }}" 
+                     id="settings-avatar-img"
+                     onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=0ea5e9&color=fff&bold=true'">
+                <button type="button" class="avatar-camera-btn" onclick="openAvatarModal()" title="Đổi ảnh đại diện">
+                    <i class="bi bi-camera-fill"></i>
+                </button>
+            </div>
+            <div class="flex-grow-1">
+                <div class="profile-info-title">
+                    <span>{{ current_user.nickname or current_user.username }}</span>
+                    <span class="badge-account-type">Tài khoản cá nhân</span>
+                </div>
+                <a href="javascript:void(0)" onclick="openEditModal()" class="profile-subtitle-link">
+                    Chỉnh sửa trang cá nhân
+                </a>
+            </div>
+        </div>
+
+        <!-- 1. Biệt danh (Nickname) -->
+        <div class="setting-item-row" onclick="openEditModal('nickname')">
+            <div class="setting-left">
+                <div class="setting-icon-box">
+                    <i class="bi bi-person-badge"></i>
+                </div>
+                <div class="setting-label">Biệt danh (Nickname)</div>
+            </div>
+            <div class="setting-right">
+                <span class="fw-semibold text-dark" id="display-nickname">{{ current_user.nickname or current_user.username }}</span>
+                <i class="bi bi-chevron-right chevron-icon"></i>
+            </div>
+        </div>
+
+        <!-- 2. Nhãn (Tags) -->
+        <div class="setting-item-row" onclick="openTagModal()">
+            <div class="setting-left">
+                <div class="setting-icon-box">
+                    <i class="bi bi-tag"></i>
+                </div>
+                <div class="setting-label">Nhãn (Tags)</div>
+            </div>
+            <div class="setting-right">
+                <span class="tag-chip-preview" id="display-tag">{{ current_user.profile_tag or '#nguoidulich' }}</span>
+                <i class="bi bi-chevron-right chevron-icon"></i>
+            </div>
+        </div>
+
+        <!-- 3. Email -->
+        <div class="setting-item-row" onclick="openEditModal('email')">
+            <div class="setting-left">
+                <div class="setting-icon-box">
+                    <i class="bi bi-envelope"></i>
+                </div>
+                <div class="setting-label">Email</div>
+            </div>
+            <div class="setting-right">
+                <span id="display-email">{{ current_user.email }}</span>
+                <i class="bi bi-chevron-right chevron-icon"></i>
+            </div>
+        </div>
+
+        <!-- 4. Số điện thoại -->
+        <div class="setting-item-row" onclick="openEditModal('phone')">
+            <div class="setting-left">
+                <div class="setting-icon-box">
+                    <i class="bi bi-telephone"></i>
+                </div>
+                <div class="setting-label">Số điện thoại</div>
+            </div>
+            <div class="setting-right">
+                <span id="display-phone">{{ current_user.phone_number or 'Chưa cập nhật' }}</span>
+                <i class="bi bi-chevron-right chevron-icon"></i>
+            </div>
+        </div>
+
+        <!-- 5. Ghi chú / Tiểu sử -->
+        <div class="setting-item-row border-bottom-0 pb-1" onclick="openEditModal('bio')">
+            <div class="setting-left">
+                <div class="setting-icon-box">
+                    <i class="bi bi-pencil-square"></i>
+                </div>
+                <div class="setting-label">Ghi chú / Tiểu sử</div>
+            </div>
+            <div class="setting-right">
+                <i class="bi bi-chevron-right chevron-icon"></i>
+            </div>
+        </div>
+        <div class="bio-preview-box" onclick="openEditModal('bio')" style="cursor: pointer;">
+            <span id="display-bio">
+                {{ current_user.bio or 'Đam mê xê dịch & chia sẻ trải nghiệm thực tế với cộng đồng du lịch.' }}
+            </span>
+        </div>
+
+    </div>
+
+    <!-- Group: BẢO MẬT -->
+    <div class="settings-section-title">BẢO MẬT</div>
+
+    <!-- Card 2: Chỉnh sửa mật khẩu -->
+    <div class="settings-card">
+        <a href="{{ url_for('auth.change_password') }}" class="setting-item-row p-0 text-decoration-none">
+            <div class="setting-left">
+                <div class="setting-icon-box">
+                    <i class="bi bi-shield-lock"></i>
+                </div>
+                <div>
+                    <div class="setting-label">Chỉnh sửa mật khẩu</div>
+                    <div class="text-muted" style="font-size: 0.78rem;">Đổi mật khẩu tài khoản đăng nhập</div>
+                </div>
+            </div>
+            <div class="setting-right">
+                <i class="bi bi-chevron-right chevron-icon"></i>
+            </div>
+        </a>
+    </div>
+
+    <!-- Card 3: Nút Đăng xuất -->
+    <div class="mt-4">
+        <a href="{{ url_for('auth.logout') }}" class="btn-logout-soft">
+            <i class="bi bi-box-arrow-right fs-5"></i>
+            <span>Đăng xuất</span>
+        </a>
+    </div>
+
+</div>
+
+<!-- MODAL: CHỌN NHÃN HỒ SƠ (Stitch / Figma Proposal UI) -->
+<div class="modal fade" id="tagModal" tabindex="-1" aria-labelledby="tagModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-tag-dialog">
+        <div class="modal-content modal-tag-content">
+            <div class="text-center mb-3">
+                <h5 class="fw-bold mb-1" id="tagModalLabel" style="font-size: 1.15rem;">Chọn Nhãn Hồ Sơ</h5>
+                <p class="text-muted small mb-0">Chọn danh xưng phù hợp nhất với phong cách du lịch của bạn</p>
+            </div>
+
+            <!-- Chips list -->
+            <div class="d-flex flex-wrap justify-content-center mb-4" id="tag-chips-container">
+                <span class="tag-choice-chip" data-tag="#nguoidulich" onclick="selectTagChip(this)">Người du lịch</span>
+                <span class="tag-choice-chip" data-tag="#dandiaphuong" onclick="selectTagChip(this)">Dân địa phương</span>
+                <span class="tag-choice-chip" data-tag="#diphuot" onclick="selectTagChip(this)">Đi phượt</span>
+                <span class="tag-choice-chip" data-tag="#huongdanvien" onclick="selectTagChip(this)">Hướng dẫn viên</span>
+                <span class="tag-choice-chip" data-tag="#nguoinoltieng" onclick="selectTagChip(this)">Người nổi tiếng</span>
+            </div>
+
+            <!-- Buttons -->
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="btn-confirm-tag" onclick="confirmTagSelection()">Xác nhận</button>
+                <button type="button" class="btn-cancel-tag" data-bs-dismiss="modal">Hủy</button>
+            </div>
+
+            <!-- Currently selected tag preview -->
+            <div class="pt-3 border-top text-center">
+                <div class="text-muted small mb-2 fw-semibold">Nhãn đã thêm</div>
+                <div class="added-tag-badge" id="modal-selected-badge">
+                    <span id="modal-badge-text">{{ current_user.profile_tag or '#nguoidulich' }}</span>
+                    <i class="bi bi-x-circle-fill" style="cursor: pointer;" onclick="clearTagSelection()" title="Bỏ nhãn"></i>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CHỈNH SỬA THÔNG TIN CHI TIẾT (Form Modal) -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 20px; padding: 1.25rem;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="editModalLabel">Chỉnh sửa thông tin</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('auth.settings') }}" method="POST">
+                {{ form.hidden_tag() }}
+                <div class="modal-body pt-3">
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Biệt danh (Nickname)</label>
+                        {{ form.nickname(class="form-control", id="modal-nickname-input", placeholder="Ví dụ: Minh Đi Đâu") }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Địa chỉ Email</label>
+                        {{ form.email(class="form-control", id="modal-email-input") }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số điện thoại</label>
+                        {{ form.phone_number(class="form-control", id="modal-phone-input", placeholder="Ví dụ: 0987 654 321") }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ghi chú / Tiểu sử</label>
+                        {{ form.bio(class="form-control", id="modal-bio-input", rows="3", placeholder="Đam mê xê dịch & chia sẻ trải nghiệm thực tế...") }}
+                    </div>
+
+                    <!-- Hidden tag input to preserve tag -->
+                    {{ form.profile_tag(id="modal-tag-hidden") }}
+                    {{ form.avatar_url(id="modal-avatar-hidden") }}
+
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" style="border-radius: 10px;">Hủy</button>
+                    <button type="submit" class="btn btn-ges-primary px-4 fw-bold" style="border-radius: 10px;">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ĐỔI ẢNH ĐẠI DIỆN -->
+<div class="modal fade" id="avatarModal" tabindex="-1" aria-labelledby="avatarModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content" style="border-radius: 20px; padding: 1.25rem;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="avatarModalLabel">Cập nhật ảnh đại diện</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <div class="text-center mb-3">
+                    <img src="{{ current_user.avatar_url or url_for('static', filename='images/default_avatar.svg') }}" 
+                         id="avatar-preview-box" 
+                         style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--ges-primary); box-shadow: 0 4px 12px rgba(14,165,233,0.25);"
+                         onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.username }}&background=0ea5e9&color=fff'">
+                </div>
+
+                <!-- Tab chọn: Từ thiết bị / Nhập URL -->
+                <ul class="nav nav-pills nav-fill mb-3 p-1 bg-light rounded-3" id="avatarTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active py-2 small fw-bold" id="device-tab" data-bs-toggle="tab" data-bs-target="#tab-device" type="button" role="tab">
+                            <i class="bi bi-laptop me-1"></i> Tải từ thiết bị
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link py-2 small fw-bold" id="url-tab" data-bs-toggle="tab" data-bs-target="#tab-url" type="button" role="tab">
+                            <i class="bi bi-link-45deg me-1"></i> Đường dẫn URL
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Tab 1: Tải từ thiết bị & Kéo thả -->
+                    <div class="tab-pane fade show active" id="tab-device" role="tabpanel">
+                        <div id="avatar-dropzone" 
+                             class="avatar-dropzone text-center" 
+                             onclick="document.getElementById('avatar-file-input').click()">
+                            <i class="bi bi-cloud-arrow-up-fill fs-1 text-primary mb-2 d-block"></i>
+                            <div class="fw-bold small" id="avatar-dropzone-prompt">Kéo thả ảnh vào đây hoặc bấm để chọn</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Hỗ trợ JPG, PNG, WEBP, GIF (tối đa 10MB)</div>
+                            <div id="selected-filename-badge" class="badge bg-primary-subtle text-primary-emphasis mt-2" style="display: none;"></div>
+                        </div>
+                        <input type="file" id="avatar-file-input" class="d-none" accept="image/*" onchange="handleAvatarFileSelect(event)">
+                    </div>
+
+                    <!-- Tab 2: Nhập URL -->
+                    <div class="tab-pane fade" id="tab-url" role="tabpanel">
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Đường dẫn URL ảnh</label>
+                            <input type="url" class="form-control form-control-sm" id="avatar-url-input" 
+                                   placeholder="https://example.com/avatar.jpg" 
+                                   value="{{ current_user.avatar_url or '' }}"
+                                   oninput="previewAvatarUrl(this.value)">
+                            <div class="form-text small text-muted">Nhập đường dẫn trực tiếp tới ảnh đại diện của bạn.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="avatar-error-msg" class="text-danger small mt-2 text-center" style="display: none;"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal" style="border-radius: 10px;">Hủy</button>
+                <button type="button" class="btn btn-ges-primary px-4 fw-bold" id="btn-save-avatar" onclick="saveAvatar()" style="border-radius: 10px;">
+                    <span id="save-avatar-spinner" class="spinner-border spinner-border-sm me-1" style="display: none;"></span>
+                    Lưu ảnh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentTag = "{{ current_user.profile_tag or '#nguoidulich' }}";
+    let selectedTag = currentTag;
+
+    function openTagModal() {
+        highlightCurrentTagChip(currentTag);
+        const modal = new bootstrap.Modal(document.getElementById('tagModal'));
+        modal.show();
+    }
+
+    function selectTagChip(element) {
+        document.querySelectorAll('.tag-choice-chip').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+        selectedTag = element.getAttribute('data-tag');
+        document.getElementById('modal-badge-text').innerText = selectedTag;
+        document.getElementById('modal-selected-badge').style.display = 'inline-flex';
+    }
+
+    function clearTagSelection() {
+        document.querySelectorAll('.tag-choice-chip').forEach(el => el.classList.remove('active'));
+        selectedTag = "#nguoidulich";
+        document.getElementById('modal-badge-text').innerText = selectedTag;
+    }
+
+    function highlightCurrentTagChip(tag) {
+        document.querySelectorAll('.tag-choice-chip').forEach(el => {
+            if (el.getAttribute('data-tag') === tag) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        });
+        document.getElementById('modal-badge-text').innerText = tag;
+    }
+
+    function confirmTagSelection() {
+        if (!selectedTag) selectedTag = "#nguoidulich";
+        fetch("{{ url_for('auth.update_profile_tag') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: JSON.stringify({ tag: selectedTag })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.tag) {
+                currentTag = data.tag;
+                document.getElementById('display-tag').innerText = data.tag;
+                const hiddenInput = document.getElementById('modal-tag-hidden');
+                if (hiddenInput) hiddenInput.value = data.tag;
+                const modalEl = document.getElementById('tagModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+        })
+        .catch(err => {
+            console.error("Lỗi cập nhật tag:", err);
+            window.location.reload();
+        });
+    }
+
+    function openEditModal(focusField) {
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        modal.show();
+        setTimeout(() => {
+            if (focusField === 'nickname') document.getElementById('modal-nickname-input').focus();
+            else if (focusField === 'email') document.getElementById('modal-email-input').focus();
+            else if (focusField === 'phone') document.getElementById('modal-phone-input').focus();
+            else if (focusField === 'bio') document.getElementById('modal-bio-input').focus();
+        }, 300);
+    }
+
+    let selectedAvatarFile = null;
+
+    function formatFileSize(bytes) {
+        if (!bytes) return '0 B';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function processAvatarFile(file) {
+        const errorBox = document.getElementById('avatar-error-msg');
+        if (errorBox) errorBox.style.display = 'none';
+
+        if (!file) return;
+
+        // 1. Kiểm tra loại file (chỉ cho phép định dạng ảnh)
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+        const isImage = file.type.startsWith('image/') || validTypes.includes(file.type);
+        if (!isImage) {
+            if (errorBox) {
+                errorBox.innerText = "Tệp không hợp lệ! Vui lòng chọn hoặc kéo thả file ảnh (JPG, PNG, WEBP, GIF).";
+                errorBox.style.display = 'block';
+            }
+            return;
+        }
+
+        // 2. Giới hạn dung lượng tối đa 10MB
+        if (file.size > 10 * 1024 * 1024) {
+            if (errorBox) {
+                errorBox.innerText = `Dung lượng ảnh (${formatFileSize(file.size)}) vượt quá giới hạn 10MB. Vui lòng chọn file nhẹ hơn.`;
+                errorBox.style.display = 'block';
+            }
+            return;
+        }
+
+        selectedAvatarFile = file;
+
+        // 3. Hiển thị badge tên file & dung lượng
+        const badge = document.getElementById('selected-filename-badge');
+        if (badge) {
+            badge.innerText = `✓ ${file.name} (${formatFileSize(file.size)})`;
+            badge.style.display = 'inline-block';
+        }
+
+        const prompt = document.getElementById('avatar-dropzone-prompt');
+        if (prompt) {
+            prompt.innerText = "Đã chọn: " + file.name;
+        }
+
+        // 4. Preview ảnh tức thì
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('avatar-preview-box');
+            if (img) img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function handleAvatarFileSelect(event) {
+        const file = event.target.files && event.target.files[0];
+        if (file) {
+            processAvatarFile(file);
+        }
+    }
+
+    function setupAvatarDragAndDrop() {
+        const dropzone = document.getElementById('avatar-dropzone');
+        if (!dropzone || dropzone._dragDropInitialized) return;
+        dropzone._dragDropInitialized = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'dragend'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                processAvatarFile(dt.files[0]);
+            }
+        }, false);
+    }
+
+    // Ngăn chặn trình duyệt mở ảnh ra tab mới khi lỡ thả bên ngoài dropzone trong modal
+    window.addEventListener('dragover', (e) => {
+        const modal = document.getElementById('avatarModal');
+        if (modal && modal.classList.contains('show')) {
+            e.preventDefault();
+        }
+    }, false);
+
+    window.addEventListener('drop', (e) => {
+        const modal = document.getElementById('avatarModal');
+        if (modal && modal.classList.contains('show')) {
+            e.preventDefault();
+        }
+    }, false);
+
+    function openAvatarModal() {
+        setupAvatarDragAndDrop();
+        const modal = new bootstrap.Modal(document.getElementById('avatarModal'));
+        modal.show();
+    }
+
+    function previewAvatarUrl(url) {
+        const img = document.getElementById('avatar-preview-box');
+        if (url && url.trim().length > 5) {
+            img.src = url.trim();
+        }
+    }
+
+    async function saveAvatar() {
+        const saveBtn = document.getElementById('btn-save-avatar');
+        const spinner = document.getElementById('save-avatar-spinner');
+        const errorBox = document.getElementById('avatar-error-msg');
+        if (errorBox) errorBox.style.display = 'none';
+
+        const isDeviceTab = document.getElementById('device-tab')?.classList.contains('active');
+
+        if (isDeviceTab) {
+            if (!selectedAvatarFile) {
+                if (errorBox) {
+                    errorBox.innerText = "Vui lòng chọn hoặc kéo thả một file ảnh từ thiết bị của bạn.";
+                    errorBox.style.display = 'block';
+                }
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('avatar_file', selectedAvatarFile);
+
+            if (saveBtn) saveBtn.disabled = true;
+            if (spinner) spinner.style.display = 'inline-block';
+
+            try {
+                const res = await fetch("{{ url_for('auth.update_profile_avatar') }}", {
+                    method: "POST",
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok && data.avatar_url) {
+                    onAvatarUpdated(data.avatar_url);
+                } else {
+                    if (errorBox) {
+                        errorBox.innerText = data.error || "Không thể tải ảnh lên.";
+                        errorBox.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                if (errorBox) {
+                    errorBox.innerText = "Lỗi kết nối máy chủ khi tải ảnh.";
+                    errorBox.style.display = 'block';
+                }
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+                if (spinner) spinner.style.display = 'none';
+            }
+        } else {
+            const input = document.getElementById('avatar-url-input');
+            const url = input ? input.value.trim() : '';
+            if (!url) {
+                if (errorBox) {
+                    errorBox.innerText = "Vui lòng nhập đường dẫn URL ảnh.";
+                    errorBox.style.display = 'block';
+                }
+                return;
+            }
+
+            if (saveBtn) saveBtn.disabled = true;
+            if (spinner) spinner.style.display = 'inline-block';
+
+            try {
+                const res = await fetch("{{ url_for('auth.update_profile_avatar') }}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: JSON.stringify({ avatar_url: url })
+                });
+                const data = await res.json();
+                if (res.ok && data.avatar_url) {
+                    onAvatarUpdated(data.avatar_url);
+                } else {
+                    if (errorBox) {
+                        errorBox.innerText = data.error || "Đường dẫn ảnh không hợp lệ.";
+                        errorBox.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                if (errorBox) {
+                    errorBox.innerText = "Lỗi kết nối máy chủ.";
+                    errorBox.style.display = 'block';
+                }
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+                if (spinner) spinner.style.display = 'none';
+            }
+        }
+    }
+
+    function onAvatarUpdated(avatarUrl) {
+        const mainImg = document.getElementById('settings-avatar-img');
+        if (mainImg) mainImg.src = avatarUrl;
+        const navImg = document.querySelector('.navbar .avatar');
+        if (navImg && navImg.tagName === 'IMG') navImg.src = avatarUrl;
+
+        // Reset dropzone state
+        selectedAvatarFile = null;
+        const fileInput = document.getElementById('avatar-file-input');
+        if (fileInput) fileInput.value = '';
+        const badge = document.getElementById('selected-filename-badge');
+        if (badge) badge.style.display = 'none';
+        const prompt = document.getElementById('avatar-dropzone-prompt');
+        if (prompt) prompt.innerText = "Kéo thả ảnh vào đây hoặc bấm để chọn";
+
+        const modalEl = document.getElementById('avatarModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    }
+
+    // Alias tương thích
+    function saveAvatarUrl() {
+        saveAvatar();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        highlightCurrentTagChip(currentTag);
+        setupAvatarDragAndDrop();
+    });
+</script>
+{% endblock %}

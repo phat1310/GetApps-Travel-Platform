@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Đăng ký tài khoản — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-card {
+        max-width: 480px;
+        margin: 2rem auto;
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: var(--ges-radius-lg);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        padding: 2.5rem 2rem;
+    }
+    .auth-input-group {
+        position: relative;
+    }
+    .auth-input-group input, .auth-input-group select {
+        border-radius: 12px;
+        padding: 0.75rem 1rem 0.75rem 2.75rem;
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s ease;
+    }
+    .auth-input-group input:focus, .auth-input-group select:focus {
+        border-color: var(--ges-primary);
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+    .auth-input-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 1.1rem;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .toggle-pwd-btn {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 0.25rem;
+        display: flex;
+        align-items: center;
+        z-index: 2;
+    }
+    .toggle-pwd-btn:hover {
+        color: var(--ges-text-main);
+    }
+    .tagline-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background-color: var(--ges-primary-light);
+        color: var(--ges-primary);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+    .pwd-strength-bar-bg {
+        height: 6px;
+        background-color: #e2e8f0;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .pwd-strength-bar {
+        height: 100%;
+        width: 0%;
+        transition: width 0.3s ease, background-color 0.3s ease;
+        border-radius: 6px;
+    }
+    .pwd-req-item {
+        font-size: 0.76rem;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: color 0.2s ease;
+    }
+    .pwd-req-item.valid {
+        color: #16a34a;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    
+    <!-- Brand & Header -->
+    <div class="text-center mb-4">
+        <a href="{{ url_for('locations.feed') }}" class="d-inline-block mb-1 text-decoration-none">
+            <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs - GetApps" class="brand-logo-img" style="height: 52px; width: auto;">
+        </a>
+        <div>
+            <span class="tagline-pill">
+                <i class="bi bi-airplane-engines-fill"></i> Hành trình vạn dặm khởi đầu tại đây
+            </span>
+        </div>
+        <h4 class="fw-bold text-dark mb-1">Tạo tài khoản GETAPPS</h4>
+        <p class="text-muted small mb-0">Tham gia cộng đồng đam mê du lịch và chia sẻ hành trình tuyệt vời</p>
+    </div>
+
+    <!-- Registration Form -->
+    <form action="{{ url_for('auth.register') }}" method="POST" novalidate id="register-form">
+        {{ form.hidden_tag() }}
+
+        <!-- Username -->
+        <div class="mb-3">
+            <label for="username" class="form-label fw-semibold text-dark small">Tên người dùng (Username)</label>
+            <div class="auth-input-group">
+                <i class="bi bi-at auth-input-icon fs-5"></i>
+                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="traveler_vn", id="username", autofocus=true) }}
+            </div>
+            {% for error in form.username.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+            <small class="text-muted" style="font-size: 0.75rem;">Từ 3-64 ký tự, viết liền không dấu.</small>
+        </div>
+
+        <!-- Email -->
+        <div class="mb-3">
+            <label for="email" class="form-label fw-semibold text-dark small">Địa chỉ Email</label>
+            <div class="auth-input-group">
+                <i class="bi bi-envelope auth-input-icon"></i>
+                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="example@domain.com", id="email") }}
+            </div>
+            {% for error in form.email.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Role Selection -->
+        <div class="mb-3">
+            <label for="role" class="form-label fw-semibold text-dark small">Vai trò của bạn</label>
+            <div class="auth-input-group">
+                <i class="bi bi-compass auth-input-icon"></i>
+                {{ form.role(class="form-select" + (" is-invalid" if form.role.errors else ""), id="role") }}
+            </div>
+            {% for error in form.role.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Password -->
+        <div class="mb-3">
+            <label for="password" class="form-label fw-semibold text-dark small">Mật khẩu</label>
+            <div class="auth-input-group">
+                <i class="bi bi-lock auth-input-icon"></i>
+                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Tối thiểu 8 ký tự (hoa, thường, ký tự đặc biệt)", id="reg-password") }}
+                <button type="button" class="toggle-pwd-btn" onclick="togglePassword('reg-password', this)" title="Ẩn/Hiện mật khẩu">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+
+            <!-- Thanh đo độ mạnh yếu của mật khẩu (Password Strength Meter) -->
+            <div class="mt-2" id="pwd-meter-box">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="small text-muted" style="font-size: 0.78rem;">Độ mạnh mật khẩu:</span>
+                    <span class="small fw-bold" id="pwd-strength-text" style="font-size: 0.78rem; color: #94a3b8;">Chưa nhập</span>
+                </div>
+                <div class="pwd-strength-bar-bg">
+                    <div class="pwd-strength-bar" id="pwd-strength-bar"></div>
+                </div>
+
+                <!-- Checklist tiêu chuẩn bảo mật -->
+                <div class="mt-2 p-2 rounded bg-light border" style="font-size: 0.75rem;">
+                    <div class="pwd-req-item mb-1" id="req-length">
+                        <i class="bi bi-circle"></i> <span>Tối thiểu 8 ký tự</span>
+                    </div>
+                    <div class="pwd-req-item mb-1" id="req-case">
+                        <i class="bi bi-circle"></i> <span>Có cả chữ hoa (A-Z) và chữ thường (a-z)</span>
+                    </div>
+                    <div class="pwd-req-item" id="req-special">
+                        <i class="bi bi-circle"></i> <span>Có ít nhất 1 ký tự đặc biệt (!@#$%^&*...)</span>
+                    </div>
+                </div>
+            </div>
+
+            {% for error in form.password.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="mb-3">
+            <label for="confirm_password" class="form-label fw-semibold text-dark small">Xác nhận mật khẩu</label>
+            <div class="auth-input-group">
+                <i class="bi bi-shield-check auth-input-icon"></i>
+                {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else ""), placeholder="Nhập lại mật khẩu", id="reg-confirm-password") }}
+                <button type="button" class="toggle-pwd-btn" onclick="togglePassword('reg-confirm-password', this)" title="Ẩn/Hiện mật khẩu">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+            {% for error in form.confirm_password.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Terms and Conditions Checkbox -->
+        <div class="mb-4 form-check">
+            {{ form.agree_terms(class="form-check-input" + (" is-invalid" if form.agree_terms.errors else ""), id="agree_terms") }}
+            <label class="form-check-label small text-muted" for="agree_terms">
+                Tôi đồng ý với <a href="javascript:void(0)" class="text-primary text-decoration-none">Điều khoản dịch vụ</a> và <a href="javascript:void(0)" class="text-primary text-decoration-none">Chính sách bảo mật</a> của GEs.
+            </label>
+            {% for error in form.agree_terms.errors %}
+                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Submit Button -->
+        <div class="d-grid mb-3">
+            <button type="submit" class="btn btn-ges-primary py-2 fw-bold fs-6" style="border-radius: 12px;">
+                <i class="bi bi-person-plus-fill me-1"></i> Đăng ký tài khoản
+            </button>
+        </div>
+
+    </form>
+
+    <!-- Login Link -->
+    <div class="text-center pt-3 border-top">
+        <p class="text-muted small mb-0">
+            Đã có tài khoản?
+            <a href="{{ url_for('auth.login') }}" class="text-primary fw-bold text-decoration-none ms-1">Đăng nhập</a>
+        </p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+
+    // Logic đo độ mạnh mật khẩu và cập nhật tiêu chuẩn
+    document.addEventListener('DOMContentLoaded', function() {
+        const pwdInput = document.getElementById('reg-password');
+        const bar = document.getElementById('pwd-strength-bar');
+        const text = document.getElementById('pwd-strength-text');
+        const reqLength = document.getElementById('req-length');
+        const reqCase = document.getElementById('req-case');
+        const reqSpecial = document.getElementById('req-special');
+
+        function updateReq(el, isValid) {
+            if (!el) return;
+            const icon = el.querySelector('i');
+            if (isValid) {
+                el.classList.add('valid');
+                icon.className = 'bi bi-check-circle-fill text-success';
+            } else {
+                el.classList.remove('valid');
+                icon.className = 'bi bi-circle text-muted';
+            }
+        }
+
+        function evaluateStrength() {
+            if (!pwdInput || !bar || !text) return;
+            const val = pwdInput.value || '';
+
+            if (val.length === 0) {
+                bar.style.width = '0%';
+                bar.style.backgroundColor = '#e2e8f0';
+                text.innerText = 'Chưa nhập';
+                text.style.color = '#94a3b8';
+                updateReq(reqLength, false);
+                updateReq(reqCase, false);
+                updateReq(reqSpecial, false);
+                return;
+            }
+
+            const hasLength = val.length >= 8;
+            const hasUpper = /[A-Z]/.test(val);
+            const hasLower = /[a-z]/.test(val);
+            const hasCase = hasUpper && hasLower;
+            const hasSpecial = /[@$!%*?&#^()_+\-=\[\]{};:\'",.<>\/\\|`~]/.test(val);
+            const hasDigit = /[0-9]/.test(val);
+
+            updateReq(reqLength, hasLength);
+            updateReq(reqCase, hasCase);
+            updateReq(reqSpecial, hasSpecial);
+
+            let score = 0;
+            if (hasLength) score += 1;
+            if (hasUpper) score += 0.5;
+            if (hasLower) score += 0.5;
+            if (hasSpecial) score += 1;
+            if (hasDigit) score += 0.5;
+
+            // Xếp loại độ mạnh:
+            // Yếu: Dưới 8 ký tự hoặc thiếu chữ cái
+            if (!hasLength || (!hasUpper && !hasLower)) {
+                bar.style.width = '25%';
+                bar.style.backgroundColor = '#ef4444';
+                text.innerText = 'Yếu';
+                text.style.color = '#ef4444';
+            }
+            // Trung bình: Đã đủ 8 ký tự nhưng chưa thỏa mãn cả 3 tiêu chí bắt buộc (hoa, thường, ký tự đặc biệt)
+            else if (!hasCase || !hasSpecial || score < 3) {
+                bar.style.width = '60%';
+                bar.style.backgroundColor = '#f59e0b';
+                text.innerText = 'Trung bình';
+                text.style.color = '#d97706';
+            }
+            // Mạnh: Đủ cả 3 tiêu chuẩn bắt buộc (≥8 ký tự, có hoa & thường, có ký tự đặc biệt)
+            else {
+                bar.style.width = '100%';
+                bar.style.backgroundColor = '#10b981';
+                text.innerText = 'Mạnh (An toàn)';
+                text.style.color = '#059669';
+            }
+        }
+
+        if (pwdInput) {
+            pwdInput.addEventListener('input', evaluateStrength);
+            pwdInput.addEventListener('focus', evaluateStrength);
+            // Chạy kiểm tra nếu form reload lại có sẵn dữ liệu
+            if (pwdInput.value) {
+                evaluateStrength();
+            }
+        }
+    });
+</script>
+{% endblock %}

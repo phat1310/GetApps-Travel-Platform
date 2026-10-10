@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="100%" height="100%">
+  <defs>
+    <style>
+      .brand-letter-g, .brand-letter-e {
+        fill: #111827;
+        font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+        font-weight: 800;
+        font-size: 64px;
+      }
+      .brand-letter-s {
+        fill: #0EA5E9;
+        font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+        font-weight: 800;
+        font-size: 64px;
+      }
+      .tagline {
+        fill: #6B7280;
+        font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+        font-weight: 600;
+        font-size: 13.5px;
+        letter-spacing: 5px;
+      }
+      .pin-bg {
+        fill: #0EA5E9;
+      }
+      .pin-inner {
+        fill: #FFFFFF;
+      }
+      .paper-plane {
+        fill: #0EA5E9;
+      }
+      .plane-shadow {
+        fill: #0284C7;
+      }
+    </style>
+  </defs>
+
+  <!-- Group: GEs Letters with integrated Pin and Plane -->
+  <g transform="translate(10, 10)">
+    
+    <!-- Letter G -->
+    <text x="5" y="58" class="brand-letter-g">G</text>
+
+    <!-- Location Pin inside G -->
+    <g transform="translate(26, 26) scale(0.85)">
+      <!-- Pin drop body -->
+      <path class="pin-bg" d="M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8z"/>
+      <!-- Inner hole -->
+      <circle class="pin-inner" cx="12" cy="10" r="3.2"/>
+    </g>
+
+    <!-- Letter E -->
+    <text x="66" y="58" class="brand-letter-e">E</text>
+
+    <!-- Letter s -->
+    <text x="114" y="58" class="brand-letter-s">s</text>
+
+    <!-- Paper Plane above letter 's' -->
+    <g transform="translate(138, 2) rotate(-5) scale(1.15)">
+      <!-- Main wing & body -->
+      <path class="paper-plane" d="M0 16 L24 0 L15 22 L10 16 Z"/>
+      <!-- Under-wing fold for 3D depth -->
+      <path class="plane-shadow" d="M10 16 L15 22 L11 25 L8 19 Z"/>
+      <path fill="#38BDF8" d="M0 16 L24 0 L10 16 Z"/>
+    </g>
+
+    <!-- Trail dashed swoosh (optional flight motion) -->
+    <path d="M128 24 Q132 18 138 16" fill="none" stroke="#0EA5E9" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2,2" opacity="0.6"/>
+
+    <!-- Tagline: Get · Explore · Share -->
+    <text x="16" y="78" class="tagline">Get · Explore · Share</text>
+
+  </g>
+</svg>

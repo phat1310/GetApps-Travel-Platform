@@ -9,6 +9,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ config.APP_NAME }} — Get Up & Explore{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Favicon / App Icon -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/logo_icon.svg') }}">
+
+    <!-- Early Theme Detection to prevent FOUC -->
+    <script>
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('ges-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            } catch (e) {}
+        })();
+    </script>
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -36,13 +50,9 @@
     <header class="sticky-top">
         <nav class="navbar navbar-expand-lg navbar-ges">
             <div class="container">
-                <!-- Brand Logo & Slogan -->
-                <a class="navbar-brand d-flex align-items-center me-4 text-decoration-none" href="{{ url_for('locations.feed') }}">
-                    <span class="brand-badge">GEs</span>
-                    <div>
-                        <span class="brand-title">GetApps</span>
-                        <span class="brand-tagline">Get Up & Explore</span>
-                    </div>
+                <!-- Brand Logo & Slogan (Official GEs Vector Logo) -->
+                <a class="navbar-brand d-flex align-items-center me-4 text-decoration-none py-0" href="{{ url_for('locations.feed') }}" title="GEs — Get · Explore · Share">
+                    <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs — GetApps" class="brand-logo-img">
                 </a>
 
                 <!-- Mobile Toggle Button -->
@@ -54,31 +64,36 @@
                 <div class="collapse navbar-collapse" id="navbarContent">
                     <!-- Main Navigation Links -->
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-nav-item">
+                        <li class="nav-item">
                             <a class="nav-link nav-link-ges {% if request.endpoint == 'locations.feed' %}active{% endif %}" href="{{ url_for('locations.feed') }}">
-                                <i class="bi bi-compass"></i> Bảng tin
+                                <i class="bi bi-house-door-fill"></i> Bảng tin
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link nav-link-ges" href="/explore">
-                                <i class="bi bi-search"></i> Khám phá
+                            <a class="nav-link nav-link-ges {% if request.endpoint == 'auth.explore' %}active{% endif %}" href="{{ url_for('auth.explore') }}">
+                                <i class="bi bi-compass"></i> Khám phá
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link nav-link-ges" href="/plans">
-                                <i class="bi bi-map"></i> Lịch trình (Plan)
+                            <a class="nav-link nav-link-ges {% if request.endpoint and request.endpoint.startswith('plans.') %}active{% endif %}" href="{{ url_for('plans.index') }}">
+                                <i class="bi bi-map"></i> Lịch trình
                             </a>
                         </li>
                     </ul>
 
-                    <!-- User Actions -->
+                    <!-- User Actions & Theme Mode -->
                     <div class="d-flex align-items-center gap-2">
+                        <!-- Nút Chuyển đổi Nền Sáng / Nền Tối -->
+                        <button type="button" class="theme-toggle-btn me-1" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Toggle dark/light theme">
+                            <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
+                        </button>
+
                         {% if current_user.is_authenticated %}
-                            <!-- Nút Thêm mới (Đăng ảnh & Tạo lịch trình) -->
-                            <a href="/locations/upload" class="btn btn-ges-outline btn-sm d-flex align-items-center gap-1">
-                                <i class="bi bi-camera-fill"></i> Đăng ảnh
+                            <!-- Nút Thêm mới (Đăng bài & Tạo lịch trình) -->
+                            <a href="/locations/upload" class="btn btn-ges-outline btn-sm d-flex align-items-center gap-1" title="Đăng bài viết mới">
+                                <i class="bi bi-pencil-square text-primary"></i> Đăng bài
                             </a>
-                            <a href="/plans/create" class="btn btn-ges-primary btn-sm d-flex align-items-center gap-1">
+                            <a href="/plans/create" class="btn btn-ges-primary btn-sm d-flex align-items-center gap-1" title="Lên kế hoạch lịch trình mới">
                                 <i class="bi bi-plus-circle"></i> Tạo lịch trình
                             </a>
 
@@ -92,29 +107,40 @@
                                             {{ current_user.username[0]|upper }}
                                         </span>
                                     {% endif %}
-                                    <span class="fw-bold d-none d-md-inline me-1">{{ current_user.username }}</span>
+                                    <span class="fw-bold d-none d-md-inline me-1">{{ current_user.nickname or current_user.username }}</span>
                                     {% if current_user.role %}
                                         <span class="badge badge-role badge-role-{{ current_user.role }} d-none d-lg-inline">{{ current_user.role }}</span>
                                     {% endif %}
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" aria-labelledby="userMenuDropdown">
                                     <li class="px-3 py-2 border-bottom">
-                                        <div class="fw-bold text-dark">{{ current_user.username }}</div>
+                                        <div class="fw-bold text-dark">{{ current_user.nickname or current_user.username }}</div>
                                         <small class="text-muted">{{ current_user.email }}</small>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/profile">
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.profile', username=current_user.username) }}">
                                             <i class="bi bi-person text-primary"></i> Trang cá nhân
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/plans/my-plans">
-                                            <i class="bi bi-journal-bookmark text-primary"></i> Lịch trình của tôi
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('plans.my_plans') }}">
+                                            <i class="bi bi-map text-primary"></i> Lịch trình của tôi
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.settings') }}">
+                                            <i class="bi bi-gear text-primary"></i> Cài đặt tài khoản
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.change_password') }}">
+                                            <i class="bi bi-shield-lock text-warning"></i> Đổi mật khẩu
                                         </a>
                                     </li>
                                     <li><hr class="dropdown-divider my-1"></li>
                                     <li>
                                         <form action="{{ url_for('auth.logout') }}" method="POST" class="m-0 p-0">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <button type="submit" class="dropdown-item py-2 text-danger d-flex align-items-center gap-2 border-0 bg-transparent w-100 text-start">
                                                 <i class="bi bi-box-arrow-right"></i> Đăng xuất
                                             </button>
@@ -138,13 +164,20 @@
     </header>
 
     <!-- ==================== FLASH MESSAGES ==================== -->
-    <div class="container mt-3">
+    <div class="container mt-3" style="max-width: 680px;">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else (category if category in ['success', 'warning', 'info', 'danger'] else 'primary') }} alert-dismissible fade show shadow-sm" role="alert">
-                        <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <div class="alert alert-{{ 'danger' if category == 'error' else (category if category in ['success', 'warning', 'info', 'danger'] else 'primary') }} alert-dismissible fade show shadow-sm d-flex align-items-center gap-2 py-2 px-3 mb-2 rounded-3" role="alert">
+                        {% if category == 'success' %}
+                            <i class="bi bi-check-circle-fill fs-5 text-success"></i>
+                        {% elif category in ['error', 'danger'] %}
+                            <i class="bi bi-exclamation-triangle-fill fs-5 text-danger"></i>
+                        {% else %}
+                            <i class="bi bi-info-circle-fill fs-5 text-primary"></i>
+                        {% endif %}
+                        <div class="flex-grow-1 fw-semibold small">{{ message }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.8rem;"></button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -159,32 +192,88 @@
     </main>
 
     <!-- ==================== FOOTER ==================== -->
-    <footer class="footer-ges">
-        <div class="container">
-            <div class="row align-items-center gy-3">
-                <div class="col-md-6 text-center text-md-start">
-                    <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-1">
-                        <span class="badge bg-dark text-white px-2 py-1">GEs</span>
-                        <strong class="text-dark">GetApps</strong> — <em>Get Up & Explore</em>
-                    </div>
-                    <small class="text-muted">Đồ án môn Phát triển Web bằng Python (PWD301) — Nhóm SE173285 (Fall 2026)</small>
-                </div>
-                <div class="col-md-6 text-center text-md-end">
-                    <ul class="list-inline mb-0">
-                        <li class="list-inline-item"><a href="{{ url_for('locations.feed') }}">Bảng tin</a></li>
-                        <li class="list-inline-item">·</li>
-                        <li class="list-inline-item"><a href="/explore">Khám phá</a></li>
-                        <li class="list-inline-item">·</li>
-                        <li class="list-inline-item"><a href="/plans">Lịch trình</a></li>
-                    </ul>
-                    <small class="text-muted d-block mt-1">Phát triển bởi: Khánh · Tuấn · Phát · Trúc · Vy</small>
-                </div>
+    <footer class="footer-ges py-4">
+        <div class="container text-center">
+            <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+                <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs" class="brand-logo-footer">
             </div>
+            <p class="text-muted small mb-1 fst-italic">"More than a trip ✈"</p>
+            <small class="text-muted">© 2026 GetApps (GEs) — All rights reserved.</small>
         </div>
     </footer>
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Theme Switcher JavaScript & Dynamic Logo Synchronizer -->
+    <script>
+        function updateThemeUI(theme) {
+            const icon = document.getElementById('themeToggleIcon');
+            const btn = document.getElementById('themeToggleBtn');
+            const logos = document.querySelectorAll('.brand-logo-img, .brand-logo-footer');
+            const lightLogoUrl = "{{ url_for('static', filename='images/logo.svg') }}";
+            const darkLogoUrl = "{{ url_for('static', filename='images/logo_dark.svg') }}";
+
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-bs-theme', 'dark');
+                if (icon) icon.className = 'bi bi-sun-fill text-warning';
+                if (btn) btn.title = 'Chuyển sang chế độ Nền sáng (Light Mode)';
+                logos.forEach(img => {
+                    img.src = darkLogoUrl;
+                });
+            } else {
+                document.documentElement.setAttribute('data-bs-theme', 'light');
+                if (icon) icon.className = 'bi bi-moon-stars-fill text-secondary';
+                if (btn) btn.title = 'Chuyển sang chế độ Nền tối (Dark Mode)';
+                logos.forEach(img => {
+                    img.src = lightLogoUrl;
+                });
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            try {
+                localStorage.setItem('ges-theme', newTheme);
+            } catch (e) {}
+            updateThemeUI(newTheme);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+            updateThemeUI(currentTheme);
+        });
+    </script>
+
+    <!-- Global CSRF Token Fetch Interceptor -->
+    <script>
+        (function() {
+            const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+            const token = metaCsrf ? metaCsrf.getAttribute('content') : '';
+            if (token) {
+                const originalFetch = window.fetch;
+                window.fetch = function(url, options = {}) {
+                    const method = (options.method || 'GET').toUpperCase();
+                    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+                        options.headers = options.headers || {};
+                        if (options.headers instanceof Headers) {
+                            if (!options.headers.has('X-CSRFToken') && !options.headers.has('X-CSRF-Token')) {
+                                options.headers.append('X-CSRFToken', token);
+                            }
+                        } else if (Array.isArray(options.headers)) {
+                            options.headers.push(['X-CSRFToken', token]);
+                        } else {
+                            if (!options.headers['X-CSRFToken'] && !options.headers['X-CSRF-Token']) {
+                                options.headers['X-CSRFToken'] = token;
+                            }
+                        }
+                    }
+                    return originalFetch(url, options);
+                };
+            }
+        })();
+    </script>
 
     {% block extra_js %}{% endblock %}
 </body>

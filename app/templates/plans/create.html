@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Tạo lịch trình du lịch mới — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-form-card {
+        max-width: 760px;
+        margin: 1.5rem auto 3rem;
+        background: #ffffff;
+        border: 1px solid var(--ges-border-color);
+        border-radius: var(--ges-radius-lg);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        padding: 2.5rem;
+    }
+    .cover-preview-box {
+        width: 100%;
+        height: 200px;
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        background-color: #f8fafc;
+        overflow: hidden;
+        position: relative;
+        transition: all 0.2s ease;
+    }
+    .cover-preview-box:hover {
+        border-color: var(--ges-primary);
+        background-color: #f0f9ff;
+    }
+    .cover-preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-2">
+
+    <div class="plan-form-card">
+        
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-4 pb-3 border-bottom">
+            <div>
+                <span class="badge bg-primary-subtle text-primary px-3 py-1 mb-1 fw-bold rounded-pill" style="font-size: 0.78rem;">
+                    <i class="bi bi-map-fill me-1"></i> Phân hệ Lịch trình
+                </span>
+                <h3 class="fw-bold text-dark mb-0">Tạo lịch trình chuyến đi</h3>
+            </div>
+            <a href="{{ url_for('plans.index') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <i class="bi bi-arrow-left me-1"></i> Quay lại
+            </a>
+        </div>
+
+        <form action="{{ url_for('plans.create') }}" method="POST" enctype="multipart/form-data" novalidate>
+            {{ form.hidden_tag() }}
+
+            <!-- Title -->
+            <div class="mb-3">
+                <label for="title" class="form-label fw-bold text-dark small">Tên chuyến đi / Tiêu đề lịch trình <span class="text-danger">*</span></label>
+                {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""), placeholder="Ví dụ: Phượt săn mây Đà Lạt 3 ngày 2 đêm cùng hội bạn thân", id="title", autofocus=true) }}
+                {% for error in form.title.errors %}
+                    <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <!-- Destination & Budget -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-7">
+                    <label for="destination" class="form-label fw-bold text-dark small">Điểm đến chính <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-geo-alt"></i></span>
+                        {{ form.destination(class="form-control" + (" is-invalid" if form.destination.errors else ""), placeholder="Đà Lạt, Phú Quốc, Hà Giang...", id="destination") }}
+                    </div>
+                    {% for error in form.destination.errors %}
+                        <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-5">
+                    <label for="estimated_budget" class="form-label fw-bold text-dark small">Dự toán ngân sách (VNĐ)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted">₫</span>
+                        {{ form.estimated_budget(class="form-control" + (" is-invalid" if form.estimated_budget.errors else ""), placeholder="3500000", id="estimated_budget") }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dates & Visibility -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label fw-bold text-dark small">Ngày khởi hành</label>
+                    {{ form.start_date(class="form-control" + (" is-invalid" if form.start_date.errors else ""), type="date", id="start_date") }}
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label fw-bold text-dark small">Ngày kết thúc</label>
+                    {{ form.end_date(class="form-control" + (" is-invalid" if form.end_date.errors else ""), type="date", id="end_date") }}
+                </div>
+                <div class="col-md-4">
+                    <label for="visibility" class="form-label fw-bold text-dark small">Chế độ hiển thị</label>
+                    {{ form.visibility(class="form-select", id="visibility") }}
+                </div>
+            </div>
+
+            <!-- Cover Image Upload -->
+            <div class="mb-3">
+                <label class="form-label fw-bold text-dark small">Ảnh bìa lịch trình (Cover Image)</label>
+                <div class="cover-preview-box" onclick="document.getElementById('cover_image_input').click()">
+                    <div id="cover_placeholder_text" class="text-center p-3">
+                        <i class="bi bi-card-image text-muted fs-1 mb-1"></i>
+                        <p class="small text-muted mb-0">Bấm để tải ảnh bìa chuyến đi (JPG, PNG, WEBP)</p>
+                    </div>
+                    <img id="cover_preview_image" class="cover-preview-img" alt="Cover Preview">
+                </div>
+                {{ form.cover_image(class="d-none", id="cover_image_input", onchange="previewCoverImage(this)") }}
+                {% for error in form.cover_image.errors %}
+                    <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <!-- Attachment File -->
+            <div class="mb-3">
+                <label for="attachment_file" class="form-label fw-bold text-dark small">
+                    <i class="bi bi-paperclip me-1"></i>Tệp tài liệu đính kèm (Tùy chọn: PDF, Word, Excel, PowerPoint)
+                </label>
+                {{ form.attachment_file(class="form-control", id="attachment_file") }}
+                <div class="form-text small">Bạn có thể đính kèm file lịch trình chi tiết đã làm sẵn trên Word, Excel hoặc PDF.</div>
+                {% for error in form.attachment_file.errors %}
+                    <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <!-- Description -->
+            <div class="mb-4">
+                <label for="description" class="form-label fw-bold text-dark small">Mô tả & Lưu ý chung</label>
+                {{ form.description(class="form-control", rows="4", placeholder="Viết vài dòng giới thiệu về chuyến đi, kinh nghiệm di chuyển, chuẩn bị hành lý...", id="description") }}
+            </div>
+
+            <!-- Submit -->
+            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                <a href="{{ url_for('plans.index') }}" class="btn btn-light rounded-pill px-4">Hủy bỏ</a>
+                <button type="submit" class="btn btn-ges-primary rounded-pill px-4 fw-bold">
+                    <i class="bi bi-check2-circle me-1"></i> Khởi tạo & Lên chi tiết ngày
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function previewCoverImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('cover_preview_image');
+                const placeholder = document.getElementById('cover_placeholder_text');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+</script>
+{% endblock %}
