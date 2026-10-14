@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Thông báo — {{ config.APP_NAME }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notif-wrap {
+        max-width: 680px;
+        margin: 1.5rem auto 3rem;
+    }
+
+    .notif-card {
+        background: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(20, 60, 90, 0.06);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        padding: 1.5rem;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+    [data-bs-theme="dark"] .notif-card {
+        background: #181f2a;
+        border-color: #2b3544;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .notif-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.9rem 0.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        text-decoration: none;
+        color: inherit;
+        border-radius: 12px;
+        transition: background-color 0.15s ease;
+    }
+    [data-bs-theme="dark"] .notif-item {
+        border-bottom-color: #263141;
+    }
+
+    .notif-item:hover {
+        background-color: #f8fafc;
+        color: inherit;
+    }
+    [data-bs-theme="dark"] .notif-item:hover {
+        background-color: #1e293b;
+    }
+
+    .notif-item:last-child {
+        border-bottom: none;
+    }
+
+    .notif-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex: none;
+    }
+
+    .notif-ph {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #e0f2fe;
+        color: #0284c7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.2rem;
+        flex: none;
+    }
+
+    .notif-badge-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        color: #ffffff;
+        position: absolute;
+        bottom: -2px;
+        right: -2px;
+        border: 2px solid #ffffff;
+    }
+    [data-bs-theme="dark"] .notif-badge-icon {
+        border-color: #181f2a;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notif-wrap">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="fw-bold fs-3 text-dark mb-0">
+            <i class="bi bi-bell-fill text-primary me-2"></i>Thông báo
+        </h2>
+    </div>
+
+    <div class="notif-card">
+        {% if notifications %}
+            <div class="d-flex flex-column">
+                {% for n in notifications %}
+                    {% set target_url = '/locations/feed#post-article-' ~ n.post_id if n.post_id else '#' %}
+                    <a href="{{ target_url }}" class="notif-item">
+                        <div class="position-relative">
+                            <div class="notif-ph">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            {% if n.notification_type == 'like' %}
+                                <div class="notif-badge-icon bg-danger"><i class="bi bi-heart-fill"></i></div>
+                            {% elif n.notification_type == 'comment' %}
+                                <div class="notif-badge-icon bg-primary"><i class="bi bi-chat-fill"></i></div>
+                            {% elif n.notification_type == 'share' %}
+                                <div class="notif-badge-icon bg-success"><i class="bi bi-send-fill"></i></div>
+                            {% elif n.notification_type == 'follow' %}
+                                <div class="notif-badge-icon bg-info"><i class="bi bi-person-plus-fill"></i></div>
+                            {% else %}
+                                <div class="notif-badge-icon bg-secondary"><i class="bi bi-bell-fill"></i></div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="small">
+                                <strong class="text-dark">Người dùng #{{ n.actor_id }}</strong>
+                                {% if n.notification_type == 'like' %}
+                                    <span class="text-secondary">đã thích bài viết của bạn.</span>
+                                {% elif n.notification_type == 'comment' %}
+                                    <span class="text-secondary">đã bình luận về bài viết của bạn.</span>
+                                {% elif n.notification_type == 'share' %}
+                                    <span class="text-secondary">đã chia sẻ bài viết của bạn.</span>
+                                {% elif n.notification_type == 'follow' %}
+                                    <span class="text-secondary">đã bắt đầu theo dõi bạn.</span>
+                                {% else %}
+                                    <span class="text-secondary">đã tương tác với bạn.</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted" style="font-size: 0.75rem;">
+                                {{ n.created_at.strftime('%H:%M %d/%m/%Y') if n.created_at else 'Vừa xong' }}
+                            </small>
+                        </div>
+                        {% if n.post_id %}
+                            <i class="bi bi-chevron-right text-muted small"></i>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="rounded-circle bg-light d-inline-flex p-3 text-muted mb-3">
+                    <i class="bi bi-bell-slash fs-2"></i>
+                </div>
+                <h6 class="fw-bold text-dark">Chưa có thông báo nào</h6>
+                <p class="text-muted small mb-0">Khi có ai đó thích, bình luận hoặc chia sẻ bài viết của bạn, thông báo sẽ hiển thị ở đây.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

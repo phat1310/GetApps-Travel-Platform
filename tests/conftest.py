@@ -48,14 +48,16 @@ def app(tmp_path):
         # User 1
         user1 = User(
             username="testuser1",
-            email="test1@example.com"
+            email="test1@example.com",
+            profile_completed=True
         )
         user1.set_password("123456")
 
         # User 2
         user2 = User(
             username="testuser2",
-            email="test2@example.com"
+            email="test2@example.com",
+            profile_completed=True
         )
         user2.set_password("123456")
 

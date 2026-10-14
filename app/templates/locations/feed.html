@@ -4,46 +4,20 @@
 
 {% block extra_css %}
 <style>
-    .story-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 72px;
-        flex-shrink: 0;
-        cursor: pointer;
-        text-decoration: none;
+    .share-opt-btn {
+        transition: all 0.2s ease;
+        background: #f8fafc;
     }
-    .story-ring {
-        width: 58px;
-        height: 58px;
-        border-radius: 50%;
-        padding: 2px;
-        background: linear-gradient(45deg, #0284c7, #38bdf8, #f59e0b);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: transform 0.2s ease;
+    .share-opt-btn:hover {
+        background: #e0f2fe !important;
+        transform: translateY(-2px);
     }
-    .story-ring:hover {
-        transform: scale(1.05);
+    [data-bs-theme="dark"] .share-opt-btn {
+        background: #1e293b;
+        color: #f8fafc;
     }
-    .story-img {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid #ffffff;
-    }
-    .story-name {
-        font-size: 0.75rem;
-        color: var(--ges-text-main);
-        font-weight: 500;
-        margin-top: 4px;
-        max-width: 68px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        text-align: center;
+    [data-bs-theme="dark"] .share-opt-btn:hover {
+        background: #0f172a !important;
     }
     .post-card {
         background: var(--ges-card-bg);
@@ -179,80 +153,6 @@
 <div class="row g-4">
     <!-- ==================== CỘT CHÍNH (NEWSFEED) ==================== -->
     <div class="col-lg-8">
-        
-        <!-- Story / Highlight Bar -->
-        <div class="card border-0 shadow-sm p-3 mb-4 rounded-3 bg-white">
-            <div class="d-flex align-items-center gap-3 overflow-auto pb-1" style="scrollbar-width: none;">
-                <!-- Story Của bạn (Tạo mới) -->
-                <a href="{{ url_for('locations.create_post') }}" class="story-item">
-                    <div class="story-ring" style="background: #e2e8f0;">
-                        <div class="story-img bg-light d-flex align-items-center justify-content-center text-primary">
-                            <i class="bi bi-plus-lg fs-5"></i>
-                        </div>
-                    </div>
-                    <span class="story-name">Đăng bài</span>
-                </a>
-
-                <!-- Demo stories -->
-                <div class="story-item">
-                    <div class="story-ring">
-                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Hoàng My" class="story-img">
-                    </div>
-                    <span class="story-name">Hoàng My</span>
-                </div>
-                <div class="story-item">
-                    <div class="story-ring">
-                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80" alt="Nguyễn Minh" class="story-img">
-                    </div>
-                    <span class="story-name">Nguyễn Minh</span>
-                </div>
-                <div class="story-item">
-                    <div class="story-ring">
-                        <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80" alt="Lan Anh" class="story-img">
-                    </div>
-                    <span class="story-name">Lan Anh</span>
-                </div>
-                <div class="story-item">
-                    <div class="story-ring">
-                        <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80" alt="Tuấn Kiệt" class="story-img">
-                    </div>
-                    <span class="story-name">Tuấn Kiệt</span>
-                </div>
-                <div class="story-item">
-                    <div class="story-ring">
-                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80" alt="Thảo My" class="story-img">
-                    </div>
-                    <span class="story-name">Thảo My</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Post Card -->
-        <div class="card border-0 shadow-sm p-3 mb-4 rounded-3 bg-white">
-            <div class="d-flex align-items-center gap-3">
-                {% if current_user.avatar_url %}
-                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-md">
-                {% else %}
-                    <span class="avatar-placeholder avatar-md">{{ current_user.username[0]|upper }}</span>
-                {% endif %}
-                <a href="{{ url_for('locations.create_post') }}" class="form-control rounded-pill bg-light text-muted text-decoration-none py-2 px-3 d-flex align-items-center">
-                    <span>Bạn vừa khám phá địa điểm nào? Chia sẻ cùng GEs...</span>
-                </a>
-            </div>
-            <hr class="my-3 text-muted opacity-25">
-            <div class="d-flex justify-content-around">
-                <a href="{{ url_for('locations.create_post') }}" class="btn btn-sm btn-light border-0 text-primary fw-semibold d-flex align-items-center gap-2 px-3 py-1">
-                    <i class="bi bi-images text-success fs-5"></i> Đăng ảnh / Video
-                </a>
-                <a href="/plans/create" class="btn btn-sm btn-light border-0 text-primary fw-semibold d-flex align-items-center gap-2 px-3 py-1">
-                    <i class="bi bi-calendar-event text-warning fs-5"></i> Lên lịch trình
-                </a>
-                <a href="/locations/locations/search" class="btn btn-sm btn-light border-0 text-primary fw-semibold d-flex align-items-center gap-2 px-3 py-1 d-none d-sm-inline-flex">
-                    <i class="bi bi-geo-alt-fill text-danger fs-5"></i> Check-in địa điểm
-                </a>
-            </div>
-        </div>
-
         <!-- Feed List -->
         {% if posts %}
             {% for post in posts %}
@@ -375,17 +275,12 @@
                                     <span id="comment-count-{{ post.id }}">{{ post.comments_count }}</span>
                                 </button>
 
-                                <!-- Share Button -->
-                                <button type="button" class="post-action-btn" onclick="sharePost({{ post.id }})">
+                                <!-- Share Button (mở modal 3 tùy chọn theo Slide 4) -->
+                                <button type="button" class="post-action-btn" onclick="openShareModal({{ post.id }})" title="Chia sẻ">
                                     <i class="bi bi-send fs-5"></i>
                                     <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
                                 </button>
                             </div>
-
-                            <!-- Save / Bookmark Button -->
-                            <button type="button" class="post-action-btn {% if post.is_saved %}saved{% endif %}" id="save-btn-{{ post.id }}" onclick="toggleSavePost({{ post.id }})">
-                                <i class="bi {% if post.is_saved %}bi-bookmark-fill{% else %}bi-bookmark{% endif %} fs-5" id="save-icon-{{ post.id }}"></i>
-                            </button>
                         </div>
 
                         <!-- Collapse Comments Section -->
@@ -544,10 +439,131 @@
 
     </div>
 </div>
+
+<!-- Modal Share Post (Slide 4 Proposal) -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold text-dark" id="shareModalLabel">
+                    <i class="bi bi-share text-primary me-2"></i>Chia sẻ bài viết
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <p class="text-muted small mb-3">Chọn hình thức bạn muốn chia sẻ bài viết này:</p>
+                <div class="d-flex flex-column gap-2">
+                    <button type="button" class="btn share-opt-btn" onclick="executeShareAction('download')">
+                        <i class="bi bi-download text-primary"></i>
+                        <div class="text-start">
+                            <div class="fw-semibold text-dark">Tải về máy</div>
+                            <small class="text-muted">Lưu ảnh bài viết về thiết bị</small>
+                        </div>
+                    </button>
+                    <button type="button" class="btn share-opt-btn" onclick="executeShareAction('repost')">
+                        <i class="bi bi-arrow-repeat text-success"></i>
+                        <div class="text-start">
+                            <div class="fw-semibold text-dark">Đăng lại (Repost)</div>
+                            <small class="text-muted">Chia sẻ ngay lên trang cá nhân</small>
+                        </div>
+                    </button>
+                    <button type="button" class="btn share-opt-btn" onclick="executeShareAction('copy')">
+                        <i class="bi bi-link-45deg text-info"></i>
+                        <div class="text-start">
+                            <div class="fw-semibold text-dark">Sao chép liên kết</div>
+                            <small class="text-muted">Lấy link trực tiếp đến bài viết</small>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    let currentSharePostId = null;
+    let shareModalInstance = null;
+
+    function openShareModal(postId) {
+        currentSharePostId = postId;
+        const modalEl = document.getElementById('shareModal');
+        if (!shareModalInstance) {
+            shareModalInstance = new bootstrap.Modal(modalEl);
+        }
+        shareModalInstance.show();
+    }
+
+    async function executeShareAction(action) {
+        if (!currentSharePostId) return;
+        const postId = currentSharePostId;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        if (action === 'download') {
+            if (shareModalInstance) shareModalInstance.hide();
+            window.location.href = `/locations/posts/${postId}/share/download`;
+            const countSpan = document.getElementById(`share-count-${postId}`);
+            if (countSpan) countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
+        } else if (action === 'repost') {
+            try {
+                const res = await fetch(`/locations/posts/${postId}/repost`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                });
+                const data = await res.json();
+                if (shareModalInstance) shareModalInstance.hide();
+                if (res.ok) {
+                    alert("Đăng lại bài viết thành công!");
+                    const countSpan = document.getElementById(`share-count-${postId}`);
+                    if (countSpan) countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
+                    window.location.reload();
+                } else {
+                    alert(data.error || "Không thể đăng lại bài viết!");
+                }
+            } catch (err) {
+                console.error("Lỗi đăng lại:", err);
+                alert("Đã xảy ra lỗi khi đăng lại!");
+            }
+        } else if (action === 'copy') {
+            try {
+                const res = await fetch(`/locations/posts/${postId}/share`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                });
+                const data = await res.json();
+                if (shareModalInstance) shareModalInstance.hide();
+                const postUrl = data.link || `${window.location.origin}/locations/feed#post-article-${postId}`;
+                navigator.clipboard.writeText(postUrl).then(() => {
+                    alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+                }).catch(() => {
+                    prompt("Sao chép liên kết bên dưới:", postUrl);
+                });
+                const countSpan = document.getElementById(`share-count-${postId}`);
+                if (countSpan) countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
+            } catch (err) {
+                console.error("Lỗi chia sẻ:", err);
+                copyPostLink(postId);
+                if (shareModalInstance) shareModalInstance.hide();
+            }
+        }
+    }
+
+    function copyPostLink(postId) {
+        const postUrl = `${window.location.origin}/locations/feed#post-article-${postId}`;
+        navigator.clipboard.writeText(postUrl).then(() => {
+            alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+        }).catch(() => {
+            prompt("Sao chép liên kết bên dưới:", postUrl);
+        });
+    }
+
     // AJAX: Thả tim / Bỏ tim (Like/Unlike)
     async function toggleLike(postId) {
         try {
@@ -577,61 +593,6 @@
         } catch (err) {
             console.error("Lỗi thả tim:", err);
         }
-    }
-
-    // AJAX: Lưu bài viết (Save/Unsave Bookmark)
-    async function toggleSavePost(postId) {
-        try {
-            const res = await fetch(`/locations/posts/${postId}/save`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const btn = document.getElementById(`save-btn-${postId}`);
-                const icon = document.getElementById(`save-icon-${postId}`);
-                if (data.saved) {
-                    btn.classList.add('saved');
-                    icon.classList.remove('bi-bookmark');
-                    icon.classList.add('bi-bookmark-fill');
-                } else {
-                    btn.classList.remove('saved');
-                    icon.classList.remove('bi-bookmark-fill');
-                    icon.classList.add('bi-bookmark');
-                }
-            }
-        } catch (err) {
-            console.error("Lỗi lưu bài viết:", err);
-        }
-    }
-
-    // AJAX: Chia sẻ bài viết (Share Post)
-    async function sharePost(postId) {
-        try {
-            const res = await fetch(`/locations/posts/${postId}/share`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const shareCount = document.getElementById(`share-count-${postId}`);
-                shareCount.innerText = (parseInt(shareCount.innerText) || 0) + 1;
-                
-                // Copy post link to clipboard
-                copyPostLink(postId);
-            }
-        } catch (err) {
-            console.error("Lỗi chia sẻ:", err);
-        }
-    }
-
-    function copyPostLink(postId) {
-        const postUrl = `${window.location.origin}/locations/feed#post-article-${postId}`;
-        navigator.clipboard.writeText(postUrl).then(() => {
-            alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
-        }).catch(() => {
-            prompt("Sao chép liên kết bên dưới:", postUrl);
-        });
     }
 
     // AJAX: Thêm bình luận (Comment)
