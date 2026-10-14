@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Chào mừng bạn đến với GEs — Thiết lập hồ sơ{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Ẩn thanh Pill Sidebar trong màn hình Onboarding để người dùng tập trung */
+    .st-side { display: none !important; }
+    body.has-pill-side main.main-content { padding-left: 0 !important; padding-right: 0 !important; }
+
+    .onboarding-wrap {
+        max-width: 540px;
+        margin: 2rem auto 4rem;
+        padding: 0 1rem;
+    }
+
+    .onboarding-card {
+        background: #ffffff;
+        border-radius: 28px;
+        box-shadow: 0 10px 40px rgba(14, 165, 233, 0.08), 0 2px 10px rgba(0, 0, 0, 0.03);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        padding: 2.5rem 2rem;
+        text-align: center;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    [data-bs-theme="dark"] .onboarding-card {
+        background: #181f2a;
+        border-color: #2b3544;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .onboarding-title {
+        font-size: 2.25rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        color: #0f172a;
+        margin-bottom: 0.5rem;
+    }
+    [data-bs-theme="dark"] .onboarding-title {
+        color: #f8fafc;
+    }
+
+    .onboarding-subtitle {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+    }
+    [data-bs-theme="dark"] .onboarding-subtitle {
+        color: #94a3b8;
+    }
+
+    /* Avatar Upload Circle */
+    .avatar-upload-box {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 1.75rem;
+        cursor: pointer;
+    }
+
+    .avatar-preview-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: #e0f2fe;
+        color: #0284c7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        font-weight: 700;
+        overflow: hidden;
+        border: 3px solid #38bdf8;
+        box-shadow: 0 6px 20px rgba(14, 165, 233, 0.2);
+        transition: transform 0.2s ease;
+    }
+
+    .avatar-upload-box:hover .avatar-preview-circle {
+        transform: scale(1.03);
+    }
+
+    .avatar-preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: none;
+    }
+
+    .avatar-add-badge {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #0284c7;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        border: 3px solid #ffffff;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+    [data-bs-theme="dark"] .avatar-add-badge {
+        border-color: #181f2a;
+    }
+
+    /* Tag Pills Grid */
+    .tags-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+
+    .tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.65rem 1.25rem;
+        border-radius: 999px;
+        border: 1.5px solid #cbd5e1;
+        background: #f8fafc;
+        color: #334155;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.2s ease;
+    }
+    [data-bs-theme="dark"] .tag-chip {
+        background: #1e293b;
+        border-color: #334155;
+        color: #cbd5e1;
+    }
+
+    .tag-chip:hover {
+        border-color: #38bdf8;
+        background: #f0f9ff;
+        color: #0284c7;
+    }
+    [data-bs-theme="dark"] .tag-chip:hover {
+        background: #0c4a6e;
+        color: #38bdf8;
+    }
+
+    .tag-chip.selected {
+        background: #0284c7;
+        border-color: #0284c7;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+    }
+    [data-bs-theme="dark"] .tag-chip.selected {
+        background: #38bdf8;
+        border-color: #38bdf8;
+        color: #0f172a;
+    }
+
+    .tag-chip i {
+        font-size: 1rem;
+    }
+
+    .btn-continue {
+        width: 100%;
+        padding: 0.9rem;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 1.05rem;
+        background: linear-gradient(135deg, #0ea5e9, #0284c7);
+        border: none;
+        color: #ffffff;
+        box-shadow: 0 6px 20px rgba(14, 165, 233, 0.35);
+        transition: all 0.2s ease;
+    }
+    .btn-continue:hover {
+        background: linear-gradient(135deg, #0284c7, #0369a1);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(14, 165, 233, 0.45);
+        color: #ffffff;
+    }
+
+    .skip-link {
+        display: inline-block;
+        margin-top: 1.25rem;
+        color: #94a3b8;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+    .skip-link:hover {
+        color: #0284c7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="onboarding-wrap">
+    <div class="onboarding-card">
+        <h1 class="onboarding-title">Xin chào! 👋</h1>
+        <p class="onboarding-subtitle">Hãy thiết lập hồ sơ để GetApps (GEs) mang đến những gợi ý du lịch và trải nghiệm tuyệt vời nhất cho bạn.</p>
+
+        <form action="{{ url_for('auth.onboarding') }}" method="POST" enctype="multipart/form-data" id="onboardingForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- Avatar Upload Area -->
+            <div class="avatar-upload-box" onclick="document.getElementById('avatarFileInput').click()" title="Bấm để tải ảnh đại diện lên">
+                <div class="avatar-preview-circle" id="avatarPreviewContainer">
+                    <span id="avatarPlaceholder">{{ current_user.username[0]|upper }}</span>
+                    <img id="avatarPreviewImg" class="avatar-preview-img" alt="Preview">
+                </div>
+                <div class="avatar-add-badge">
+                    <i class="bi bi-camera-fill"></i>
+                </div>
+            </div>
+            <input type="file" id="avatarFileInput" name="avatar_file" accept="image/*" class="d-none" onchange="previewAvatar(event)">
+            <p class="text-muted small mb-4">Bấm vào khung tròn để chọn ảnh đại diện từ thiết bị</p>
+
+            <!-- Nickname Input (Optional) -->
+            <div class="mb-4 text-start">
+                <label for="nicknameInput" class="form-label fw-bold small text-secondary ps-1">Biệt danh (Nickname)</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 rounded-start-3"><i class="bi bi-person text-muted"></i></span>
+                    <input type="text" class="form-control border-start-0 rounded-end-3 py-2" id="nicknameInput" name="nickname" placeholder="Ví dụ: Hoàng Phiêu Lãng" value="{{ current_user.nickname or '' }}">
+                </div>
+            </div>
+
+            <!-- Profile Tags Selection (Slide 23) -->
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-secondary d-block ps-1 mb-2">Bạn là ai trong các chuyến đi? (Chọn tối đa 3 nhãn)</label>
+                <div class="tags-container" id="tagsContainer">
+                    <div class="tag-chip selected" data-value="nguoi_du_lich" onclick="toggleTag(this)">
+                        <i class="bi bi-suitcase-lg-fill"></i>
+                        <span>Người du lịch</span>
+                    </div>
+                    <div class="tag-chip" data-value="dia_phuong" onclick="toggleTag(this)">
+                        <i class="bi bi-house-heart-fill"></i>
+                        <span>Dân địa phương</span>
+                    </div>
+                    <div class="tag-chip" data-value="phuot" onclick="toggleTag(this)">
+                        <i class="bi bi-compass-fill"></i>
+                        <span>Đi phượt</span>
+                    </div>
+                    <div class="tag-chip" data-value="huong_dan_vien" onclick="toggleTag(this)">
+                        <i class="bi bi-flag-fill"></i>
+                        <span>Hướng dẫn viên</span>
+                    </div>
+                    <div class="tag-chip" data-value="nguoi_noi_tieng" onclick="toggleTag(this)">
+                        <i class="bi bi-star-fill"></i>
+                        <span>Người nổi tiếng</span>
+                    </div>
+                </div>
+
+                <!-- Hidden inputs for tags -->
+                <div id="hiddenTagsInputs">
+                    <input type="hidden" name="tags" value="nguoi_du_lich">
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-continue">
+                Tiếp tục <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+
+            <!-- Skip Link -->
+            <div>
+                <a href="{{ url_for('auth.onboarding_skip') }}" class="skip-link">Bỏ qua lúc này</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function previewAvatar(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('avatarPreviewImg');
+                const placeholder = document.getElementById('avatarPlaceholder');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function toggleTag(el) {
+        const selected = document.querySelectorAll('.tag-chip.selected');
+        if (el.classList.contains('selected')) {
+            // Không bỏ chọn nếu chỉ còn 1 nhãn
+            if (selected.length > 1) {
+                el.classList.remove('selected');
+            }
+        } else {
+            if (selected.length >= 3) {
+                alert("Bạn chỉ được chọn tối đa 3 nhãn!");
+                return;
+            }
+            el.classList.add('selected');
+        }
+        updateHiddenTags();
+    }
+
+    function updateHiddenTags() {
+        const container = document.getElementById('hiddenTagsInputs');
+        container.innerHTML = '';
+        const selectedChips = document.querySelectorAll('.tag-chip.selected');
+        selectedChips.forEach(chip => {
+            const val = chip.getAttribute('data-value');
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'tags';
+            input.value = val;
+            container.appendChild(input);
+        });
+    }
+</script>
+{% endblock %}

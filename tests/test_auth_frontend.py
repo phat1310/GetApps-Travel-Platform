@@ -600,4 +600,137 @@ def test_api_profile_tag_and_avatar(client, users, app):
         assert u.avatar_url == "https://example.com/minh_avatar.jpg"
 
 
+def test_onboarding_flow(client, app):
+    """Kiểm thử toàn bộ luồng Onboarding theo Slide 23 của Proposal."""
+    # 1. Đăng ký tài khoản mới (profile_completed = False)
+    res_reg = client.post(
+        "/register",
+        data={
+            "username": "onboarduser",
+            "email": "onboard@example.com",
+            "password": "StrongPassword123!",
+            "confirm_password": "StrongPassword123!",
+            "role": "traveler",
+            "agree_terms": "y"
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_reg.status_code == 302
+
+    # 2. Đăng nhập -> vì profile_completed == False nên chuyển hướng sang /onboarding
+    res_login = client.post(
+        "/login",
+        data={
+            "username": "onboarduser",
+            "password": "StrongPassword123!",
+            "remember_me": False
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_login.status_code == 302
+    assert "/onboarding" in res_login.headers["Location"]
+
+    # 3. GET /onboarding hiển thị giao diện Slide 23
+    res_get = client.get("/onboarding")
+    assert res_get.status_code == 200
+    html = res_get.data.decode("utf-8")
+    assert "Xin chào!" in html
+    assert "Người du lịch" in html
+    assert "Dân địa phương" in html
+    assert "Đi phượt" in html
+    assert "Hướng dẫn viên" in html
+    assert "Người nổi tiếng" in html
+
+    # 4. POST /onboarding lưu hồ sơ và nhãn thành công
+    res_post = client.post(
+        "/onboarding",
+        data={
+            "nickname": "Phượt Thủ Sài Gòn",
+            "tags": ["phuot", "nguoi_du_lich"]
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res_post.status_code == 302
+    assert "/locations/feed" in res_post.headers["Location"]
+
+    with app.app_context():
+        u = User.query.filter_by(username="onboarduser").first()
+        assert u.profile_completed is True
+        assert u.nickname == "Phượt Thủ Sài Gòn"
+        assert "phuot" in u.tags
+
+    # 5. Khi profile đã hoàn tất, truy cập lại /onboarding sẽ chuyển thẳng đến /locations/feed
+    res_revisit = client.get("/onboarding")
+    assert res_revisit.status_code == 302
+    assert "/locations/feed" in res_revisit.headers["Location"]
+
+
+def test_onboarding_skip(client, app):
+    """Kiểm thử tính năng bỏ qua Onboarding."""
+    client.post(
+        "/register",
+        data={
+            "username": "skipuser",
+            "email": "skip@example.com",
+            "password": "StrongPassword123!",
+            "confirm_password": "StrongPassword123!",
+            "role": "traveler",
+            "agree_terms": "y"
+        },
+        headers={"Accept": "text/html"}
+    )
+    client.post(
+        "/login",
+        data={
+            "username": "skipuser",
+            "password": "StrongPassword123!"
+        },
+        headers={"Accept": "text/html"}
+    )
+
+    res_skip = client.get("/onboarding/skip")
+    assert res_skip.status_code == 302
+    assert "/locations/feed" in res_skip.headers["Location"]
+
+    with app.app_context():
+        u = User.query.filter_by(username="skipuser").first()
+        assert u.profile_completed is True
+
+
+def test_notifications_page(client, users):
+    """Kiểm thử trang danh sách thông báo /notifications."""
+    login_user(client, "testuser1", "123456")
+    res = client.get("/notifications")
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "Thông báo" in html
+
+
+def test_feed_proposal_ui_elements(client, users, post):
+    """Kiểm thử Bảng tin feed.html đã bỏ Story, bỏ Bookmark và có Share Modal theo Proposal."""
+    login_user(client, "testuser1", "123456")
+    res = client.get("/locations/feed", headers={"Accept": "text/html"})
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+
+    # Có khung Top Bar & Pill Sidebar
+    assert "st-top" in html
+    assert "st-side" in html
+
+    # Có Địa điểm nổi bật & Gợi ý kết nối
+    assert "Địa điểm nổi bật" in html
+    assert "Gợi ý kết nối" in html
+
+    # Có Share Modal theo Slide 4
+    assert "shareModal" in html
+    assert "Tải về máy" in html
+    assert "Đăng lại (Repost)" in html
+    assert "Sao chép liên kết" in html
+
+    # Không còn Story Bar
+    assert "story-avatar" not in html
+    assert "story-item" not in html
+
+
+
 

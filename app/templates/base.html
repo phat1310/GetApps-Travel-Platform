@@ -40,128 +40,283 @@
         body {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
         }
+
+        :root {
+            --st-accent: #1a8fcf;
+            --st-line: #eef2f5;
+            --st-inset: 36px;
+            --st-side-w: 84px;
+        }
+
+        [data-bs-theme="dark"] {
+            --st-line: #2a3342;
+        }
+
+        /* Top Bar Proposal */
+        .st-top {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: #ffffff;
+            border-bottom: 1px solid var(--st-line);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem 0 var(--st-inset);
+            z-index: 1030;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        [data-bs-theme="dark"] .st-top {
+            background: #181f2a;
+            border-bottom-color: #2b3544;
+        }
+
+        .st-logo {
+            display: inline-flex;
+            align-items: center;
+            font-weight: 800;
+            font-size: 2rem;
+            letter-spacing: -0.5px;
+            color: #141a2b;
+            text-decoration: none;
+            line-height: 1;
+        }
+        [data-bs-theme="dark"] .st-logo {
+            color: #f1f5f9;
+        }
+        .st-logo b {
+            color: #38bdf8;
+            font-weight: 800;
+        }
+        .st-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin-left: 3px;
+            border-radius: 50%;
+            background: #38bdf8;
+            vertical-align: baseline;
+        }
+
+        .st-top-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .st-top-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4a5560;
+            font-size: 1.25rem;
+            text-decoration: none;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        [data-bs-theme="dark"] .st-top-btn {
+            color: #cbd5e1;
+        }
+        .st-top-btn:hover, .st-top-btn.active {
+            background: #e4f4fb;
+            color: var(--st-accent);
+        }
+        [data-bs-theme="dark"] .st-top-btn:hover, [data-bs-theme="dark"] .st-top-btn.active {
+            background: #1e293b;
+            color: #38bdf8;
+        }
+
+        /* Pill Sidebar Proposal */
+        .st-side {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            left: var(--st-inset);
+            width: var(--st-side-w);
+            background: #ffffff;
+            border: 2px solid #38bdf8;
+            border-radius: calc(var(--st-side-w) / 2);
+            box-shadow: 0 8px 30px rgba(20, 60, 90, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 1.25rem 0.35rem;
+            z-index: 1020;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        [data-bs-theme="dark"] .st-side {
+            background: #181f2a;
+            border-color: #0284c7;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .st-nav {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.15rem;
+            width: 100%;
+            padding: 0.5rem 0.2rem;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.15;
+            border-radius: 12px;
+            transition: all 0.15s ease;
+        }
+        [data-bs-theme="dark"] .st-nav {
+            color: #94a3b8;
+        }
+        .st-nav i {
+            font-size: 1.35rem;
+        }
+        .st-nav:hover, .st-nav.active {
+            color: #0284c7;
+        }
+        [data-bs-theme="dark"] .st-nav:hover, [data-bs-theme="dark"] .st-nav.active {
+            color: #38bdf8;
+        }
+
+        .st-create {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: #ffffff;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 18px rgba(14, 165, 233, 0.4);
+            margin: 0.35rem 0;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .st-create:hover {
+            transform: scale(1.06);
+            box-shadow: 0 8px 22px rgba(14, 165, 233, 0.5);
+            color: #ffffff;
+        }
+        .st-create svg, .st-create i {
+            font-size: 1.4rem;
+        }
+
+        /* Layout with Pill Sidebar */
+        body.has-pill-side {
+            padding-top: 64px;
+        }
+        body.has-pill-side main.main-content {
+            padding-left: calc(var(--st-inset) + var(--st-side-w) + 20px);
+            padding-right: 20px;
+        }
+
+        @media (max-width: 767.98px) {
+            :root {
+                --st-inset: 12px;
+            }
+            body.has-pill-side main.main-content {
+                padding-left: 0;
+                padding-right: 0;
+                padding-bottom: 84px;
+            }
+            .st-side {
+                transform: none;
+                top: auto;
+                bottom: 12px;
+                left: 12px;
+                right: 12px;
+                width: auto;
+                flex-direction: row;
+                justify-content: space-around;
+                padding: 0.4rem 0.75rem;
+                border-radius: 999px;
+            }
+            .st-nav {
+                width: auto;
+                padding: 0.25rem 0.5rem;
+            }
+            .st-create {
+                width: 44px;
+                height: 44px;
+                margin: 0;
+            }
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{% if current_user.is_authenticated %}has-pill-side{% endif %}">
 
     <!-- ==================== HEADER & NAVBAR ==================== -->
-    <header class="sticky-top">
-        <nav class="navbar navbar-expand-lg navbar-ges">
-            <div class="container">
-                <!-- Brand Logo & Slogan (Official GEs Vector Logo) -->
-                <a class="navbar-brand d-flex align-items-center me-4 text-decoration-none py-0" href="{{ url_for('locations.feed') }}" title="GEs — Get · Explore · Share">
-                    <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs — GetApps" class="brand-logo-img">
-                </a>
-
-                <!-- Mobile Toggle Button -->
-                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
+    {% if current_user.is_authenticated %}
+        <!-- Top Bar Proposal (Slide 4 & forntend.jpg) -->
+        <header class="st-top">
+            <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps">GE<b>s</b><span class="st-dot" aria-hidden="true"></span></a>
+            <div class="st-top-actions">
+                <a href="/explore" class="st-top-btn {% if request.endpoint == 'auth.explore' %}active{% endif %}" title="Tìm kiếm & Khám phá" aria-label="Tìm kiếm"><i class="bi bi-search"></i></a>
+                <button type="button" class="st-top-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Chuyển chế độ Nền sáng / Nền tối">
+                    <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
                 </button>
+                <a href="{{ url_for('auth.settings_page') }}" class="st-top-btn {% if request.endpoint in ['auth.settings', 'auth.settings_page'] %}active{% endif %}" title="Cài đặt tài khoản" aria-label="Cài đặt"><i class="bi bi-gear-fill"></i></a>
+            </div>
+        </header>
 
-                <!-- Nav Links & Actions -->
-                <div class="collapse navbar-collapse" id="navbarContent">
-                    <!-- Main Navigation Links -->
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-ges {% if request.endpoint == 'locations.feed' %}active{% endif %}" href="{{ url_for('locations.feed') }}">
-                                <i class="bi bi-house-door-fill"></i> Bảng tin
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-ges {% if request.endpoint == 'auth.explore' %}active{% endif %}" href="{{ url_for('auth.explore') }}">
-                                <i class="bi bi-compass"></i> Khám phá
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-ges {% if request.endpoint and request.endpoint.startswith('plans.') %}active{% endif %}" href="{{ url_for('plans.index') }}">
-                                <i class="bi bi-map"></i> Lịch trình
-                            </a>
-                        </li>
-                    </ul>
-
-                    <!-- User Actions & Theme Mode -->
-                    <div class="d-flex align-items-center gap-2">
-                        <!-- Nút Chuyển đổi Nền Sáng / Nền Tối -->
-                        <button type="button" class="theme-toggle-btn me-1" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Toggle dark/light theme">
+        <!-- Pill Sidebar (Thanh điều hướng viên thuốc bên trái) -->
+        <nav class="st-side" aria-label="Điều hướng chính">
+            <a class="st-nav {% if request.endpoint == 'locations.feed' %}active{% endif %}" href="{{ url_for('locations.feed') }}">
+                <i class="bi bi-compass"></i>
+                <span>Bảng tin</span>
+            </a>
+            <a class="st-nav {% if request.endpoint and request.endpoint.startswith('plans.') %}active{% endif %}" href="/plans">
+                <i class="bi bi-calendar3"></i>
+                <span>Lịch trình</span>
+            </a>
+            <div class="dropdown">
+                <button class="st-create" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tạo mới" title="Đăng bài hoặc Tạo lịch trình">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24" aria-hidden="true"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 1.82 3.16.77 1.33 1.6-.43 5.31-1.42 4.35-1.16L21 11.49c.81-.23 1.28-1.05 1.07-1.85z"/></svg>
+                </button>
+                <ul class="dropdown-menu shadow-lg border-0 rounded-3">
+                    <li><a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('locations.create_post') }}"><i class="bi bi-pencil-square text-primary"></i> Đăng bài viết mới</a></li>
+                    <li><a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/plans/create"><i class="bi bi-map text-success"></i> Tạo lịch trình mới</a></li>
+                </ul>
+            </div>
+            <a class="st-nav {% if request.endpoint == 'auth.notifications_page' %}active{% endif %}" href="/notifications">
+                <i class="bi bi-bell"></i>
+                <span>Thông báo</span>
+            </a>
+            <a class="st-nav {% if request.endpoint and request.endpoint.startswith('auth.profile') %}active{% endif %}" href="{{ url_for('auth.profile', username=current_user.username) }}">
+                <i class="bi bi-person"></i>
+                <span>Cá nhân</span>
+            </a>
+        </nav>
+    {% else %}
+        <!-- Unauthenticated Top Navbar -->
+        <header class="sticky-top">
+            <nav class="navbar navbar-expand-lg navbar-ges">
+                <div class="container">
+                    <a class="navbar-brand d-flex align-items-center me-4 text-decoration-none py-0" href="{{ url_for('locations.feed') }}" title="GEs — Get · Explore · Share">
+                        <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs — GetApps" class="brand-logo-img">
+                    </a>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button type="button" class="theme-toggle-btn me-2" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối">
                             <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
                         </button>
-
-                        {% if current_user.is_authenticated %}
-                            <!-- Nút Thêm mới (Đăng bài & Tạo lịch trình) -->
-                            <a href="/locations/upload" class="btn btn-ges-outline btn-sm d-flex align-items-center gap-1" title="Đăng bài viết mới">
-                                <i class="bi bi-pencil-square text-primary"></i> Đăng bài
-                            </a>
-                            <a href="/plans/create" class="btn btn-ges-primary btn-sm d-flex align-items-center gap-1" title="Lên kế hoạch lịch trình mới">
-                                <i class="bi bi-plus-circle"></i> Tạo lịch trình
-                            </a>
-
-                            <!-- User Dropdown Menu -->
-                            <div class="dropdown ms-2">
-                                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-dark" id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                    {% if current_user.avatar_url %}
-                                        <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-sm me-2">
-                                    {% else %}
-                                        <span class="avatar-placeholder avatar-sm me-2">
-                                            {{ current_user.username[0]|upper }}
-                                        </span>
-                                    {% endif %}
-                                    <span class="fw-bold d-none d-md-inline me-1">{{ current_user.nickname or current_user.username }}</span>
-                                    {% if current_user.role %}
-                                        <span class="badge badge-role badge-role-{{ current_user.role }} d-none d-lg-inline">{{ current_user.role }}</span>
-                                    {% endif %}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" aria-labelledby="userMenuDropdown">
-                                    <li class="px-3 py-2 border-bottom">
-                                        <div class="fw-bold text-dark">{{ current_user.nickname or current_user.username }}</div>
-                                        <small class="text-muted">{{ current_user.email }}</small>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.profile', username=current_user.username) }}">
-                                            <i class="bi bi-person text-primary"></i> Trang cá nhân
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('plans.my_plans') }}">
-                                            <i class="bi bi-map text-primary"></i> Lịch trình của tôi
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.settings') }}">
-                                            <i class="bi bi-gear text-primary"></i> Cài đặt tài khoản
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('auth.change_password') }}">
-                                            <i class="bi bi-shield-lock text-warning"></i> Đổi mật khẩu
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider my-1"></li>
-                                    <li>
-                                        <form action="{{ url_for('auth.logout') }}" method="POST" class="m-0 p-0">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button type="submit" class="dropdown-item py-2 text-danger d-flex align-items-center gap-2 border-0 bg-transparent w-100 text-start">
-                                                <i class="bi bi-box-arrow-right"></i> Đăng xuất
-                                            </button>
-                                        </form>
-                                    </li>
-                                </ul>
-                            </div>
-                        {% else %}
-                            <!-- Nút cho khách vãng lai -->
-                            <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-sm px-3">
-                                Đăng nhập
-                            </a>
-                            <a href="{{ url_for('auth.register') }}" class="btn btn-ges-primary btn-sm px-3">
-                                Đăng ký
-                            </a>
-                        {% endif %}
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-sm px-3">Đăng nhập</a>
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-ges-primary btn-sm px-3">Đăng ký</a>
                     </div>
                 </div>
-            </div>
-        </nav>
-    </header>
+            </nav>
+        </header>
+    {% endif %}
 
     <!-- ==================== FLASH MESSAGES ==================== -->
     <div class="container mt-3" style="max-width: 680px;">

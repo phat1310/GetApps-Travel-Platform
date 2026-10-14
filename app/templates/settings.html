@@ -47,62 +47,10 @@
     .st-btn-ok:hover { background: #157cb5; color: #fff; }
     .st-btn-cancel { background: #eef2f5; color: #445; border-radius: 12px; padding: .6rem 1.5rem; font-weight: 600; }
 
-    /* ===== KHUNG MỚI: thanh trên + thanh bên trái dạng viên thuốc (theo hình mẫu) ===== */
-    :root { --st-inset: 40px; --st-side-w: 92px; }   /* --st-inset: khoảng cách từ mép trái màn hình (tăng lên nếu muốn dịch vào nhiều hơn) */
-    header.sticky-top, footer.footer-ges { display: none !important; }   /* ẩn thanh trên cũ của base.html */
-    body { padding-top: 64px; }
-    main.main-content { padding-left: calc(var(--st-inset) + var(--st-side-w) + 24px); }
-
-    .st-top { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #fff; border-bottom: 1px solid var(--st-line); display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem 0 var(--st-inset); z-index: 1030; }
-    .st-logo { display: inline-block; font-weight: 800; font-size: 2.1rem; letter-spacing: 0; color: #141a2b; text-decoration: none; line-height: 1; }
-    .st-logo b { color: #5ba3e6; font-weight: 800; }
-    .st-dot { display: inline-block; width: .24em; height: .24em; margin-left: .5em; border-radius: 50%; background: #5ba3e6; vertical-align: .4em; }
-    .st-top-actions { display: flex; gap: .5rem; }
-    .st-top-actions a { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4a5560; font-size: 1.35rem; text-decoration: none; }
-    .st-top-actions a:hover, .st-top-actions a.active { background: #e4f4fb; color: var(--st-accent); }
-
-    .st-side { position: fixed; top: calc(50vh - 44px); transform: translateY(-50%); left: var(--st-inset); width: var(--st-side-w); background: #fff; border: 2px solid var(--st-accent); border-radius: calc(var(--st-side-w) / 2); box-shadow: 0 8px 24px rgba(20, 60, 90, .12); display: flex; flex-direction: column; align-items: center; gap: .25rem; padding: 1.1rem .35rem; z-index: 1020; }
-    .st-nav { display: flex; flex-direction: column; align-items: center; gap: .2rem; width: 100%; padding: .55rem .2rem; color: #5a6772; text-decoration: none; font-size: .72rem; font-weight: 500; text-align: center; line-height: 1.15; }
-    .st-nav i { font-size: 1.4rem; }
-    .st-nav:hover, .st-nav.active { color: var(--st-accent); }
-    .st-create { width: 54px; height: 54px; border-radius: 50%; background: #0ea5e9; color: #fff; border: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(14, 165, 233, .4); margin: .5rem 0; }
-    .st-create svg { width: 28px; height: 28px; }
-    .st-create:hover { background: #0b8fcb; }
-
-    @media (max-width: 575.98px) {
-        :root { --st-inset: 16px; }
-        main.main-content { padding-left: 0; }
-        body { padding-bottom: 96px; }
-        .st-side { transform: none; top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; flex-direction: row; justify-content: space-around; padding: .4rem .5rem; border-radius: 40px; }
-        .st-nav { width: auto; padding: .3rem .4rem; }
-        .st-create { width: 46px; height: 46px; margin: 0; }
-    }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- ===== KHUNG (thanh trên + thanh trái): chuyển sang base.html khi áp dụng cho cả web ===== -->
-<div class="st-top">
-    <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps">GE<b>s</b><span class="st-dot" aria-hidden="true"></span></a>
-    <div class="st-top-actions">
-        <a href="/explore" aria-label="Tìm kiếm"><i class="bi bi-search"></i></a>
-        <a href="{{ url_for('auth.settings_page') }}" class="active" aria-label="Cài đặt" aria-current="page"><i class="bi bi-gear-fill"></i></a>
-    </div>
-</div>
-<nav class="st-side" aria-label="Điều hướng chính">
-    <a class="st-nav" href="{{ url_for('locations.feed') }}"><i class="bi bi-compass"></i>Bảng tin</a>
-    <a class="st-nav" href="/plans"><i class="bi bi-calendar3"></i>Lịch trình</a>
-    <div class="dropdown">
-        <button class="st-create" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tạo mới"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 1.82 3.16.77 1.33 1.6-.43 5.31-1.42 4.35-1.16L21 11.49c.81-.23 1.28-1.05 1.07-1.85z"/></svg></button>
-        <ul class="dropdown-menu shadow-sm border-0">
-            <li><a class="dropdown-item py-2" href="/locations/upload"><i class="bi bi-camera me-2"></i>Đăng ảnh</a></li>
-            <li><a class="dropdown-item py-2" href="/plans/create"><i class="bi bi-map me-2"></i>Tạo lịch trình</a></li>
-        </ul>
-    </div>
-    <a class="st-nav" href="/notifications"><i class="bi bi-bell"></i>Thông báo</a>
-    <a class="st-nav" href="/profile"><i class="bi bi-person"></i>Trang cá nhân</a>
-</nav>
-<!-- ===== HẾT KHUNG ===== -->
 {% set av = current_user.avatar_url %}
 <div class="st-wrap">
     <h1 class="st-title">Cài đặt</h1>

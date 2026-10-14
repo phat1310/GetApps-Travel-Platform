@@ -224,6 +224,9 @@ def login():
         login_user(user, remember=form.remember_me.data)
         flash(f"Chào mừng trở lại, {user.nickname or user.username}!", "success")
 
+        if not user.profile_completed:
+            return redirect(url_for('auth.onboarding'))
+
         next_page = request.args.get('next')
         if next_page and next_page.startswith('/'):
             return redirect(next_page)
@@ -393,9 +396,11 @@ def unfollow(user_id):
 # CÀI ĐẶT TÀI KHOẢN — BẢN CỦA KHÁNH (khớp mockup, giữ nguyên /settings)
 # =========================================================
 
-@auth_bp.route("/settings", methods=["GET"])
+@auth_bp.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings_page():
+    if request.method == "POST":
+        return settings()
     return render_template("settings.html")
 
 
@@ -539,47 +544,124 @@ def update_profile_avatar():
 # ONBOARDING & THÔNG TIN LIÊN HỆ (DEV PACK)
 # =========================================================
 
-@auth_bp.route("/onboarding", methods=["POST"])
+@auth_bp.route("/onboarding", methods=["GET", "POST"])
 @login_required
 def onboarding():
-    """Hoàn tất onboarding thiết lập hồ sơ và nhãn ban đầu."""
-    data = request.get_json(silent=True) or {}
-    nickname = data.get("nickname")
-    avatar_url = data.get("avatar_url")
-    tags = data.get("tags", [])
+    """Thiết lập hồ sơ ban đầu sau khi đăng ký theo Slide 23 của Proposal."""
+    if request.method == "GET":
+        if current_user.profile_completed:
+            return redirect(url_for("locations.feed"))
+        return render_template("auth/onboarding.html")
+
+    # Xử lý POST (hỗ trợ cả JSON API lẫn Form HTML)
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        nickname = data.get("nickname")
+        avatar_url = data.get("avatar_url")
+        tags = data.get("tags", [])
+    else:
+        nickname = request.form.get("nickname")
+        avatar_url = request.form.get("avatar_url")
+        tags = request.form.getlist("tags")
+        if not tags and request.form.get("tag"):
+            tags = [request.form.get("tag")]
+
+        # Hỗ trợ upload ảnh đại diện trực tiếp từ thiết bị
+        if "avatar_file" in request.files or "file" in request.files or "avatar" in request.files:
+            uploaded_file = request.files.get("avatar_file") or request.files.get("file") or request.files.get("avatar")
+            if uploaded_file and uploaded_file.filename:
+                ext = uploaded_file.filename.rsplit(".", 1)[-1].lower() if "." in uploaded_file.filename else "png"
+                if ext in {"png", "jpg", "jpeg", "webp", "gif"}:
+                    unique_filename = f"avatar_{current_user.id}_{secrets.token_hex(6)}.{ext}"
+                    upload_dir = os.path.join(current_app.root_path, "static", "uploads", "avatars")
+                    os.makedirs(upload_dir, exist_ok=True)
+                    uploaded_file.save(os.path.join(upload_dir, unique_filename))
+                    avatar_url = f"/static/uploads/avatars/{unique_filename}"
+
+    if isinstance(tags, str):
+        tags = [t.strip() for t in tags.split(",") if t.strip()]
 
     if not isinstance(tags, list):
-        return jsonify({"error": "tags phải là một danh sách"}), 400
+        if request.is_json:
+            return jsonify({"error": "tags phải là một danh sách"}), 400
+        flash("Danh sách nhãn không hợp lệ", "error")
+        return render_template("auth/onboarding.html"), 400
 
     if len(tags) > 3:
-        return jsonify({"error": "Chỉ được chọn tối đa 3 nhãn"}), 400
+        if request.is_json:
+            return jsonify({"error": "Chỉ được chọn tối đa 3 nhãn"}), 400
+        flash("Chỉ được chọn tối đa 3 nhãn", "error")
+        return render_template("auth/onboarding.html"), 400
 
     invalid_tags = [t for t in tags if t not in FIXED_TAGS]
     if invalid_tags:
-        return jsonify({
-            "error": f"Nhãn không hợp lệ: {', '.join(invalid_tags)}",
-            "allowed_tags": sorted(FIXED_TAGS),
-        }), 400
+        if request.is_json:
+            return jsonify({
+                "error": f"Nhãn không hợp lệ: {', '.join(invalid_tags)}",
+                "allowed_tags": sorted(FIXED_TAGS),
+            }), 400
+        flash(f"Nhãn không hợp lệ: {', '.join(invalid_tags)}", "error")
+        return render_template("auth/onboarding.html"), 400
 
     if nickname:
-        current_user.nickname = nickname
+        current_user.nickname = nickname.strip()
     if avatar_url:
-        current_user.avatar_url = avatar_url
-    current_user.tags = ",".join(tags)
-    current_user.profile_completed = True
+        current_user.avatar_url = avatar_url.strip()
+    if tags:
+        current_user.tags = ",".join(tags)
+        tag_map = {
+            "nguoi_du_lich": "#nguoidulich",
+            "dia_phuong": "#dandiaphuong",
+            "phuot": "#daphuot",
+            "huong_dan_vien": "#huongdanvien",
+            "nguoi_noi_tieng": "#nguoidanoitieng"
+        }
+        current_user.profile_tag = tag_map.get(tags[0], f"#{tags[0]}")
 
+    current_user.profile_completed = True
     db.session.commit()
 
-    return jsonify({
-        "message": "Hoàn tất onboarding",
-        "user": {
-            "id": current_user.id,
-            "nickname": current_user.nickname,
-            "avatar_url": current_user.avatar_url,
-            "tags": current_user.tags,
-            "profile_completed": current_user.profile_completed,
-        },
-    })
+    if request.is_json:
+        return jsonify({
+            "message": "Hoàn tất onboarding",
+            "user": {
+                "id": current_user.id,
+                "nickname": current_user.nickname,
+                "avatar_url": current_user.avatar_url,
+                "tags": current_user.tags,
+                "profile_completed": current_user.profile_completed,
+            },
+        })
+
+    flash("Hồ sơ đã được thiết lập thành công! Chào mừng bạn đến với GEs.", "success")
+    return redirect(url_for("locations.feed"))
+
+
+@auth_bp.route("/onboarding/skip", methods=["GET", "POST"])
+@login_required
+def onboarding_skip():
+    """Bỏ qua bước onboarding và hoàn tất profile mặc định."""
+    current_user.profile_completed = True
+    db.session.commit()
+    return redirect(url_for("locations.feed"))
+
+
+@auth_bp.route("/notifications", methods=["GET"])
+@login_required
+def notifications_page():
+    """Giao diện danh sách thông báo hoạt động của người dùng."""
+    notifications = Notification.query.filter_by(
+        user_id=current_user.id
+    ).order_by(
+        Notification.created_at.desc()
+    ).limit(50).all()
+
+    # Đánh dấu đã đọc
+    for n in notifications:
+        n.is_read = True
+    db.session.commit()
+
+    return render_template("auth/notifications.html", notifications=notifications)
 
 
 @auth_bp.route("/settings/contact", methods=["POST"])
