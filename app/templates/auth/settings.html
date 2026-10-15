@@ -495,7 +495,7 @@
 
     <!-- Card 3: Nút Đăng xuất -->
     <div class="mt-4">
-        <a href="{{ url_for('auth.logout') }}" class="btn-logout-soft">
+        <a href="{{ url_for('auth.logout') }}" class="btn-logout-soft" id="logoutBtn">
             <i class="bi bi-box-arrow-right fs-5"></i>
             <span>Đăng xuất</span>
         </a>
@@ -979,5 +979,51 @@
         highlightCurrentTagChip(currentTag);
         setupAvatarDragAndDrop();
     });
+
+    // ===== Đăng xuất: hiện toast nhỏ rồi tự chuyển sang trang đăng nhập =====
+    (function () {
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (!logoutBtn) return;
+
+        const logoutUrl = logoutBtn.getAttribute('href');
+        const loginUrl = "{{ url_for('auth.login') }}";
+
+        function showLogoutToast() {
+            const toast = document.createElement('div');
+            toast.textContent = 'Bạn đã đăng xuất tài khoản.';
+            toast.style.cssText = [
+                'position:fixed', 'bottom:28px', 'left:50%',
+                'transform:translateX(-50%) translateY(8px)',
+                'background:#111827', 'color:#fff',
+                'padding:10px 22px', 'border-radius:999px',
+                'font-size:0.85rem', 'font-weight:600',
+                'box-shadow:0 10px 25px rgba(0,0,0,0.25)',
+                'z-index:2000', 'opacity:0',
+                'transition:opacity .25s ease, transform .25s ease'
+            ].join(';');
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(-50%) translateY(0)';
+            });
+            return toast;
+        }
+
+        logoutBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (logoutBtn.dataset.loggingOut === '1') return;
+            logoutBtn.dataset.loggingOut = '1';
+
+            fetch(logoutUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            }).catch(() => {}).finally(() => {
+                showLogoutToast();
+                setTimeout(() => {
+                    window.location.href = loginUrl;
+                }, 1200);
+            });
+        });
+    })();
 </script>
 {% endblock %}

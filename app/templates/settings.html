@@ -299,7 +299,7 @@
     "use strict";
 
     const CSRF_TOKEN = "{{ csrf_token() }}";
-    const LOGIN_URL = null;          // đổi thành trang đăng nhập khi Phát làm xong (null = chỉ hiện thông báo)
+    const LOGIN_URL = "{{ url_for('auth.login') }}";
     const API = {                    // endpoint do Trúc làm. Điền URL là hoạt động, null = chưa có
         bio: null,                   // ví dụ "/profile/update", nhận JSON {"bio": "..."}
         privacy: null                // ví dụ "/profile/privacy", nhận JSON {"is_private": true}
@@ -540,7 +540,7 @@
             const r = await postJson("/logout", {});
             if (!r.ok) { btn.disabled = false; return alertIn(box, "danger", errText(r)); }
             alertIn(box, "success", "Đã đăng xuất.");
-            if (LOGIN_URL) window.location.href = LOGIN_URL;
+            if (LOGIN_URL) setTimeout(function () { window.location.href = LOGIN_URL; }, 900);
         } catch (err) {
             btn.disabled = false;
             alertIn(box, "danger", "Không kết nối được máy chủ.");

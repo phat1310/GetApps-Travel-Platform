@@ -41,12 +41,21 @@
 
 body {
     background-color: var(--ges-bg-body);
+    background-image: url("../images/app-bg-light.svg");
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: var(--ges-text-main);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+[data-bs-theme="dark"] body {
+    background-image: url("../images/app-bg-dark.svg");
 }
 
 main.main-content {
