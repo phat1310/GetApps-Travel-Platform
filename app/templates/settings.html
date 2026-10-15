@@ -47,6 +47,59 @@
     .st-btn-ok:hover { background: #157cb5; color: #fff; }
     .st-btn-cancel { background: #eef2f5; color: #445; border-radius: 12px; padding: .6rem 1.5rem; font-weight: 600; }
 
+    /* ===== Chế độ tối: thẻ cài đặt vốn cứng màu trắng, phải override riêng ===== */
+    [data-bs-theme="dark"] .st-card,
+    [data-bs-theme="dark"] .st-modal {
+        background: var(--ges-card-bg);
+        color: var(--ges-text-main);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, .4);
+    }
+    [data-bs-theme="dark"] .st-title,
+    [data-bs-theme="dark"] .st-name,
+    [data-bs-theme="dark"] .st-label {
+        color: var(--ges-text-main);
+    }
+    [data-bs-theme="dark"] .st-section-label,
+    [data-bs-theme="dark"] .st-sub,
+    [data-bs-theme="dark"] .st-edit-link {
+        color: var(--ges-text-muted);
+    }
+    [data-bs-theme="dark"] .st-value {
+        color: #cbd5e1;
+    }
+    [data-bs-theme="dark"] .st-chev {
+        color: #64748b;
+    }
+    [data-bs-theme="dark"] .st-badge {
+        background: #334155;
+        color: #cbd5e1;
+    }
+    [data-bs-theme="dark"] .st-avatar .ph {
+        background: #1e3a52;
+        color: #7dd3fc;
+    }
+    [data-bs-theme="dark"] .st-pill,
+    [data-bs-theme="dark"] .st-added-chip {
+        background: #17344a;
+        border-color: #2d5770;
+        color: #7dd3fc;
+    }
+    [data-bs-theme="dark"] .st-pill.active {
+        background: var(--st-accent);
+        border-color: var(--st-accent);
+        color: #fff;
+    }
+    [data-bs-theme="dark"] .st-logout {
+        background: #3b1f22;
+        color: #f87171;
+    }
+    [data-bs-theme="dark"] .st-logout:hover {
+        background: #4a2529;
+    }
+    [data-bs-theme="dark"] .st-btn-cancel {
+        background: #334155;
+        color: #e2e8f0;
+    }
 </style>
 {% endblock %}
 
