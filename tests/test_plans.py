@@ -256,3 +256,67 @@ def test_my_plans_redirect_authenticated(client, users):
     assert res.status_code == 302
     assert "tab=my_plans" in res.headers["Location"]
 
+
+def test_plan_create_multi_day_stops_and_lodgings(client, users):
+    """POST /plans/create hỗ trợ tạo nhiều ngày, chặng Du lịch / Ăn uống và nhiều nơi lưu trú theo ngày."""
+    login_user(client, "testuser1")
+
+    res = client.post(
+        "/plans/create",
+        data={
+            "title": "Đà Lạt 2N1Đ Săn Mây & Ẩm Thực",
+            "destination": "Đà Lạt",
+            "start_date": "2026-11-20",
+            "end_date": "2026-11-21",
+            "estimated_budget": 2500000.0,
+            "visibility": "public",
+            "submitted_days_count": "2",
+            # Chặng ngày 1: 1 du lịch, 1 ăn uống
+            "stop_type_1[]": ["travel", "food"],
+            "stop_name_1[]": ["Đồi chè Cầu Đất", "Lẩu gà lá é Tao Ngộ"],
+            "stop_time_1[]": ["07:30", "12:00"],
+            "stop_location_1[]": ["https://maps.app.goo.gl/sample1", "Đường 3/4 Đà Lạt"],
+            "stop_desc_1[]": ["Săn mây sáng sớm", "Quán đông, nên tới sớm"],
+            "stop_food_1[]": ["", "Lẩu gà lá é"],
+            "stop_open_hours_1[]": ["", "09:00 - 21:00"],
+            # Chặng ngày 2: 1 du lịch
+            "stop_type_2[]": ["travel"],
+            "stop_name_2[]": ["Thác Datanla"],
+            "stop_time_2[]": ["09:00"],
+            "stop_location_2[]": ["https://maps.app.goo.gl/sample2"],
+            "stop_desc_2[]": ["Trải nghiệm máng trượt"],
+            # Nơi lưu trú: 2 nơi lưu trú gán theo ngày
+            "hotel_name[]": ["Làng Boho Homestay", "Khách sạn Colline"],
+            "lodging_price[]": ["600000", "1500000"],
+            "booking_link[]": ["Agoda", "Booking.com"],
+            "lodging_map_link[]": ["https://maps.app.goo.gl/homestay", "https://maps.app.goo.gl/hotel"],
+            "lodging_note[]": ["View thung lũng", "Gần chợ đêm"],
+            "lodging_day[]": ["1", "2"]
+        },
+        headers={"Accept": "text/html"}
+    )
+    assert res.status_code == 302
+
+    with client.application.app_context():
+        plan = Itinerary.query.filter_by(title="Đà Lạt 2N1Đ Săn Mây & Ẩm Thực").first()
+        assert plan is not None
+        assert len(plan.days) >= 2
+
+        day1 = plan.days[0]
+        day2 = plan.days[1]
+        assert len(day1.stops) == 2
+        assert day1.stops[0].location_name == "Đồi chè Cầu Đất"
+        assert day1.stops[0].arrival_time == "07:30"
+        assert day1.stops[1].location_name == "Lẩu gà lá é Tao Ngộ"
+        assert "Lẩu gà lá é" in (day1.stops[1].notes or "")
+
+        assert len(day2.stops) == 1
+        assert day2.stops[0].location_name == "Thác Datanla"
+
+        assert len(plan.lodgings) == 2
+        assert plan.lodgings[0].hotel_name == "Làng Boho Homestay"
+        assert plan.lodgings[0].day_id == day1.id
+        assert plan.lodgings[1].hotel_name == "Khách sạn Colline"
+        assert plan.lodgings[1].day_id == day2.id
+
+
