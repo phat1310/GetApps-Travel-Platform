@@ -20,7 +20,7 @@
         background: #0f172a !important;
     }
     .post-card {
-        background: var(--ges-card-bg);
+        background: var(--ges-post-bg, var(--ges-card-bg));
         border: 1px solid var(--ges-border-color);
         border-radius: var(--ges-radius-md);
         margin-bottom: 1.5rem;
@@ -35,17 +35,18 @@
         position: relative;
         background-color: #0f172a;
         width: 100%;
-        max-height: 540px;
+        aspect-ratio: 16 / 9;
+        max-height: 480px;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
     }
-    .post-media-container img, 
+    .post-media-container img,
     .post-media-container video {
-        max-height: 540px;
         width: 100%;
-        object-fit: contain;
+        height: 100%;
+        object-fit: cover;
     }
     .carousel-indicators [data-bs-target] {
         width: 8px;

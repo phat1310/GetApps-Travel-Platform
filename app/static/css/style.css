@@ -6,15 +6,16 @@
    ========================================================================== */
 
 :root {
-    --ges-primary: #0EA5E9;        /* Sky-500: Màu nhấn thương hiệu chuẩn */
-    --ges-primary-hover: #0284C7;  /* Sky-600: Hover */
-    --ges-primary-active: #0369A1; /* Sky-700: Active / Pressed */
-    --ges-primary-light: #E0F2FE;  /* Sky-100: Nền phụ nhẹ */
-    --ges-bg-body: #F8FAFC;        /* Nền phụ toàn trang */
+    --ges-primary: #169FE3;        /* Xanh GEs: Màu nhấn thương hiệu chuẩn (theo mẫu màu) */
+    --ges-primary-hover: #0E89C4;  /* Hover - đậm hơn 1 bậc so với Xanh GEs */
+    --ges-primary-active: #0B6FA0; /* Active / Pressed - đậm hơn 2 bậc */
+    --ges-primary-light: #D7EEFB;  /* Tint nhạt của Xanh GEs, dùng cho nền phụ/hover nhẹ */
+    --ges-bg-body: #E7F0FA;        /* Nền tổng thể website (theo mẫu màu) */
     --ges-text-main: #111827;      /* Chữ chính (Slate-900) */
     --ges-text-muted: #6B7280;     /* Chữ phụ (Gray-500) */
-    --ges-card-bg: #FFFFFF;        /* Nền thẻ card */
-    --ges-border-color: #E5E7EB;   /* Viền mỏng nhẹ chuẩn Design System */
+    --ges-card-bg: #ECF4FC;        /* Nền card bên phải / sidebar (theo mẫu màu) */
+    --ges-post-bg: #EBF3FB;        /* Nền khung bài đăng (theo mẫu màu) */
+    --ges-border-color: #DCE7F3;   /* Viền card (theo mẫu màu) */
     --ges-radius-sm: 8px;
     --ges-radius-md: 12px;
     --ges-radius-lg: 16px;
@@ -41,7 +42,8 @@
 
 body {
     background-color: var(--ges-bg-body);
-    background-image: url("../images/app-bg-light.svg");
+    /* Lớp phủ xanh nhẹ lên ảnh nền SVG để nền đậm/xanh hơn, khớp hình mẫu (#DDEBF9 -> #CEE3F6) */
+    background-image: linear-gradient(rgba(150, 190, 235, 0.2), rgba(150, 190, 235, 0.2)), url("../images/app-bg-light.svg");
     background-size: cover;
     background-position: center bottom;
     background-repeat: no-repeat;

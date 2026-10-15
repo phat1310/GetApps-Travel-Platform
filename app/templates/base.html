@@ -59,12 +59,12 @@
             left: 0;
             right: 0;
             height: 64px;
-            background: #ffffff;
-            border-bottom: 1px solid var(--st-line);
+            background: #E7F0FA;
+            border-bottom: 1px solid #DCE7F3;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 1.5rem 0 var(--st-inset);
+            padding: 0 3rem 0 var(--st-inset);
             z-index: 1030;
             transition: background-color 0.2s ease, border-color 0.2s ease;
         }
@@ -131,6 +131,37 @@
             background: #1e293b;
             color: #38bdf8;
         }
+        /* Avatar hiển thị trên top bar - chỉ để xem, không tương tác */
+        .st-top-divider {
+            width: 1px;
+            height: 34px;
+            background: #C9D8EA;
+            margin: 0 0.9rem 0 0.4rem;
+            pointer-events: none;
+        }
+        [data-bs-theme="dark"] .st-top-divider {
+            background: #2b3544;
+        }
+        .st-top-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 8px rgba(20, 60, 90, 0.12);
+            background: var(--ges-card-bg, #ECF4FC);
+            pointer-events: none;
+            user-select: none;
+        }
+        .st-top-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
 
         /* Pill Sidebar Proposal */
         .st-side {
@@ -139,8 +170,8 @@
             transform: translateY(-50%);
             left: var(--st-inset);
             width: var(--st-side-w);
-            background: #ffffff;
-            border: 2px solid #38bdf8;
+            background: #ECF4FC;
+            border: 2px solid #53B1F8;
             border-radius: calc(var(--st-side-w) / 2);
             box-shadow: 0 8px 30px rgba(20, 60, 90, 0.1);
             display: flex;
@@ -250,6 +281,214 @@
                 margin: 0;
             }
         }
+
+        /* ==================== QUICK CREATE MODAL (FEEDBACK KHANH) ==================== */
+        .qc-modal-content {
+            border-radius: 28px !important;
+            background: #ffffff;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            overflow: hidden;
+        }
+        .qc-tabs-container {
+            display: flex;
+            gap: 6px;
+            background: #eff6ff;
+            padding: 5px;
+            border-radius: 16px;
+        }
+        .qc-tab-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 9px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.92rem;
+            color: #0284c7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        .qc-tab-btn.active {
+            background: #0284c7;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+        .qc-author-card {
+            background: #f8fafc;
+            border: 1px solid #f1f5f9;
+        }
+        .qc-role-badge {
+            background: #ffffff;
+            color: #0284c7;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            padding: 5px 12px;
+            font-weight: 600;
+            font-size: 0.78rem;
+        }
+        .qc-box-card {
+            background: #f8fafc;
+            border: 1px solid #f1f5f9;
+        }
+        .qc-textarea {
+            background: #eef4fb !important;
+            border-radius: 14px !important;
+            font-size: 0.92rem;
+            color: #1e293b;
+            transition: background 0.2s ease, box-shadow 0.2s ease;
+        }
+        .qc-textarea:focus {
+            background: #ffffff !important;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15) !important;
+        }
+        .qc-tag-pill {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .qc-tag-pill:hover {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+        }
+        .qc-drop-zone {
+            border: 1.5px dashed #38bdf8;
+            background: #f0f9ff;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .qc-drop-zone:hover, .qc-drop-zone.dragover {
+            background: #e0f2fe;
+            border-color: #0284c7;
+        }
+        .qc-preview-item {
+            position: relative;
+            width: 85px;
+            height: 85px;
+            flex-shrink: 0;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            background: #0f172a;
+        }
+        .qc-preview-item img, .qc-preview-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .qc-preview-item .qc-remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.7);
+            color: #ffffff;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .qc-preview-item .qc-remove-btn:hover {
+            transform: scale(1.1);
+        }
+        .qc-preview-item .qc-cover-badge {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #ffffff;
+            font-size: 10px;
+            padding: 1px 7px;
+            border-radius: 6px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .qc-input-group-text {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            border-radius: 12px 0 0 12px;
+        }
+        .qc-location-input {
+            border-color: #e2e8f0;
+            border-radius: 0 12px 12px 0;
+        }
+        .qc-submit-btn {
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            border: none;
+            box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
+            font-weight: 700;
+        }
+        .qc-submit-btn:hover {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            box-shadow: 0 6px 18px rgba(14, 165, 233, 0.45);
+        }
+
+        /* Dark Mode */
+        [data-bs-theme="dark"] .qc-modal-content {
+            background: #181f2a !important;
+            border-color: #334155;
+            color: #f8fafc;
+        }
+        [data-bs-theme="dark"] .qc-tabs-container {
+            background: #0f172a;
+        }
+        [data-bs-theme="dark"] .qc-tab-btn {
+            color: #94a3b8;
+        }
+        [data-bs-theme="dark"] .qc-tab-btn.active {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        [data-bs-theme="dark"] .qc-author-card,
+        [data-bs-theme="dark"] .qc-box-card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        [data-bs-theme="dark"] .qc-role-badge {
+            background: #1e293b;
+            border-color: #334155;
+            color: #38bdf8;
+        }
+        [data-bs-theme="dark"] .qc-textarea {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        [data-bs-theme="dark"] .qc-tag-pill {
+            background: #1e293b;
+            border-color: #334155;
+            color: #38bdf8;
+        }
+        [data-bs-theme="dark"] .qc-tag-pill:hover {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        [data-bs-theme="dark"] .qc-drop-zone {
+            background: #0f172a;
+            border-color: #0284c7;
+        }
+        [data-bs-theme="dark"] .qc-input-group-text,
+        [data-bs-theme="dark"] .qc-location-input {
+            background: #0f172a;
+            border-color: #334155;
+            color: #f8fafc;
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -269,6 +508,14 @@
                     <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
                 </button>
                 <a href="{{ url_for('auth.settings_page') }}" class="st-top-btn {% if request.endpoint in ['auth.settings', 'auth.settings_page'] %}active{% endif %}" title="Cài đặt tài khoản" aria-label="Cài đặt"><i class="bi bi-gear-fill"></i></a>
+                <span class="st-top-divider" aria-hidden="true"></span>
+                <span class="st-top-avatar" aria-hidden="true">
+                    {% if current_user.avatar_url %}
+                        <img src="{{ current_user.avatar_url }}" alt="" onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=169fe3&color=fff'">
+                    {% else %}
+                        <img src="https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=169fe3&color=fff" alt="">
+                    {% endif %}
+                </span>
             </div>
         </header>
 
@@ -282,15 +529,9 @@
                 <i class="bi bi-calendar3"></i>
                 <span>Lịch trình</span>
             </a>
-            <div class="dropdown">
-                <button class="st-create" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tạo mới" title="Đăng bài hoặc Tạo lịch trình">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24" aria-hidden="true"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 1.82 3.16.77 1.33 1.6-.43 5.31-1.42 4.35-1.16L21 11.49c.81-.23 1.28-1.05 1.07-1.85z"/></svg>
-                </button>
-                <ul class="dropdown-menu shadow-lg border-0 rounded-3">
-                    <li><a class="dropdown-item py-2 d-flex align-items-center gap-2" href="{{ url_for('locations.create_post') }}"><i class="bi bi-pencil-square text-primary"></i> Đăng bài viết mới</a></li>
-                    <li><a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/plans/create"><i class="bi bi-map text-success"></i> Tạo lịch trình mới</a></li>
-                </ul>
-            </div>
+            <button class="st-create" type="button" data-bs-toggle="modal" data-bs-target="#quickCreateModal" aria-label="Tạo mới bài viết hoặc lịch trình" title="Tạo mới bài viết hoặc Lịch trình">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24" aria-hidden="true"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 1.82 3.16.77 1.33 1.6-.43 5.31-1.42 4.35-1.16L21 11.49c.81-.23 1.28-1.05 1.07-1.85z"/></svg>
+            </button>
             <a class="st-nav {% if request.endpoint == 'auth.notifications_page' %}active{% endif %}" href="/notifications">
                 <i class="bi bi-bell"></i>
                 <span>Thông báo</span>
@@ -359,6 +600,380 @@
             <div style="color:#7ea2c9; font-size:0.82rem; margin-top:28px;">© 2026 GetApps (GEs). All rights reserved.</div>
         </div>
     </footer>
+
+    {% if current_user.is_authenticated %}
+    <!-- ==================== QUICK CREATE MODAL (FEEDBACK KHANH) ==================== -->
+    <div class="modal fade" id="quickCreateModal" tabindex="-1" aria-labelledby="quickCreateModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 490px;">
+            <div class="modal-content border-0 shadow-lg qc-modal-content">
+                <!-- Modal Header -->
+                <div class="modal-header border-0 pb-1 pt-3 px-3 d-flex align-items-center justify-content-between">
+                    <button type="button" class="btn btn-sm btn-light rounded-circle d-flex align-items-center justify-content-center p-0 qc-close-btn" data-bs-dismiss="modal" aria-label="Đóng" style="width: 34px; height: 34px; background: #f1f5f9; border: none;">
+                        <i class="bi bi-x-lg text-secondary" style="font-size: 0.9rem;"></i>
+                    </button>
+                    <h5 class="modal-title fw-bold text-dark fs-6 m-0 text-center" id="quickCreateModalTitle">
+                        Tạo bài viết mới
+                    </h5>
+                    <div class="qc-header-avatar">
+                        {% if current_user.avatar_url %}
+                            <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="rounded-circle" style="width: 34px; height: 34px; object-fit: cover;">
+                        {% else %}
+                            <div class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 34px; height: 34px; font-size: 0.85rem;">
+                                {{ (current_user.full_name or current_user.username)[0]|upper }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="modal-body p-3 pt-2">
+                    <!-- Segmented Tabs (Đăng bài vs Đăng lịch trình) -->
+                    <div class="qc-tabs-container mb-3">
+                        <button type="button" class="qc-tab-btn active" id="qcTabPostBtn" onclick="switchQuickCreateTab('post')">
+                            <i class="bi bi-chat-square-text-fill"></i> Đăng bài
+                        </button>
+                        <button type="button" class="qc-tab-btn" id="qcTabPlanBtn" onclick="switchQuickCreateTab('plan')">
+                            <i class="bi bi-calendar-event"></i> Đăng lịch trình
+                        </button>
+                    </div>
+
+                    <!-- ==================== TAB 1: ĐĂNG BÀI ==================== -->
+                    <div id="qcTabPostContent">
+                        <form action="{{ url_for('locations.create_post') }}" method="POST" enctype="multipart/form-data" id="qcPostForm" onsubmit="return validateQcPostForm(event)">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            
+                            <!-- Author Profile Card -->
+                            <div class="qc-author-card d-flex align-items-center justify-content-between p-2 mb-3 rounded-4">
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if current_user.avatar_url %}
+                                        <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="rounded-circle" style="width: 42px; height: 42px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="rounded-circle bg-info-subtle text-info-emphasis fw-bold d-flex align-items-center justify-content-center" style="width: 42px; height: 42px; font-size: 1rem;">
+                                            {{ (current_user.full_name or current_user.username)[0]|upper }}
+                                        </div>
+                                    {% endif %}
+                                    <div style="line-height: 1.25;">
+                                        <div class="fw-bold text-dark small">
+                                            {{ current_user.full_name or current_user.username }} 
+                                            <span class="text-muted fw-normal">• @{{ current_user.username }}</span>
+                                        </div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">
+                                            <i class="bi bi-globe2 me-1"></i>Công khai • Cộng đồng GEs
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="badge qc-role-badge">
+                                    <i class="bi bi-patch-check-fill text-primary me-1"></i>{{ current_user.profile_tag or 'Reviewer' }}
+                                </span>
+                            </div>
+
+                            <!-- Card 1: Nội dung bài viết -->
+                            <div class="qc-box-card mb-3 p-3 rounded-4">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <span class="fw-bold text-dark small d-flex align-items-center gap-1">
+                                        <i class="bi bi-text-paragraph text-primary fs-6"></i> Nội dung bài viết
+                                    </span>
+                                    <span class="text-muted small" id="qcCharCounter">0/1500</span>
+                                </div>
+                                <textarea class="form-control qc-textarea border-0 p-2" id="qcCaption" name="caption" rows="4" maxlength="1500" placeholder="Chia sẻ cảm xúc, trải nghiệm hoặc mẹo du lịch của bạn..." oninput="updateQcCharCounter()"></textarea>
+                                
+                                <!-- Thêm nhanh hashtag -->
+                                <div class="mt-2 pt-1">
+                                    <div class="text-muted small fw-semibold mb-1" style="font-size: 0.75rem;">Thêm nhanh hashtag:</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <span class="qc-tag-pill" onclick="insertQcTag('#nguoidulich')">#nguoidulich</span>
+                                        <span class="qc-tag-pill" onclick="insertQcTag('#khongquangcao')">#khongquangcao</span>
+                                        <span class="qc-tag-pill" onclick="insertQcTag('#dalat')">#dalat</span>
+                                        <span class="qc-tag-pill" onclick="insertQcTag('#travelreview')">#travelreview</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Hình ảnh • Video -->
+                            <div class="qc-box-card mb-3 p-3 rounded-4">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <span class="fw-bold text-dark small d-flex align-items-center gap-1">
+                                        <i class="bi bi-images text-primary fs-6"></i> Hình ảnh • Video
+                                    </span>
+                                    <span class="text-muted small" id="qcMediaCounter">0 / 10</span>
+                                </div>
+
+                                <!-- Thumbnails Preview Row -->
+                                <div class="qc-preview-container d-flex gap-2 overflow-auto py-1 mb-2" id="qcPreviewContainer" style="display: none !important;">
+                                </div>
+
+                                <!-- Hidden File Input -->
+                                <input type="file" id="qcImagesInput" name="images" multiple accept="image/png,image/jpeg,image/jpg,image/gif,video/mp4,video/webm" class="d-none">
+
+                                <!-- Drag & Drop Click Trigger -->
+                                <div class="qc-drop-zone rounded-3 text-center py-2 px-3" id="qcDropZone" onclick="document.getElementById('qcImagesInput').click()">
+                                    <i class="bi bi-image text-primary me-1 fs-6"></i>
+                                    <span class="fw-semibold small text-primary">+ Thêm ảnh hoặc video hành trình</span>
+                                </div>
+                            </div>
+
+                            <!-- Gắn địa điểm (Tuỳ chọn) -->
+                            <div class="mb-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text qc-input-group-text border-end-0"><i class="bi bi-geo-alt-fill text-danger"></i></span>
+                                    <input type="text" name="location_name" class="form-control qc-location-input border-start-0" placeholder="Gắn địa điểm (ví dụ: Đà Lạt, Hồ Tuyền Lâm)..." style="font-size: 0.85rem;">
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3 fw-bold qc-submit-btn text-white">
+                                <i class="bi bi-send-fill me-1"></i> Đăng bài viết
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- ==================== TAB 2: ĐĂNG LỊCH TRÌNH ==================== -->
+                    <div id="qcTabPlanContent" style="display: none;">
+                        <form action="/plans/create" method="POST" id="qcPlanForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                            <div class="qc-box-card mb-3 p-3 rounded-4">
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold text-dark small mb-1">
+                                        <i class="bi bi-signpost-2 text-primary me-1"></i> Tên chuyến đi / Lịch trình <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" name="title" class="form-control rounded-3" placeholder="Ví dụ: Khám phá Đà Lạt mùa hoa 3N2Đ" required style="font-size: 0.88rem;">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold text-dark small mb-1">
+                                        <i class="bi bi-geo-alt-fill text-danger me-1"></i> Điểm đến chính <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" name="destination" class="form-control rounded-3" placeholder="Ví dụ: Đà Lạt, Lâm Đồng" required style="font-size: 0.88rem;">
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Bắt đầu</label>
+                                        <input type="date" name="start_date" class="form-control rounded-3" style="font-size: 0.82rem;">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Kết thúc</label>
+                                        <input type="date" name="end_date" class="form-control rounded-3" style="font-size: 0.82rem;">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Ngân sách dự kiến</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" name="estimated_budget" class="form-control rounded-start-3" placeholder="0" min="0" style="font-size: 0.82rem;">
+                                            <span class="input-group-text rounded-end-3" style="font-size: 0.75rem;">đ</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Quyền riêng tư</label>
+                                        <select name="visibility" class="form-select form-select-sm rounded-3" style="font-size: 0.82rem;">
+                                            <option value="public">Công khai</option>
+                                            <option value="private">Riêng tư</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Mô tả hành trình</label>
+                                    <textarea name="description" class="form-control rounded-3" rows="2" placeholder="Ghi chú kế hoạch, cảm hứng..." style="font-size: 0.85rem; resize: none;"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <a href="/plans/create" class="btn btn-outline-secondary py-2 px-3 rounded-3 small fw-semibold d-flex align-items-center" style="font-size: 0.85rem;" title="Mở trang tạo lịch trình chi tiết">
+                                    Chi tiết <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                </a>
+                                <button type="submit" class="btn btn-primary flex-grow-1 py-2 rounded-3 fw-bold qc-submit-btn text-white">
+                                    <i class="bi bi-calendar-check-fill me-1"></i> Tạo lịch trình ngay
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Create Modal Script -->
+    <script>
+        let qcDataTransfer = new DataTransfer();
+
+        function switchQuickCreateTab(tab) {
+            const postBtn = document.getElementById('qcTabPostBtn');
+            const planBtn = document.getElementById('qcTabPlanBtn');
+            const postContent = document.getElementById('qcTabPostContent');
+            const planContent = document.getElementById('qcTabPlanContent');
+            const title = document.getElementById('quickCreateModalTitle');
+
+            if (tab === 'post') {
+                postBtn.classList.add('active');
+                planBtn.classList.remove('active');
+                postContent.style.display = 'block';
+                planContent.style.display = 'none';
+                if (title) title.innerText = 'Tạo bài viết mới';
+            } else {
+                planBtn.classList.add('active');
+                postBtn.classList.remove('active');
+                postContent.style.display = 'none';
+                planContent.style.display = 'block';
+                if (title) title.innerText = 'Tạo lịch trình chuyến đi';
+            }
+        }
+
+        function updateQcCharCounter() {
+            const caption = document.getElementById('qcCaption');
+            const counter = document.getElementById('qcCharCounter');
+            if (caption && counter) {
+                counter.innerText = `${caption.value.length}/1500`;
+            }
+        }
+
+        function insertQcTag(tag) {
+            const caption = document.getElementById('qcCaption');
+            if (!caption) return;
+            const current = caption.value;
+            if (current.includes(tag)) return;
+            if (current && !current.endsWith(' ')) {
+                caption.value += ' ' + tag + ' ';
+            } else {
+                caption.value += tag + ' ';
+            }
+            updateQcCharCounter();
+            caption.focus();
+        }
+
+        function renderQcPreviews() {
+            const container = document.getElementById('qcPreviewContainer');
+            const counter = document.getElementById('qcMediaCounter');
+            const input = document.getElementById('qcImagesInput');
+
+            if (!container || !input) return;
+
+            input.files = qcDataTransfer.files;
+            if (counter) {
+                counter.innerText = `${qcDataTransfer.files.length} / 10`;
+            }
+
+            container.innerHTML = '';
+            if (qcDataTransfer.files.length === 0) {
+                container.style.setProperty('display', 'none', 'important');
+                return;
+            }
+
+            container.style.setProperty('display', 'flex', 'important');
+
+            Array.from(qcDataTransfer.files).forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'qc-preview-item';
+
+                const isVideo = file.type.startsWith('video/');
+                if (isVideo) {
+                    const video = document.createElement('video');
+                    video.src = URL.createObjectURL(file);
+                    video.muted = true;
+                    item.appendChild(video);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    item.appendChild(img);
+                }
+
+                if (index === 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'qc-cover-badge';
+                    badge.innerText = 'Bìa';
+                    item.appendChild(badge);
+                }
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'qc-remove-btn';
+                removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+                removeBtn.title = 'Xóa ảnh này';
+                removeBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    removeQcFile(index);
+                };
+                item.appendChild(removeBtn);
+
+                container.appendChild(item);
+            });
+        }
+
+        function removeQcFile(indexToRemove) {
+            const newDt = new DataTransfer();
+            Array.from(qcDataTransfer.files).forEach((file, index) => {
+                if (index !== indexToRemove) {
+                    newDt.items.add(file);
+                }
+            });
+            qcDataTransfer = newDt;
+            renderQcPreviews();
+        }
+
+        function handleQcIncomingFiles(fileList) {
+            const maxFiles = 10;
+            const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg', 'video/mp4', 'video/webm'];
+
+            for (let i = 0; i < fileList.length; i++) {
+                if (qcDataTransfer.files.length >= maxFiles) {
+                    alert(`Bạn chỉ có thể tải lên tối đa ${maxFiles} ảnh/video cho mỗi bài viết.`);
+                    break;
+                }
+                const file = fileList[i];
+                if (!validTypes.includes(file.type)) {
+                    alert(`File "${file.name}" không hợp lệ. Chỉ chấp nhận định dạng JPG, PNG, GIF, MP4.`);
+                    continue;
+                }
+                qcDataTransfer.items.add(file);
+            }
+            renderQcPreviews();
+        }
+
+        function validateQcPostForm(e) {
+            if (qcDataTransfer.files.length === 0) {
+                e.preventDefault();
+                alert('Vui lòng thêm ít nhất 1 hình ảnh hoặc video cho bài viết của bạn.');
+                document.getElementById('qcDropZone')?.scrollIntoView({ behavior: 'smooth' });
+                return false;
+            }
+            return true;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('qcDropZone');
+            const fileInput = document.getElementById('qcImagesInput');
+
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    handleQcIncomingFiles(e.target.files);
+                });
+            }
+
+            if (dropZone) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropZone.classList.add('dragover');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropZone.classList.remove('dragover');
+                    }, false);
+                });
+
+                dropZone.addEventListener('drop', function(e) {
+                    const dt = e.dataTransfer;
+                    if (dt && dt.files && dt.files.length > 0) {
+                        handleQcIncomingFiles(dt.files);
+                    }
+                }, false);
+            }
+        });
+    </script>
+    {% endif %}
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
