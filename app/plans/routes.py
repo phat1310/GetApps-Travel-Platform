@@ -185,16 +185,22 @@ def create():
 
         db.session.flush()
 
-        # Lưu chặng hoạt động đầu tiên nếu có nhập
-        stop_name = request.form.get('stop_activity_name', '').strip()
-        if stop_name and first_day:
-            first_stop = ItineraryStop(
-                day_id=first_day.id,
-                order_index=1,
-                activity_name=stop_name,
-                location_name=stop_name
-            )
-            db.session.add(first_stop)
+        # Lưu các chặng hoạt động nếu có nhập
+        stop_names = request.form.getlist('stop_activity_names[]') or request.form.getlist('stop_activity_name')
+        if not stop_names and request.form.get('stop_activity_name'):
+            stop_names = [request.form.get('stop_activity_name')]
+
+        if first_day and stop_names:
+            for idx, sname in enumerate(stop_names):
+                sname = sname.strip()
+                if sname:
+                    stop = ItineraryStop(
+                        day_id=first_day.id,
+                        order_index=idx + 1,
+                        activity_name=sname,
+                        location_name=sname
+                    )
+                    db.session.add(stop)
 
         # Lưu nơi lưu trú nếu có nhập
         hotel_name = request.form.get('hotel_name', '').strip()
