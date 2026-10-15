@@ -2,7 +2,7 @@
 """
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, TextAreaField, DateField, FloatField, SelectField, SubmitField
+from wtforms import StringField, TextAreaField, DateField, FloatField, SelectField, SubmitField, IntegerField
 from wtforms.validators import DataRequired, Length, Optional
 
 
@@ -31,6 +31,14 @@ class PlanCreateForm(FlaskForm):
         "Ngày kết thúc",
         validators=[Optional()],
         format='%Y-%m-%d'
+    )
+    trip_type = StringField(
+        "Dạng chuyến đi",
+        validators=[Optional(), Length(max=50)]
+    )
+    participants_count = IntegerField(
+        "Số người tham gia",
+        validators=[Optional()]
     )
     estimated_budget = FloatField(
         "Dự toán ngân sách (VNĐ)",
