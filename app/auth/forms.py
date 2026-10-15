@@ -20,6 +20,13 @@ class LoginForm(FlaskForm):
 
 class RegisterForm(FlaskForm):
     """Biểu mẫu Đăng ký thành viên mới."""
+    full_name = StringField(
+        "Họ và tên",
+        validators=[
+            DataRequired(message="Vui lòng nhập họ và tên"),
+            Length(min=2, max=150, message="Họ và tên từ 2 đến 150 ký tự")
+        ]
+    )
     username = StringField(
         "Tên người dùng",
         validators=[
@@ -47,17 +54,6 @@ class RegisterForm(FlaskForm):
             DataRequired(message="Vui lòng xác nhận lại mật khẩu"),
             EqualTo("password", message="Mật khẩu xác nhận không khớp")
         ]
-    )
-    role = SelectField(
-        "Vai trò tham gia",
-        choices=[
-            ("traveler", "Traveler Enthusiast • Người đam mê du lịch"),
-            ("local", "Local Guides • Hướng dẫn viên địa phương"),
-            ("creator", "Travel content creator • Người sáng tạo nội dung du lịch"),
-            ("owner", "Owner • Chủ địa điểm / Quán xá"),
-            ("user", "User • Thành viên cộng đồng")
-        ],
-        default="traveler"
     )
     agree_terms = BooleanField(
         "Tôi đồng ý với Điều khoản dịch vụ và Chính sách cộng đồng của GEs",

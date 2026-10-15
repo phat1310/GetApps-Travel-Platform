@@ -4,9 +4,26 @@
 
 {% block extra_css %}
 <style>
+    body {
+        background-image: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 65%, rgba(255,255,255,0.75) 100%), url("{{ url_for('static', filename='images/hero-bg.jpg') }}");
+        background-size: 100vw auto;
+        background-position: left top;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+    [data-bs-theme="dark"] body {
+        background-image: linear-gradient(180deg, rgba(5,15,30,0.15) 0%, rgba(5,15,30,0.35) 65%, rgba(5,15,30,0.85) 100%), url("{{ url_for('static', filename='images/hero-bg-dark.jpg') }}");
+    }
+    .auth-hero-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 560px;
+    }
     .auth-card {
         max-width: 440px;
-        margin: 2.5rem auto;
+        width: 100%;
+        margin: 2.5rem 0;
         background: #ffffff;
         border: 1px solid var(--ges-border-color);
         border-radius: var(--ges-radius-lg);
@@ -74,12 +91,13 @@
 {% endblock %}
 
 {% block content %}
+<div class="auth-hero-wrap">
 <div class="auth-card">
-    
+
     <!-- Brand Header -->
     <div class="text-center mb-4">
         <a href="{{ url_for('locations.feed') }}" class="d-inline-block mb-1 text-decoration-none">
-            <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs - GetApps" class="brand-logo-img" style="height: 52px; width: auto;">
+            <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs - GetApps" class="brand-logo-img" style="height: 40px; width: auto; margin-left: -8px;">
         </a>
         <h4 class="fw-bold text-dark mt-2 mb-1">Chào mừng trở lại!</h4>
         <p class="text-muted small mb-0">Đăng nhập để tiếp tục chia sẻ hành trình du lịch của bạn</p>
@@ -94,7 +112,7 @@
             <label for="username" class="form-label fw-semibold text-dark small">Tên đăng nhập hoặc Email</label>
             <div class="auth-input-group">
                 <i class="bi bi-person auth-input-icon"></i>
-                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="nhap_username hoặc email@domain.com", id="username", autofocus=true) }}
+                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="example@gmail.com", id="username", autofocus=true) }}
             </div>
             {% for error in form.username.errors %}
                 <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
@@ -109,7 +127,7 @@
             </div>
             <div class="auth-input-group">
                 <i class="bi bi-lock auth-input-icon"></i>
-                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="••••••••", id="password") }}
+                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="", id="password") }}
                 <button type="button" class="toggle-pwd-btn" onclick="togglePassword('password', this)" title="Ẩn/Hiện mật khẩu">
                     <i class="bi bi-eye"></i>
                 </button>
@@ -141,7 +159,7 @@
 
     <!-- Google Button Demo -->
     <div class="d-grid mb-4">
-        <button type="button" class="btn btn-light border py-2 d-flex align-items-center justify-content-center gap-2 fw-semibold text-dark" style="border-radius: 12px;" onclick="alert('Đăng nhập Google sẽ được tích hợp qua OAuth2.')">
+        <button type="button" class="btn btn-light border py-2 d-flex align-items-center justify-content-center gap-2 fw-semibold" style="border-radius: 12px; background:#ffffff !important; color:#1f2937 !important;" onclick="alert('Đăng nhập Google sẽ được tích hợp qua OAuth2.')">
             <svg width="18" height="18" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -160,6 +178,7 @@
         </p>
     </div>
 
+</div>
 </div>
 {% endblock %}
 

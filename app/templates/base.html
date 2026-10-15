@@ -31,14 +31,14 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
     <style>
         body {
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         :root {
@@ -260,7 +260,9 @@
     {% if current_user.is_authenticated %}
         <!-- Top Bar Proposal (Slide 4 & forntend.jpg) -->
         <header class="st-top">
-            <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps">GE<b>s</b><span class="st-dot" aria-hidden="true"></span></a>
+            <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps" style="margin-left: -14px;">
+                <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs" class="brand-logo-img" style="height: 30px; width: auto;">
+            </a>
             <div class="st-top-actions">
                 <a href="/explore" class="st-top-btn {% if request.endpoint == 'auth.explore' %}active{% endif %}" title="Tìm kiếm & Khám phá" aria-label="Tìm kiếm"><i class="bi bi-search"></i></a>
                 <button type="button" class="st-top-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Chuyển chế độ Nền sáng / Nền tối">
@@ -273,7 +275,7 @@
         <!-- Pill Sidebar (Thanh điều hướng viên thuốc bên trái) -->
         <nav class="st-side" aria-label="Điều hướng chính">
             <a class="st-nav {% if request.endpoint == 'locations.feed' %}active{% endif %}" href="{{ url_for('locations.feed') }}">
-                <i class="bi bi-compass"></i>
+                <i class="bi bi-house-door"></i>
                 <span>Bảng tin</span>
             </a>
             <a class="st-nav {% if request.endpoint and request.endpoint.startswith('plans.') %}active{% endif %}" href="/plans">
@@ -303,7 +305,7 @@
         <header class="sticky-top">
             <nav class="navbar navbar-expand-lg navbar-ges">
                 <div class="container">
-                    <a class="navbar-brand d-flex align-items-center me-4 text-decoration-none py-0" href="{{ url_for('locations.feed') }}" title="GEs — Get · Explore · Share">
+                    <a class="navbar-brand d-flex align-items-center me-4 text-decoration-none py-0" href="{{ url_for('locations.feed') }}" title="GEs — Get · Explore · Share" style="margin-left: -10px;">
                         <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs — GetApps" class="brand-logo-img">
                     </a>
                     <div class="d-flex align-items-center gap-2 ms-auto">
@@ -347,13 +349,14 @@
     </main>
 
     <!-- ==================== FOOTER ==================== -->
-    <footer class="footer-ges py-4">
-        <div class="container text-center">
-            <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
-                <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs" class="brand-logo-footer">
+    <footer class="footer-ges" style="position:relative; overflow:hidden; background-image: linear-gradient(90deg, rgba(6,18,36,0.55) 0%, rgba(6,18,36,0.15) 55%, rgba(6,18,36,0) 100%), url('{{ url_for('static', filename='images/footer-bg.jpg') }}'); background-size: cover; background-position: center; border-top:4px solid #38bdf8; color:#e2e8f0; padding:56px 0;">
+        <div class="container" style="position:relative; z-index:2;">
+            <div style="display:flex; align-items:baseline; gap:4px; font-size:2rem; font-weight:800;">
+                <span style="color:#ffffff;">GE</span><span style="color:#38bdf8;">s</span>
             </div>
-            <p class="text-muted small mb-1 fst-italic">"More than a trip ✈"</p>
-            <small class="text-muted">© 2026 GetApps (GEs) — All rights reserved.</small>
+            <div style="letter-spacing:3px; font-size:0.8rem; color:#93c5fd; margin-top:2px; font-weight:600;">GET &middot; EXPLORE &middot; SHARE</div>
+            <p style="color:#cbd5e1; margin-top:18px; max-width:380px; line-height:1.5;">Khám phá những điểm đến mới, chia sẻ hành trình và kết nối với cộng đồng yêu du lịch.</p>
+            <div style="color:#7ea2c9; font-size:0.82rem; margin-top:28px;">© 2026 GetApps (GEs). All rights reserved.</div>
         </div>
     </footer>
 

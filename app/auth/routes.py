@@ -96,13 +96,13 @@ def register():
 
     if request.is_json:
         data = request.get_json(silent=True) or {}
+        full_name = (data.get('full_name') or '').strip()
         username = (data.get('username') or '').strip()
         email = (data.get('email') or '').strip().lower()
         password = data.get('password') or ''
-        role = data.get('role', 'traveler')
 
-        if not username or not email or not password:
-            return jsonify({"error": "Thiếu username/email/password"}), 400
+        if not full_name or not username or not email or not password:
+            return jsonify({"error": "Thiếu họ tên/username/email/password"}), 400
 
         password_error = validate_password(password)
         if password_error:
@@ -114,7 +114,7 @@ def register():
         if User.query.filter_by(email=email).first():
             return jsonify({"error": "Email đã tồn tại"}), 400
 
-        user = User(username=username, email=email, role=role)
+        user = User(username=username, email=email, full_name=full_name)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -128,6 +128,7 @@ def register():
 
     form = RegisterForm()
     if form.validate_on_submit():
+        full_name = form.full_name.data.strip()
         username = form.username.data.strip()
         email = form.email.data.strip().lower()
 
@@ -143,7 +144,7 @@ def register():
             user = User(
                 username=username,
                 email=email,
-                role=form.role.data
+                full_name=full_name
             )
             user.set_password(form.password.data)
             db.session.add(user)
