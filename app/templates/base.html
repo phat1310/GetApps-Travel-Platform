@@ -915,7 +915,7 @@
                         <form action="/plans/create" method="POST" enctype="multipart/form-data" id="qcPlanForm">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="visibility" value="public">
-                            <input type="hidden" name="trip_type" id="qcTripTypeInput" value="3N2Đ - Nghỉ dưỡng">
+                            <input type="hidden" name="trip_type" id="qcTripTypeInput" value="">
 
                             <div class="d-flex flex-column gap-3">
                                 <!-- PHẦN 1: THÔNG TIN TỔNG QUAN CHUYẾN ĐI -->
@@ -931,7 +931,7 @@
                                     <div class="mb-3">
                                         <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Ảnh bìa chuyến đi (Tỉ lệ 16:9)</label>
                                         <div class="qc-plan-cover-box" id="qcPlanCoverBox" onclick="document.getElementById('qcPlanCoverInput').click()" title="Bấm để chọn hoặc đổi ảnh bìa">
-                                            <img src="{{ url_for('static', filename='images/hero-bg.jpg') }}" alt="Ảnh bìa chuyến đi" id="qcPlanCoverPreview" class="qc-plan-cover-img">
+                                            <img src="{{ url_for('static', filename='images/halong-cover.jpg') }}" alt="Ảnh bìa chuyến đi" id="qcPlanCoverPreview" class="qc-plan-cover-img">
                                             <button type="button" class="btn btn-sm qc-change-cover-btn">
                                                 <i class="bi bi-camera me-1"></i> Đổi ảnh bìa
                                             </button>
@@ -942,13 +942,13 @@
                                     <!-- 2. Tên chuyến đi -->
                                     <div class="mb-3">
                                         <label class="form-label text-dark small fw-bold mb-1">Tên chuyến đi</label>
-                                        <input type="text" name="title" id="qcPlanTitle" class="form-control qc-input-field" placeholder="Đà Lạt 3N2Đ - Chuyến đi săn mây & thư..." value="Đà Lạt 3N2Đ - Chuyến đi săn mây & thư giãn" required>
+                                        <input type="text" name="title" id="qcPlanTitle" class="form-control qc-input-field" placeholder="Đà Lạt 3N2Đ - Chuyến đi săn mây & thư..." required>
                                     </div>
 
                                     <!-- 3. Đoạn mô tả ngắn cảm nghĩ, tổng quan chuyến đi -->
                                     <div>
                                         <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Đoạn mô tả ngắn cảm nghĩ, tổng quan chuyến đi</label>
-                                        <textarea name="description" id="qcPlanDesc" class="form-control qc-textarea-field" rows="3" placeholder="Lịch trình săn mây đồi chè, thư giãn ngắm hoàng hôn và khám phá ẩm thực bản địa phố núi một cách chill nhất dành cho 2 người.">Lịch trình săn mây đồi chè, thư giãn ngắm hoàng hôn và khám phá ẩm thực bản địa phố núi một cách chill nhất dành cho 2 người.</textarea>
+                                        <textarea name="description" id="qcPlanDesc" class="form-control qc-textarea-field" rows="3" placeholder="Lịch trình săn mây đồi chè, thư giãn ngắm hoàng hôn và khám phá ẩm thực bản địa phố núi một cách chill nhất dành cho 2 người."></textarea>
                                     </div>
                                 </div>
 
@@ -962,7 +962,7 @@
                                         </div>
                                         <div class="input-group input-group-sm">
                                             <span class="input-group-text qc-input-icon-box"><i class="bi bi-geo-alt-fill text-primary"></i></span>
-                                            <input type="text" name="destination" id="qcPlanDestination" class="form-control qc-input-field" placeholder="Đà Lạt, Lâm Đồng" value="Đà Lạt, Lâm Đồng" required>
+                                            <input type="text" name="destination" id="qcPlanDestination" class="form-control qc-input-field" placeholder="Đà Lạt, Lâm Đồng" required>
                                         </div>
                                     </div>
 
@@ -975,15 +975,15 @@
                                         <div class="qc-date-display-box d-flex align-items-center justify-content-between p-2 rounded-3" id="qcDateDisplayBox">
                                             <div class="d-flex align-items-center gap-2 small fw-semibold text-dark">
                                                 <i class="bi bi-calendar3 text-primary"></i>
-                                                <span id="qcDateRangeLabel">12/10/2026 — 14/10/2026</span>
+                                                <span id="qcDateRangeLabel">Chưa chọn ngày</span>
                                             </div>
                                         </div>
-                                        <div class="row g-2 mt-1" id="qcDateInputsRow" style="display: none;">
+                                        <div class="row g-2 mt-1" id="qcDateInputsRow">
                                             <div class="col-6">
-                                                <input type="date" name="start_date" id="qcPlanStartDate" class="form-control form-control-sm qc-input-field" value="2026-10-12" onchange="updateQcDateRange()">
+                                                <input type="date" name="start_date" id="qcPlanStartDate" class="form-control form-control-sm qc-input-field" value="" onchange="updateQcDateRange()">
                                             </div>
                                             <div class="col-6">
-                                                <input type="date" name="end_date" id="qcPlanEndDate" class="form-control form-control-sm qc-input-field" value="2026-10-14" onchange="updateQcDateRange()">
+                                                <input type="date" name="end_date" id="qcPlanEndDate" class="form-control form-control-sm qc-input-field" value="" onchange="updateQcDateRange()">
                                             </div>
                                         </div>
                                     </div>
@@ -994,7 +994,7 @@
                                         <!-- Duration pills -->
                                         <div class="d-flex flex-wrap gap-1 mb-2" id="qcDurationPills">
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '2N1Đ')">2N1Đ</span>
-                                            <span class="qc-pill-item active" onclick="selectQcDurationPill(this, '3N2Đ')">3N2Đ</span>
+                                            <span class="qc-pill-item" onclick="selectQcDurationPill(this, '3N2Đ')">3N2Đ</span>
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '1 tuần')">1 tuần</span>
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '2 tuần')">2 tuần</span>
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '1 tháng')">1 tháng</span>
@@ -1002,7 +1002,7 @@
                                         <!-- Style pills -->
                                         <div class="d-flex flex-wrap gap-1" id="qcStylePills">
                                             <span class="qc-pill-item" onclick="selectQcStylePill(this, 'Đi phượt')">Đi phượt</span>
-                                            <span class="qc-pill-item active" onclick="selectQcStylePill(this, 'Nghỉ dưỡng')">Nghỉ dưỡng</span>
+                                            <span class="qc-pill-item" onclick="selectQcStylePill(this, 'Nghỉ dưỡng')">Nghỉ dưỡng</span>
                                             <span class="qc-pill-item" onclick="selectQcStylePill(this, 'Gia đình')">Gia đình</span>
                                             <span class="qc-pill-item text-primary" onclick="promptAddQcStylePill()">+ Thêm</span>
                                         </div>
@@ -1016,7 +1016,7 @@
                                                     <i class="bi bi-people text-primary"></i> Số người tham gia
                                                 </div>
                                                 <div class="mt-1 d-flex align-items-baseline gap-1">
-                                                    <input type="number" name="participants_count" id="qcParticipantsInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input" value="2" min="1" max="100">
+                                                    <input type="number" name="participants_count" id="qcParticipantsInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input" value="" placeholder="0" min="1" max="100">
                                                     <span class="fw-bold small text-dark">người</span>
                                                 </div>
                                             </div>
@@ -1027,7 +1027,7 @@
                                                     <i class="bi bi-wallet2 text-primary"></i> Dự toán ngân sách
                                                 </div>
                                                 <div class="mt-1 d-flex align-items-baseline gap-1">
-                                                    <input type="text" name="estimated_budget" id="qcBudgetInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input text-primary" value="3500000" oninput="formatQcBudgetDisplay(this)">
+                                                    <input type="text" name="estimated_budget" id="qcBudgetInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input text-primary" value="" placeholder="0" oninput="formatQcBudgetDisplay(this)">
                                                     <span class="fw-bold small text-primary">đ</span>
                                                 </div>
                                             </div>
@@ -1044,14 +1044,14 @@
                                         <span class="text-muted" style="font-size: 0.72rem;">.docx, .xlsx, .pdf, .pptx</span>
                                     </div>
                                     <!-- File Uploaded Preview Item -->
-                                    <div class="qc-file-attached-card d-flex align-items-center justify-content-between p-2 mb-2 rounded-3" id="qcAttachedFileCard">
+                                    <div class="qc-file-attached-card d-flex align-items-center justify-content-between p-2 mb-2 rounded-3" id="qcAttachedFileCard" style="display: none;">
                                         <div class="d-flex align-items-center gap-2">
                                             <div class="qc-file-icon-box">
                                                 <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
                                             </div>
                                             <div style="line-height: 1.2;">
-                                                <div class="fw-bold text-dark small text-truncate" id="qcAttachedFileName" style="max-width: 280px;">Lich_trinh_chi_tiet_DaLat.pdf</div>
-                                                <small class="text-muted" id="qcAttachedFileSize" style="font-size: 0.72rem;">1.8 MB • Đã tải lên thành công</small>
+                                                <div class="fw-bold text-dark small text-truncate" id="qcAttachedFileName" style="max-width: 280px;"></div>
+                                                <small class="text-muted" id="qcAttachedFileSize" style="font-size: 0.72rem;"></small>
                                             </div>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;" onclick="removeQcAttachedFile()" title="Xóa file này">
@@ -1060,7 +1060,7 @@
                                     </div>
                                     <input type="file" name="attachment_file" id="qcAttachmentInput" accept=".pdf,.docx,.xlsx,.pptx" class="d-none" onchange="handleQcAttachmentSelected(this)">
                                     <button type="button" class="btn btn-outline-secondary w-100 py-2 rounded-3 small fw-semibold d-flex align-items-center justify-content-center gap-2" style="font-size: 0.82rem; border-style: dashed;" onclick="document.getElementById('qcAttachmentInput').click()">
-                                        <i class="bi bi-file-earmark-arrow-up"></i> Tải lên tệp lịch trình khác (.pdf, .xlsx, .docx, .pptx)
+                                        <i class="bi bi-file-earmark-arrow-up"></i> Tải lên tệp lịch trình (.pdf, .xlsx, .docx, .pptx)
                                     </button>
                                 </div>
 
@@ -1074,7 +1074,7 @@
                                     </div>
 
                                     <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <span class="badge qc-day-pill px-3 py-2"><i class="bi bi-calendar-event me-1"></i> Ngày 1 • 12/10</span>
+                                        <span class="badge qc-day-pill px-3 py-2"><i class="bi bi-calendar-event me-1"></i> Ngày 1</span>
                                         <button type="button" class="btn btn-sm btn-outline-primary rounded-pill py-1 px-2 fw-semibold d-flex align-items-center gap-1" style="font-size: 0.75rem;" onclick="addQcStop()" title="Thêm chặng hoạt động mới">
                                             <i class="bi bi-plus-lg"></i> Thêm chặng
                                         </button>
@@ -1082,7 +1082,7 @@
 
                                     <div class="p-2 rounded-3 qc-activity-box mb-2">
                                         <div class="text-muted small fw-semibold mb-2 d-flex align-items-center justify-content-between" style="font-size: 0.72rem;">
-                                            <span><i class="bi bi-info-circle me-1"></i> Các chặng hoạt động trong Ngày 1 (12/10)</span>
+                                            <span><i class="bi bi-info-circle me-1"></i> Các chặng hoạt động trong Ngày 1</span>
                                             <span class="text-primary fw-bold" style="cursor: pointer;" onclick="addQcStop()" title="Bấm để thêm chặng">+ Thêm chặng</span>
                                         </div>
 
@@ -1090,7 +1090,7 @@
                                         <div id="qcStopsContainer">
                                             <div class="d-flex align-items-center gap-2 mb-2 qc-stop-row" id="qcStopRow_1">
                                                 <span class="badge bg-primary px-2 py-1 small qc-stop-badge">Chặng 1</span>
-                                                <input type="text" name="stop_activity_names[]" class="form-control form-control-sm qc-input-field" placeholder="Đón xe lên đồi chè Cầu Đất săn mây..." value="Đón xe lên đồi chè Cầu Đất săn mây">
+                                                <input type="text" name="stop_activity_names[]" class="form-control form-control-sm qc-input-field" placeholder="Đón xe lên đồi chè Cầu Đất săn mây...">
                                                 <button type="button" class="btn btn-sm text-danger p-0" onclick="removeQcStop(1)" title="Xóa chặng này"><i class="bi bi-trash"></i></button>
                                             </div>
                                         </div>
@@ -1115,7 +1115,7 @@
                                             <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Tên khách sạn / homestay</label>
                                             <div class="input-group input-group-sm">
                                                 <span class="input-group-text qc-input-icon-box"><i class="bi bi-house-door text-primary"></i></span>
-                                                <input type="text" name="hotel_name" class="form-control qc-input-field" placeholder="Làng Boho Homestay Đà Lạt" value="Làng Boho Homestay Đà Lạt">
+                                                <input type="text" name="hotel_name" class="form-control qc-input-field" placeholder="Làng Boho Homestay Đà Lạt">
                                             </div>
                                         </div>
                                         <div class="row g-2 mb-2">
@@ -1123,20 +1123,20 @@
                                                 <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Giá phòng / đêm</label>
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text qc-input-icon-box">$</span>
-                                                    <input type="text" name="lodging_price" class="form-control qc-input-field" placeholder="650.000 đ / đêm" value="650000">
+                                                    <input type="text" name="lodging_price" class="form-control qc-input-field" placeholder="650.000 đ / đêm">
                                                 </div>
                                             </div>
                                             <div class="col-6">
                                                 <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Cách đặt</label>
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text qc-input-icon-box"><i class="bi bi-link-45deg"></i></span>
-                                                    <input type="text" name="booking_link" class="form-control qc-input-field" placeholder="Đặt qua Agoda / ..." value="Đặt qua Agoda / Booking">
+                                                    <input type="text" name="booking_link" class="form-control qc-input-field" placeholder="Đặt qua Agoda / ...">
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="mb-2">
                                             <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Ghi chú khách sạn (Mẹo nhận phòng, view phòng...)</label>
-                                            <textarea name="lodging_note" class="form-control qc-textarea-field" rows="2" placeholder="Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng...">Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng để ngắm mây sớm. Đường dốc hơi khó đi một chút.</textarea>
+                                            <textarea name="lodging_note" class="form-control qc-textarea-field" rows="2" placeholder="Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng..."></textarea>
                                         </div>
                                         <button type="button" class="btn btn-sm btn-light w-100 small fw-semibold text-primary py-1" style="font-size: 0.78rem;">
                                             <i class="bi bi-plus-circle me-1"></i> + Thêm nơi lưu trú khác
@@ -1288,6 +1288,8 @@
                     return `${p[2]}/${p[1]}/${p[0]}`;
                 };
                 label.innerText = `${formatDate(start)} — ${formatDate(end)}`;
+            } else if (label) {
+                label.innerText = 'Chưa chọn ngày';
             }
         }
 
@@ -1310,7 +1312,7 @@
             const style = document.querySelector('#qcStylePills .qc-pill-item.active')?.innerText || '';
             const input = document.getElementById('qcTripTypeInput');
             if (input) {
-                input.value = `${duration} - ${style}`;
+                input.value = [duration, style].filter(Boolean).join(' - ');
             }
         }
 
