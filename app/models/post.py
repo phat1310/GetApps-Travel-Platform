@@ -64,6 +64,12 @@ class Post(db.Model):
         nullable=True
     )
 
+    # Ghi chú của người đăng lại (chỉ dùng cho repost)
+    repost_note = db.Column(
+        db.Text,
+        nullable=True
+    )
+
     created_at = db.Column(
         db.DateTime,
         default=datetime.utcnow

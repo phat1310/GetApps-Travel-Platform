@@ -1,0 +1,10 @@
+{#- Macro chấm Online/Offline. Dùng: {% from "_presence.html" import dot, label with context %} -#}
+{% macro dot(user) -%}
+{%- set st = presence_state(user, current_user) -%}
+<span class="ges-dot {{ st }}" data-presence="{{ user.id }}"></span>
+{%- endmacro %}
+
+{% macro label(user) -%}
+{%- set st = presence_state(user, current_user) -%}
+<span class="ges-plabel {{ st }}" data-presence-label="{{ user.id }}">{{ 'Online' if st == 'on' else ('Offline' if st == 'off' else '') }}</span>
+{%- endmacro %}

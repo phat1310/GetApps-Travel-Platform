@@ -29,6 +29,8 @@ class User(UserMixin, db.Model):
     tags = db.Column(db.String(255), nullable=True)
     profile_completed = db.Column(db.Boolean, nullable=False, default=False)
     is_private = db.Column(db.Boolean, nullable=False, default=False)
+    last_seen = db.Column(db.DateTime, nullable=True)  # dấu hiệu Online/Offline (cập nhật qua /chat/api/poll)
+    show_activity = db.Column(db.Boolean, nullable=False, default=True)  # False = ẩn chấm Online/Offline của mình
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

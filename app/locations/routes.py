@@ -18,6 +18,10 @@ from app.models import (
 from app.locations.utils import get_or_create_location, normalize_location_name
 from app.locations.hashtag_utils import parse_hashtags, get_or_create_hashtag
 from app.locations.serializers import serialize_posts
+from app.locations.maplinks import parse_map_links, attach_map_links, visible_links, POST_LIMIT
+from app.locations.discovery import (
+    popular_locations, suggest_users, following_ids, root_post, can_view_post,
+)
 
 
 IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
@@ -44,24 +48,14 @@ def user_can_access_post(post):
     Post public -> ai cũng xem/tương tác được.
     Post private -> chỉ chủ post hoặc người đang follow chủ post.
     """
-    if post.visibility != "private":
+    if post.visibility != "private" and not post.original_post_id:
         return True
 
     if not current_user.is_authenticated:
         return False
 
-    if post.user_id == current_user.id:
-        return True
-
-    from app.models import Follow
-
-    return (
-        Follow.query.filter_by(
-            follower_id=current_user.id,
-            followed_id=post.user_id
-        ).first()
-        is not None
-    )
+    # Chủ bài / người đang follow chủ bài; repost còn phải xem được cả bài gốc thật sự
+    return can_view_post(post, current_user.id, following_ids(current_user.id))
 
 
 # =========================================================
@@ -122,6 +116,11 @@ def create_post():
     if hashtag_error:
         return jsonify({"error": hashtag_error}), 400
 
+    # Địa chỉ Google Maps: kiểm tra ở server (tối đa 2, đúng tên miền Google Maps) TRƯỚC khi tạo bất cứ thứ gì
+    map_links, map_error = parse_map_links(request.form.get("map_links"), POST_LIMIT)
+    if map_error:
+        return jsonify({"error": map_error}), 400
+
     # Tạo/tìm địa điểm TRƯỚC khi tạo Post, vì get_or_create_location có thể commit
     location = get_or_create_location(request.form.get("location_name", ""))
 
@@ -156,6 +155,7 @@ def create_post():
     db.session.flush()
 
     post.extra_locations.extend(extra_locations)
+    attach_map_links(map_links, post=post)
 
     upload_folder = os.path.join(
         current_app.root_path,
@@ -266,28 +266,31 @@ def feed():
         })
 
     # 2. Render Template HTML cho Trình duyệt Web
-    following_ids = [
-        f.followed_id for f in Follow.query.filter_by(follower_id=current_user.id).all()
-    ]
-    feed_user_ids = list(set(following_ids + [current_user.id]))
+    follow_set = following_ids(current_user.id)
+    feed_user_ids = list(follow_set | {current_user.id})
 
-    if feed_user_ids:
-        posts = (
-            Post.query.filter(Post.user_id.in_(feed_user_ids))
-            .order_by(Post.created_at.desc())
-            .all()
-        )
-    else:
-        posts = []
+    posts = (
+        Post.query.filter(Post.user_id.in_(feed_user_ids))
+        .order_by(Post.created_at.desc())
+        .all()
+    )
+    posts = [p for p in posts if can_view_post(p, current_user.id, follow_set)]
 
     if not posts:
-        posts = Post.query.order_by(Post.created_at.desc()).limit(20).all()
+        # Chưa follow ai: gợi ý bài CÔNG KHAI mới nhất (không bao giờ lộ bài riêng tư của người lạ)
+        cand = (
+            Post.query.filter(Post.visibility == "public")
+            .order_by(Post.created_at.desc()).limit(40).all()
+        )
+        posts = [p for p in cand if can_view_post(p, current_user.id, follow_set)][:20]
 
     post_cards = []
     for p in posts:
-        author = db.session.get(User, p.user_id) if hasattr(db.session, 'get') else User.query.get(p.user_id)
+        reposter = db.session.get(User, p.user_id)
+        src = root_post(p) if p.original_post_id else None
+        author = db.session.get(User, src.user_id) if src else reposter
         photos = Photo.query.filter_by(post_id=p.id).order_by(Photo.id.asc()).all()
-        loc = db.session.get(Location, p.location_id) if (p.location_id and hasattr(db.session, 'get')) else (Location.query.get(p.location_id) if p.location_id else None)
+        loc = db.session.get(Location, p.location_id) if p.location_id else None
         likes_count = Like.query.filter_by(post_id=p.id).count()
         is_liked = bool(Like.query.filter_by(user_id=current_user.id, post_id=p.id).first())
         comments = Comment.query.filter_by(post_id=p.id).order_by(Comment.created_at.asc()).all()
@@ -297,11 +300,12 @@ def feed():
 
         formatted_comments = []
         for c in comments:
-            c_author = db.session.get(User, c.user_id) if hasattr(db.session, 'get') else User.query.get(c.user_id)
+            c_author = db.session.get(User, c.user_id)
             formatted_comments.append({
                 "id": c.id,
                 "user_id": c.user_id,
                 "author_name": c_author.username if c_author else f"User #{c.user_id}",
+                "author_username": c_author.username if c_author else None,
                 "content": c.content,
                 "created_at": c.created_at.strftime("%H:%M %d/%m/%Y") if c.created_at else "",
                 "can_delete": (c.user_id == current_user.id)
@@ -310,8 +314,15 @@ def feed():
         post_cards.append({
             "id": p.id,
             "author": author,
+            "is_repost": bool(p.original_post_id),
+            "reposter": reposter if p.original_post_id else None,
+            "repost_note": p.repost_note,
+            "visibility": p.visibility,
+            # Bài sắp được repost (gốc thật sự) là riêng tư => bản repost bị khóa ở chế độ riêng tư
+            "repost_locked": ((src or p).visibility == "private"),
             "caption": p.caption,
             "location": loc,
+            "map_links": visible_links(src or p),   # bài repost hiển thị địa chỉ của bài gốc
             "created_at": p.created_at.strftime("%d/%m/%Y %H:%M") if p.created_at else "",
             "photos": photos,
             "likes_count": likes_count,
@@ -322,15 +333,20 @@ def feed():
             "shares_count": shares_count,
         })
 
-    suggested_locations = Location.query.order_by(Location.id.desc()).limit(5).all()
-    suggested_users = User.query.filter(User.id != current_user.id).limit(5).all()
-
     return render_template(
         "locations/feed.html",
         posts=post_cards,
-        suggested_locations=suggested_locations,
-        suggested_users=suggested_users,
+        popular_places=popular_locations(10),
+        suggested_users=suggest_users(current_user.id, 5),
     )
+
+
+@locations_bp.route("/popular", methods=["GET"])
+@login_required
+def popular_places_api():
+    """Top địa điểm nổi bật (bài đăng + lịch trình công khai) — dùng cho chip gợi ý ở form lịch trình."""
+    limit = min(max(request.args.get("limit", 3, type=int), 1), 10)
+    return jsonify({"places": popular_locations(limit)})
 
 
 @locations_bp.route("/posts/<int:post_id>", methods=["GET"])
@@ -455,6 +471,7 @@ def create_comment(post_id):
             "id": comment.id,
             "user_id": comment.user_id,
             "post_id": comment.post_id,
+            "author_username": current_user.username,
             "content": comment.content,
             "created_at": comment.created_at.isoformat()
         }
@@ -766,39 +783,56 @@ def save_post(post_id):
 )
 @login_required
 def repost_post(post_id):
-    original_post = db.session.get(
-        Post,
-        post_id
-    )
+    """Đăng lại bài viết (có chọn công khai/riêng tư + ghi chú).
 
-    if not original_post:
-        return jsonify({
-            "error": "Bài viết không tồn tại"
-        }), 404
+    - Repost của repost luôn trỏ về BÀI GỐC thật sự.
+    - Bài gốc riêng tư => bản đăng lại bị ép riêng tư (không thể "tẩy trắng" bài riêng tư thành công khai).
+    - Người dùng phải xem được cả bài được bấm lẫn bài gốc.
+    """
+    clicked = db.session.get(Post, post_id)
+
+    if not clicked:
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+
+    if not user_can_access_post(clicked):
+        return jsonify({"error": "Bạn không có quyền đăng lại bài viết này"}), 403
+
+    original_post = root_post(clicked)
+    if original_post is None:
+        return jsonify({"error": "Bài viết gốc không còn tồn tại"}), 404
 
     if not user_can_access_post(original_post):
-        return jsonify({
-            "error": "Bạn không có quyền đăng lại bài viết này"
-        }), 403
+        return jsonify({"error": "Bạn không có quyền đăng lại bài viết này"}), 403
 
-    # Mỗi user chỉ repost một bài một lần
+    data = request.get_json(silent=True) or {}
+    visibility = data.get("visibility", "public")
+    if visibility not in ("public", "private"):
+        return jsonify({"error": "visibility phải là 'public' hoặc 'private'"}), 400
+    forced_private = original_post.visibility == "private"
+    if forced_private:
+        visibility = "private"
+
+    note = (data.get("note") or "").strip()
+    if len(note) > 500:
+        return jsonify({"error": "Ghi chú tối đa 500 ký tự"}), 400
+
+    # Mỗi user chỉ repost một bài gốc một lần
     existing = Share.query.filter_by(
         user_id=current_user.id,
-        post_id=post_id,
+        post_id=original_post.id,
         share_type="repost"
     ).first()
 
     if existing:
-        return jsonify({
-            "error": "Bạn đã đăng lại bài viết này"
-        }), 409
+        return jsonify({"error": "Bạn đã đăng lại bài viết này"}), 409
 
     repost = Post(
         user_id=current_user.id,
         caption=original_post.caption,
-        visibility="public",
+        visibility=visibility,
         location_id=original_post.location_id,
-        original_post_id=original_post.id
+        original_post_id=original_post.id,
+        repost_note=note or None,
     )
 
     db.session.add(repost)
@@ -846,11 +880,14 @@ def repost_post(post_id):
 
     return jsonify({
         "message": "Đăng lại bài viết thành công",
+        "forced_private": forced_private,
         "repost": {
             "id": repost.id,
             "user_id": repost.user_id,
             "original_post_id": repost.original_post_id,
-            "caption": repost.caption
+            "caption": repost.caption,
+            "visibility": repost.visibility,
+            "repost_note": repost.repost_note,
         },
         "share": {
             "id": share.id,

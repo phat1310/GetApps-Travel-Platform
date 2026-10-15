@@ -39,6 +39,8 @@ from app.auth.forms import (
     SettingsForm,
 )
 from app.auth.utils import validate_password
+from app.locations.discovery import following_ids, can_view_post, norm_text
+from app.presence import presence_state
 from app.extensions import db, csrf
 from app.models import (
     Comment,
@@ -53,7 +55,9 @@ from app.models import (
     User,
 )
 
-FIXED_TAGS = {"nguoi_du_lich", "dia_phuong", "phuot", "huong_dan_vien", "nguoi_noi_tieng"}
+from app.auth.tags import normalize_tags, hashtag_for, FIXED_TAG_HASHTAGS
+
+FIXED_TAGS = set(FIXED_TAG_HASHTAGS)  # 5 nhãn có sẵn (nhãn tự đặt: xem app/auth/tags.py)
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -245,6 +249,11 @@ def login():
 @csrf.exempt
 def logout():
     """Đăng xuất người dùng."""
+    try:
+        current_user.last_seen = None  # hiện Offline ngay khi đăng xuất
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     logout_user()
     if request.is_json or (request.headers.get("X-Requested-With") == "XMLHttpRequest" and not request.accept_mimetypes.accept_html):
         return jsonify({"message": "Đăng xuất thành công"})
@@ -266,15 +275,20 @@ def profile(username=None):
     else:
         profile_user = current_user
 
-    posts_count = Post.query.filter_by(user_id=profile_user.id).count()
     followers_count = Follow.query.filter_by(followed_id=profile_user.id).count()
     following_count = Follow.query.filter_by(follower_id=profile_user.id).count()
     is_following = bool(
         Follow.query.filter_by(follower_id=current_user.id, followed_id=profile_user.id).first()
     ) if current_user.id != profile_user.id else False
 
+    # Bài viết: chủ hồ sơ thấy hết; người khác chỉ thấy bài công khai (hoặc riêng tư nếu đang follow)
+    my_follow_set = following_ids(current_user.id)
     raw_posts = Post.query.filter_by(user_id=profile_user.id).order_by(Post.created_at.desc()).all()
+    raw_posts = [p for p in raw_posts if can_view_post(p, current_user.id, my_follow_set)]
+    posts_count = len(raw_posts)
+
     user_posts = []
+    album_photos = []
     for p in raw_posts:
         photos = Photo.query.filter_by(post_id=p.id).all()
         likes_cnt = Like.query.filter_by(post_id=p.id).count()
@@ -284,25 +298,20 @@ def profile(username=None):
             "caption": p.caption,
             "photos": photos,
             "likes_count": likes_cnt,
-            "comments_count": cmts_cnt
+            "comments_count": cmts_cnt,
+            "is_repost": bool(p.original_post_id),
+            "visibility": p.visibility,
         })
+        # Album = ảnh do chính người này đăng (không tính ảnh của bài đăng lại, không tính video)
+        if not p.original_post_id:
+            for ph in photos:
+                if ph.media_type != "video":
+                    album_photos.append({"file_path": ph.file_path, "post_id": p.id})
 
-    saved_posts = []
-    if profile_user.id == current_user.id:
-        saved_items = SavedPost.query.filter_by(user_id=current_user.id).order_by(SavedPost.id.desc()).all()
-        for item in saved_items:
-            sp = Post.query.get(item.post_id)
-            if sp:
-                photos = Photo.query.filter_by(post_id=sp.id).all()
-                likes_cnt = Like.query.filter_by(post_id=sp.id).count()
-                cmts_cnt = Comment.query.filter_by(post_id=sp.id).count()
-                saved_posts.append({
-                    "id": sp.id,
-                    "caption": sp.caption,
-                    "photos": photos,
-                    "likes_count": likes_cnt,
-                    "comments_count": cmts_cnt
-                })
+    # Lịch trình: chủ hồ sơ thấy hết; người khác chỉ thấy lịch trình công khai
+    plans = sorted(profile_user.itineraries, key=lambda it: it.created_at or datetime.min, reverse=True)
+    if profile_user.id != current_user.id:
+        plans = [it for it in plans if (it.visibility or "public") == "public"]
 
     edit_form = EditProfileForm(obj=profile_user) if profile_user.id == current_user.id else None
 
@@ -314,9 +323,73 @@ def profile(username=None):
         following_count=following_count,
         is_following=is_following,
         user_posts=user_posts,
-        saved_posts=saved_posts,
+        album_photos=album_photos,
+        plans=plans,
         edit_form=edit_form
     )
+
+
+@auth_bp.route('/profile/<username>/connections', methods=['GET'])
+@login_required
+def profile_connections(username):
+    """Danh sách Follower / Following của 1 người (có tìm kiếm không dấu, không phân biệt hoa thường)."""
+    profile_user = User.query.filter_by(username=username).first_or_404()
+    kind = request.args.get("type", "followers")
+    if kind not in ("followers", "following"):
+        return jsonify({"error": "type phải là followers hoặc following"}), 400
+
+    if profile_user.is_private and profile_user.id != current_user.id:
+        is_follower = Follow.query.filter_by(follower_id=current_user.id, followed_id=profile_user.id).first()
+        if not is_follower:
+            return jsonify({"error": "Tài khoản riêng tư — hãy theo dõi để xem danh sách"}), 403
+
+    if kind == "followers":
+        rows = (Follow.query.filter_by(followed_id=profile_user.id)
+                .order_by(Follow.created_at.desc(), Follow.id.desc()).all())
+        ids = [r.follower_id for r in rows]
+    else:
+        rows = (Follow.query.filter_by(follower_id=profile_user.id)
+                .order_by(Follow.created_at.desc(), Follow.id.desc()).all())
+        ids = [r.followed_id for r in rows]
+
+    users = {u.id: u for u in User.query.filter(User.id.in_(ids or [0])).all()}
+    q = norm_text(request.args.get("q", ""))
+    mine = following_ids(current_user.id)
+
+    items = []
+    for uid in ids:
+        u = users.get(uid)
+        if not u:
+            continue
+        display = u.nickname or u.full_name or u.username
+        if q and q not in norm_text(display + u.username + (u.full_name or "")):
+            continue
+        items.append({
+            "id": u.id,
+            "username": u.username,
+            "display": display,
+            "avatar_url": u.avatar_url,
+            "profile_url": url_for("auth.profile", username=u.username),
+            "presence": presence_state(u, current_user),
+            "is_following": u.id in mine,
+            "is_me": u.id == current_user.id,
+        })
+        if len(items) >= 300:
+            break
+
+    return jsonify({"type": kind, "total": len(ids), "users": items})
+
+
+@auth_bp.route('/profile/activity-status', methods=['POST'])
+@login_required
+def update_activity_status():
+    """Bật/tắt hiển thị trạng thái hoạt động (chấm Online/Offline) của chính mình."""
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("show_activity"), bool):
+        return jsonify({"error": "show_activity phải là true hoặc false"}), 400
+    current_user.show_activity = data["show_activity"]
+    db.session.commit()
+    return jsonify({"show_activity": current_user.show_activity})
 
 
 @auth_bp.route('/profile/edit', methods=['POST'])
@@ -559,8 +632,10 @@ def onboarding():
         data = request.get_json(silent=True) or {}
         nickname = data.get("nickname")
         avatar_url = data.get("avatar_url")
+        tags_provided = "tags" in data
         tags = data.get("tags", [])
     else:
+        tags_provided = "tags" in request.form or "tag" in request.form
         nickname = request.form.get("nickname")
         avatar_url = request.form.get("avatar_url")
         tags = request.form.getlist("tags")
@@ -588,20 +663,12 @@ def onboarding():
         flash("Danh sách nhãn không hợp lệ", "error")
         return render_template("auth/onboarding.html"), 400
 
-    if len(tags) > 3:
+    # 5 nhãn có sẵn + nhãn tự đặt ("Người đi bộ" -> nguoidibo). Chuẩn hóa/kiểm tra hoàn toàn ở server.
+    tags, tags_error = normalize_tags(tags)
+    if tags_error:
         if request.is_json:
-            return jsonify({"error": "Chỉ được chọn tối đa 3 nhãn"}), 400
-        flash("Chỉ được chọn tối đa 3 nhãn", "error")
-        return render_template("auth/onboarding.html"), 400
-
-    invalid_tags = [t for t in tags if t not in FIXED_TAGS]
-    if invalid_tags:
-        if request.is_json:
-            return jsonify({
-                "error": f"Nhãn không hợp lệ: {', '.join(invalid_tags)}",
-                "allowed_tags": sorted(FIXED_TAGS),
-            }), 400
-        flash(f"Nhãn không hợp lệ: {', '.join(invalid_tags)}", "error")
+            return jsonify({"error": tags_error, "allowed_tags": sorted(FIXED_TAGS)}), 400
+        flash(tags_error, "error")
         return render_template("auth/onboarding.html"), 400
 
     if nickname:
@@ -610,14 +677,11 @@ def onboarding():
         current_user.avatar_url = avatar_url.strip()
     if tags:
         current_user.tags = ",".join(tags)
-        tag_map = {
-            "nguoi_du_lich": "#nguoidulich",
-            "dia_phuong": "#dandiaphuong",
-            "phuot": "#daphuot",
-            "huong_dan_vien": "#huongdanvien",
-            "nguoi_noi_tieng": "#nguoidanoitieng"
-        }
-        current_user.profile_tag = tag_map.get(tags[0], f"#{tags[0]}")
+        current_user.profile_tag = hashtag_for(tags[0])
+    elif tags_provided:
+        # Người dùng xóa hết nhãn -> xóa thật trong DB (trước đây danh sách rỗng bị bỏ qua nên nhãn cũ "hồi sinh" khi tải lại trang)
+        current_user.tags = ""
+        current_user.profile_tag = "#nguoidulich"
 
     current_user.profile_completed = True
     db.session.commit()

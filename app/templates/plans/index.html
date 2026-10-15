@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_maplinks.html" import map_chips %}
 
 {% block title %}Lịch trình du lịch — Khám phá & Lên kế hoạch | GetApps (GEs){% endblock %}
 
@@ -196,7 +197,7 @@
                     <span class="input-group-text bg-light border-end-0 rounded-start-pill text-muted">
                         <i class="bi bi-search"></i>
                     </span>
-                    <input type="text" name="destination" class="form-control bg-light border-start-0 rounded-end-pill" placeholder="Tìm theo điểm đến: Đà Lạt, Phú Quốc, Sapa..." value="{{ destination }}">
+                    <input type="text" name="destination" data-clearable class="form-control bg-light border-start-0 rounded-end-pill" placeholder="Tìm theo điểm đến: Đà Lạt, Phú Quốc, Sapa..." value="{{ destination }}">
                 </div>
             </div>
             <div class="col-md-4">
@@ -286,6 +287,7 @@
                             <div class="plan-destination">
                                 <i class="bi bi-geo-alt-fill"></i> {{ p.destination }}
                             </div>
+                            {{ map_chips(p.map_links, 'mb-2') }}
                             
                             <a href="{{ url_for('plans.detail', plan_id=p.id) }}" class="text-decoration-none">
                                 <h5 class="plan-title" title="{{ p.title }}">{{ p.title }}</h5>

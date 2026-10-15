@@ -6,6 +6,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Post, Photo, Like, Comment, SavedPost, Location, User
+from app.models.map_link import MapLink
 from app.models.post import post_extra_locations
 from app.models.hashtag import Hashtag, post_hashtags
 
@@ -39,6 +40,11 @@ def serialize_posts(posts, viewer_id):
     )
     for post_id, loc in rows:
         extra[post_id].append({"id": loc.id, "name": loc.name})
+
+    maps = defaultdict(list)
+    for m in MapLink.query.filter(MapLink.post_id.in_(post_ids)).order_by(MapLink.position).all():
+        if m.safe_url:
+            maps[m.post_id].append(m.to_dict())
 
     tags = defaultdict(list)
     rows = (
@@ -86,6 +92,7 @@ def serialize_posts(posts, viewer_id):
             "created_at": p.created_at.isoformat(),
             "location": {"id": loc.id, "name": loc.name} if loc else None,
             "extra_locations": extra.get(p.id, []),
+            "map_links": maps.get(p.id, []),
             "hashtags": sorted(tags.get(p.id, [])),
             "media": media.get(p.id, []),
             "like_count": like_counts.get(p.id, 0),

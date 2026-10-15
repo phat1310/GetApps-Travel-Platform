@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_maplinks.html" import map_chips %}
 
 {% block title %}{{ plan.title }} — Lịch trình GetApps{% endblock %}
 
@@ -167,6 +168,15 @@
         
         <!-- Left: Timeline Days & Stops -->
         <div class="col-lg-8">
+
+            <!-- Địa chỉ Google Maps -->
+            {% set map_list = plan.map_links|selectattr('safe_url')|list %}
+            {% if map_list %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-map me-1 text-primary"></i> Địa chỉ trên Google Maps</h6>
+                    {{ map_chips(map_list) }}
+                </div>
+            {% endif %}
 
             <!-- Description & Notes -->
             {% if plan.description %}

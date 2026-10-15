@@ -86,6 +86,7 @@ class Itinerary(db.Model):
             "attachment_file": self.attachment_file,
             "description": self.description,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "map_links": [m.to_dict() for m in (getattr(self, "map_links", None) or []) if m.safe_url],
             "days_count": len(self.days),
             "days": [d.to_dict() for d in self.days]
         }

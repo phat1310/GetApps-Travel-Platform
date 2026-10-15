@@ -51,11 +51,24 @@ def create_app(config_override=None):
                         conn.execute(text("ALTER TABLE users ADD COLUMN profile_completed BOOLEAN DEFAULT 0"))
                     if 'is_private' not in user_cols:
                         conn.execute(text("ALTER TABLE users ADD COLUMN is_private BOOLEAN DEFAULT 0"))
+                    if 'last_seen' not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN last_seen DATETIME"))
+                    if 'show_activity' not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN show_activity BOOLEAN NOT NULL DEFAULT 1"))
+
+                if 'conversations' in tables:
+                    conv_cols = [col['name'] for col in inspector.get_columns('conversations')]
+                    if 'status' not in conv_cols:
+                        conn.execute(text("ALTER TABLE conversations ADD COLUMN status VARCHAR(10) NOT NULL DEFAULT 'mutual'"))
+                    if 'initiated_by' not in conv_cols:
+                        conn.execute(text("ALTER TABLE conversations ADD COLUMN initiated_by INTEGER REFERENCES users(id)"))
 
                 if 'posts' in tables:
                     post_cols = [col['name'] for col in inspector.get_columns('posts')]
                     if 'visibility' not in post_cols:
                         conn.execute(text("ALTER TABLE posts ADD COLUMN visibility VARCHAR(10) DEFAULT 'public'"))
+                    if 'repost_note' not in post_cols:
+                        conn.execute(text("ALTER TABLE posts ADD COLUMN repost_note TEXT"))
 
                 if 'shares' in tables:
                     share_cols = [col['name'] for col in inspector.get_columns('shares')]
@@ -124,11 +137,15 @@ def create_app(config_override=None):
     from app.locations import locations_bp
     from app.api import api_bp
     from app.plans import plans_bp
+    from app.chat import chat_bp
+    from app.presence import init_presence
+    init_presence(app)
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(locations_bp, url_prefix="/locations")
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(plans_bp, url_prefix="/plans")
+    app.register_blueprint(chat_bp, url_prefix="/chat")
 
     csrf.exempt(api_bp)
 

@@ -153,8 +153,13 @@
             border: 2px solid #ffffff;
             box-shadow: 0 2px 8px rgba(20, 60, 90, 0.12);
             background: var(--ges-card-bg, #ECF4FC);
-            pointer-events: none;
-            user-select: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: box-shadow 0.15s ease, transform 0.15s ease;
+        }
+        .st-top-avatar:hover {
+            box-shadow: 0 0 0 3px rgba(22, 159, 227, 0.35), 0 2px 8px rgba(20, 60, 90, 0.18);
+            transform: scale(1.04);
         }
         .st-top-avatar img {
             width: 100%;
@@ -675,6 +680,174 @@
         }
     </style>
 
+    <style>
+        /* ==================== CHAT KIỂU MESSENGER (tab Tin nhắn + cửa sổ + bong bóng) ==================== */
+        .st-nav-btn { background: none; border: 0; position: relative; cursor: pointer; font-family: inherit; }
+        .st-msg-icon {
+            display: block; width: 1.55rem; height: 1.55rem; background-color: currentColor;
+            -webkit-mask: url("{{ url_for('static', filename='images/icon-message.png') }}") center / contain no-repeat;
+            mask: url("{{ url_for('static', filename='images/icon-message.png') }}") center / contain no-repeat;
+        }
+        .st-msg-badge {
+            position: absolute; top: 2px; right: 10px; min-width: 20px; height: 20px; padding: 0 5px;
+            border-radius: 10px; background: #e41e3f; color: #fff; font-size: 0.72rem; font-weight: 800;
+            display: flex; align-items: center; justify-content: center; border: 2px solid #ECF4FC; line-height: 1;
+        }
+        .st-msg-badge[hidden] { display: none; }
+        [data-bs-theme="dark"] .st-msg-badge { border-color: #181f2a; }
+
+        :root {
+            --gc-bg: #ffffff; --gc-text: #1f2d3d; --gc-muted: #6b7280; --gc-border: #DCE7F3;
+            --gc-soft: #EBF3FB; --gc-other: #E7F0FA; --gc-me: #169FE3; --gc-me-text: #ffffff;
+            --gc-head-1: #169FE3; --gc-head-2: #0E89C4;
+        }
+        [data-bs-theme="dark"] {
+            --gc-bg: #1b2330; --gc-text: #e5ecf5; --gc-muted: #94a3b8; --gc-border: #2b3544;
+            --gc-soft: #242e3d; --gc-other: #2a3547; --gc-me: #0284c7; --gc-me-text: #ffffff;
+            --gc-head-1: #0284c7; --gc-head-2: #0369a1;
+        }
+
+        .gc-root.gc-hide .gc-windows, .gc-root.gc-hide .gc-bubbles { display: none; }
+
+        /* ---- Danh sách hội thoại ---- */
+        .gc-list {
+            position: fixed; z-index: 1045; top: 76px; left: calc(var(--st-inset) + var(--st-side-w) + 12px);
+            width: 340px; max-height: calc(100vh - 100px); display: flex; flex-direction: column;
+            background: var(--gc-bg); color: var(--gc-text); border: 1px solid var(--gc-border);
+            border-radius: 16px; box-shadow: 0 10px 34px rgba(20, 60, 110, 0.25); overflow: hidden;
+        }
+        .gc-list[hidden] { display: none; }
+        .gc-list-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; font-weight: 800; font-size: 1.2rem; }
+        .gc-icon-btn { background: none; border: 0; color: var(--gc-me); font-size: 1.1rem; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .gc-icon-btn:hover { background: var(--gc-soft); }
+        .gc-search { margin: 4px 14px 8px; position: relative; }
+        .gc-search input {
+            width: 100%; border: 0; outline: 0; background: var(--gc-soft); color: var(--gc-text);
+            border-radius: 20px; padding: 8px 14px 8px 36px; font-size: 0.9rem; font-family: inherit;
+        }
+        .gc-search i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--gc-muted); font-size: 0.85rem; }
+        .gc-rows { overflow-y: auto; padding-bottom: 8px; }
+        .gc-section { padding: 6px 16px 2px; font-size: 0.75rem; font-weight: 700; color: var(--gc-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+        .gc-row { display: flex; align-items: center; gap: 11px; padding: 8px 16px; cursor: pointer; }
+        .gc-row:hover { background: var(--gc-soft); }
+        .gc-row-main { flex: 1; min-width: 0; }
+        .gc-row-name { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gc-row-msg { font-size: 0.82rem; color: var(--gc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gc-row.unread .gc-row-name, .gc-row.unread .gc-row-msg { font-weight: 800; color: var(--gc-text); }
+        .gc-row-meta { text-align: right; font-size: 0.7rem; color: var(--gc-muted); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+        .gc-dot-unread { width: 10px; height: 10px; border-radius: 50%; background: var(--gc-me); }
+        .gc-empty { padding: 22px 16px; text-align: center; color: var(--gc-muted); font-size: 0.88rem; }
+
+        /* ---- Avatar + chấm online ---- */
+        .gc-av { position: relative; flex: none; width: 44px; height: 44px; border-radius: 50%; }
+        .gc-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; background: var(--gc-soft); }
+        .gc-av.sm { width: 36px; height: 36px; }
+        .gc-av.on::after {
+            content: ""; position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%;
+            background: #31c24d; border: 2px solid var(--gc-bg);
+        }
+
+        /* ---- Cửa sổ chat (góc phải dưới) ---- */
+        .gc-windows { position: fixed; z-index: 1040; right: 86px; bottom: 0; display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 12px; pointer-events: none; }
+        .gc-win {
+            pointer-events: auto; width: 330px; height: 450px; display: flex; flex-direction: column;
+            background: var(--gc-bg); color: var(--gc-text); border: 1px solid var(--gc-border); border-bottom: 0;
+            border-radius: 14px 14px 0 0; box-shadow: 0 4px 24px rgba(20, 60, 110, 0.28); overflow: hidden;
+        }
+        .gc-win-head { display: flex; align-items: center; gap: 9px; padding: 9px 10px; color: #fff; background: linear-gradient(90deg, var(--gc-head-1), var(--gc-head-2)); }
+        .gc-win-head a { color: inherit; text-decoration: none; }
+        .gc-win-av { display: block; flex: none; width: 36px; height: 36px; }
+        .gc-win-head .gc-av.on::after { border-color: var(--gc-head-1); }
+        .gc-win-who { flex: 1; min-width: 0; line-height: 1.15; }
+        .gc-win-name { font-weight: 800; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .gc-win-name:hover { text-decoration: underline; }
+        .gc-win-status { font-size: 0.72rem; opacity: 0.92; }
+        .gc-win-head .gc-icon-btn { color: #fff; width: 30px; height: 30px; font-size: 1rem; }
+        .gc-win-head .gc-icon-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .gc-body { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; background: var(--gc-bg); }
+        .gc-time { align-self: center; font-size: 0.7rem; color: var(--gc-muted); margin: 6px 0 2px; }
+        .gc-msg { display: flex; flex-direction: column; max-width: 80%; }
+        .gc-msg.mine { align-self: flex-end; align-items: flex-end; }
+        .gc-msg.other { align-self: flex-start; align-items: flex-start; }
+        .gc-bubble { padding: 7px 12px; border-radius: 18px; font-size: 0.9rem; line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
+        .gc-msg.mine .gc-bubble { background: var(--gc-me); color: var(--gc-me-text); border-bottom-right-radius: 5px; }
+        .gc-msg.other .gc-bubble { background: var(--gc-other); color: var(--gc-text); border-bottom-left-radius: 5px; }
+        .gc-media { max-width: 210px; max-height: 240px; border-radius: 14px; display: block; background: var(--gc-soft); margin-bottom: 2px; }
+        .gc-file { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 14px; background: var(--gc-soft); border: 1px solid var(--gc-border); color: var(--gc-text); text-decoration: none; font-size: 0.82rem; max-width: 240px; }
+        .gc-file:hover { color: var(--gc-text); border-color: var(--gc-me); }
+        .gc-file i { font-size: 1.5rem; color: var(--gc-me); }
+        .gc-file-name { font-weight: 700; word-break: break-all; }
+        .gc-file small { color: var(--gc-muted); display: block; }
+        .gc-status { align-self: flex-end; font-size: 0.68rem; color: var(--gc-muted); margin: 1px 4px 0 0; }
+        .gc-older { align-self: center; font-size: 0.75rem; color: var(--gc-muted); padding: 4px; }
+        .gc-note { padding: 6px 12px; font-size: 0.76rem; color: var(--gc-muted); background: var(--gc-soft); text-align: center; }
+
+        .gc-attach-prev { display: none; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--gc-border); font-size: 0.8rem; background: var(--gc-soft); }
+        .gc-attach-prev.show { display: flex; }
+        .gc-attach-prev .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gc-input { display: flex; align-items: flex-end; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--gc-border); position: relative; }
+        .gc-input textarea {
+            flex: 1; resize: none; border: 0; outline: 0; background: var(--gc-soft); color: var(--gc-text);
+            border-radius: 18px; padding: 7px 12px; font-size: 0.9rem; font-family: inherit; max-height: 96px; line-height: 1.3;
+        }
+        .gc-input textarea:disabled { opacity: 0.6; }
+        .gc-emoji-pop {
+            position: absolute; bottom: 52px; right: 10px; width: 232px; background: var(--gc-bg); border: 1px solid var(--gc-border);
+            border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); padding: 6px; display: none; grid-template-columns: repeat(8, 1fr); gap: 2px; z-index: 3;
+        }
+        .gc-emoji-pop.show { display: grid; }
+        .gc-emoji-pop button { background: none; border: 0; font-size: 1.15rem; padding: 3px; border-radius: 6px; cursor: pointer; }
+        .gc-emoji-pop button:hover { background: var(--gc-soft); }
+
+        /* ---- Cột bong bóng (cửa sổ thu nhỏ) ---- */
+        .gc-bubbles { position: fixed; z-index: 1040; right: 18px; bottom: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+        .gc-bubble-btn { position: relative; width: 46px; height: 46px; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25)); }
+        .gc-bubble-btn .gc-av { width: 46px; height: 46px; }
+        .gc-bubble-btn .gc-av.on::after { border-color: var(--gc-bg); }
+        .gc-reddot { position: absolute; top: 0; right: 0; width: 13px; height: 13px; border-radius: 50%; background: #e41e3f; border: 2px solid var(--gc-bg); z-index: 2; }
+        .gc-bubble-x {
+            position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: var(--gc-bg);
+            color: var(--gc-muted); font-size: 0.7rem; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); z-index: 2; cursor: pointer;
+        }
+        .gc-bubble-btn:hover .gc-bubble-x { display: flex; }
+        .gc-pen {
+            width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--gc-bg); color: var(--gc-text); font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .gc-pen:hover { color: var(--gc-me); }
+
+        @media (max-width: 767.98px) {
+            .gc-list { left: 8px; right: 8px; width: auto; top: 70px; }
+            .gc-windows { right: 8px; left: 8px; bottom: 76px; justify-content: flex-end; }
+            .gc-win { width: 100%; max-width: 420px; height: min(60vh, 460px); border-radius: 14px; border-bottom: 1px solid var(--gc-border); }
+            .gc-win:not(:last-child) { display: none; }
+            .gc-bubbles { display: none; }
+        }
+
+        /* ---- v2: thả tim, tin nhắn chờ, kết quả tìm người lạ ---- */
+        .gc-line { display: flex; align-items: center; gap: 4px; max-width: 100%; }
+        .gc-content { position: relative; min-width: 0; display: flex; flex-direction: column; }
+        .gc-msg.mine .gc-content { align-items: flex-end; }
+        .gc-msg.has-heart { margin-bottom: 9px; }
+        .gc-heart-btn { border: 0; background: none; padding: 2px 4px; color: var(--gc-muted); font-size: 0.95rem; line-height: 1; border-radius: 50%; cursor: pointer; opacity: 0; transition: opacity .12s, transform .12s; flex: none; }
+        .gc-line:hover .gc-heart-btn, .gc-heart-btn:focus-visible, .gc-heart-btn.on { opacity: 1; }
+        .gc-heart-btn.on { color: #e41e3f; }
+        .gc-heart-btn:hover { transform: scale(1.18); }
+        @media (hover: none) { .gc-heart-btn { opacity: .55; } .gc-heart-btn.on { opacity: 1; } }
+        .gc-heart-badge { position: absolute; bottom: -10px; right: 6px; background: var(--gc-bg); border: 1px solid var(--gc-border); border-radius: 12px; padding: 0 5px; font-size: 0.7rem; line-height: 1.35; box-shadow: 0 1px 3px rgba(0,0,0,.15); color: var(--gc-text); white-space: nowrap; }
+        .gc-msg.other .gc-heart-badge { right: auto; left: 6px; }
+        .gc-heart-badge[hidden] { display: none; }
+        .gc-req { padding: 9px 12px; border-top: 1px solid var(--gc-border); background: var(--gc-soft); font-size: 0.8rem; color: var(--gc-text); }
+        .gc-req[hidden], .gc-info[hidden] { display: none; }
+        .gc-req-btns { display: flex; gap: 8px; margin-top: 7px; }
+        .gc-req-btns button { flex: 1; border: 0; border-radius: 8px; padding: 6px 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
+        .gc-req-ok { background: var(--gc-me); color: #fff; }
+        .gc-req-no { background: var(--gc-other); color: var(--gc-text); }
+        .gc-info { padding: 5px 12px; font-size: 0.74rem; color: var(--gc-muted); background: var(--gc-soft); text-align: center; border-top: 1px solid var(--gc-border); }
+        .gc-row.dim { opacity: .55; cursor: not-allowed; }
+        .gc-icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+    </style>
+
     {% block extra_css %}{% endblock %}
 </head>
 <body class="{% if current_user.is_authenticated %}has-pill-side{% endif %}">
@@ -693,13 +866,13 @@
                 </button>
                 <a href="{{ url_for('auth.settings_page') }}" class="st-top-btn {% if request.endpoint in ['auth.settings', 'auth.settings_page'] %}active{% endif %}" title="Cài đặt tài khoản" aria-label="Cài đặt"><i class="bi bi-gear-fill"></i></a>
                 <span class="st-top-divider" aria-hidden="true"></span>
-                <span class="st-top-avatar" aria-hidden="true">
+                <a class="st-top-avatar" href="{{ url_for('auth.profile', username=current_user.username) }}" title="Trang cá nhân của bạn" aria-label="Trang cá nhân của bạn">
                     {% if current_user.avatar_url %}
                         <img src="{{ current_user.avatar_url }}" alt="" onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=169fe3&color=fff'">
                     {% else %}
                         <img src="https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=169fe3&color=fff" alt="">
                     {% endif %}
-                </span>
+                </a>
             </div>
         </header>
 
@@ -720,10 +893,11 @@
                 <i class="bi bi-bell"></i>
                 <span>Thông báo</span>
             </a>
-            <a class="st-nav {% if request.endpoint and request.endpoint.startswith('auth.profile') %}active{% endif %}" href="{{ url_for('auth.profile', username=current_user.username) }}">
-                <i class="bi bi-person"></i>
-                <span>Cá nhân</span>
-            </a>
+            <button type="button" class="st-nav st-nav-btn" id="stMsgBtn" aria-label="Tin nhắn" title="Tin nhắn">
+                <span class="st-msg-icon" aria-hidden="true"></span>
+                <span class="st-msg-badge" id="stMsgBadge" hidden>0</span>
+                <span>Tin nhắn</span>
+            </button>
         </nav>
     {% else %}
         <!-- Unauthenticated Top Navbar -->
@@ -824,6 +998,7 @@
                     <div id="qcTabPostContent">
                         <form action="{{ url_for('locations.create_post') }}" method="POST" enctype="multipart/form-data" id="qcPostForm" onsubmit="return validateQcPostForm(event)">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="visibility" id="qcPostVisibility" value="public">
                             
                             <!-- Author Profile Card -->
                             <div class="qc-author-card d-flex align-items-center justify-content-between p-2 mb-3 rounded-4">
@@ -841,7 +1016,10 @@
                                             <span class="text-muted fw-normal">• @{{ current_user.username }}</span>
                                         </div>
                                         <div class="text-muted" style="font-size: 0.72rem;">
-                                            <i class="bi bi-globe2 me-1"></i>Công khai • Cộng đồng GEs
+                                            <button type="button" class="qc-vis-toggle" data-qc-vis="post" onclick="toggleQcVisibility('post')" title="Bấm để đổi giữa Công khai và Riêng tư (chỉ áp dụng cho bài viết này)">
+                                                <i class="bi bi-globe2"></i><span class="qc-vis-label">Công khai</span><i class="bi bi-arrow-left-right"></i>
+                                            </button>
+                                            <span class="qc-vis-hint ms-1">• Cộng đồng GEs</span>
                                         </div>
                                     </div>
                                 </div>
@@ -895,12 +1073,24 @@
                                 </div>
                             </div>
 
-                            <!-- Gắn địa điểm (Tuỳ chọn) -->
+                            <!-- Địa điểm (Tuỳ chọn): dùng để gom nhóm bài viết & tính "Địa điểm nổi bật" -->
                             <div class="mb-3">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text qc-input-group-text border-end-0"><i class="bi bi-geo-alt-fill text-danger"></i></span>
-                                    <input type="text" name="location_name" class="form-control qc-location-input border-start-0" placeholder="Gắn địa điểm (ví dụ: Đà Lạt, Hồ Tuyền Lâm)..." style="font-size: 0.85rem;">
+                                    <input type="text" name="location_name" class="form-control qc-location-input border-start-0" placeholder="Địa điểm (ví dụ: Đà Lạt, Hồ Tuyền Lâm)..." style="font-size: 0.85rem;">
                                 </div>
+                            </div>
+
+                            <!-- Địa chỉ Google Maps (tối đa 2) — nằm ngay dưới ô Địa điểm -->
+                            <div class="qc-map-block" id="qcPostMapBlock">
+                                <div class="qc-map-head">
+                                    <i class="bi bi-map-fill text-primary"></i>
+                                    <span>Địa chỉ (Google Maps)</span>
+                                    <span class="qc-map-count" id="qcPostMapCount">0/2</span>
+                                    <button type="button" class="qc-map-add" id="qcPostMapAdd" onclick="qcOpenMapDialog('post')" title="Thêm địa chỉ Google Maps" aria-label="Thêm địa chỉ Google Maps"><i class="bi bi-plus-lg"></i></button>
+                                </div>
+                                <div class="ges-map-chips" id="qcPostMapList"></div>
+                                <input type="hidden" name="map_links" id="qcPostMapJson" value="[]">
                             </div>
 
                             <!-- Submit Button -->
@@ -914,10 +1104,17 @@
                     <div id="qcTabPlanContent" style="display: none;">
                         <form action="/plans/create" method="POST" enctype="multipart/form-data" id="qcPlanForm">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="visibility" value="public">
+                            <input type="hidden" name="visibility" id="qcPlanVisibility" value="public">
                             <input type="hidden" name="trip_type" id="qcTripTypeInput" value="">
 
                             <div class="d-flex flex-column gap-3">
+                                <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.78rem;">
+                                    <span>Hiển thị:</span>
+                                    <button type="button" class="qc-vis-toggle" data-qc-vis="plan" onclick="toggleQcVisibility('plan')" title="Bấm để đổi giữa Công khai và Riêng tư (chỉ áp dụng cho lịch trình này)">
+                                        <i class="bi bi-globe2"></i><span class="qc-vis-label">Công khai</span><i class="bi bi-arrow-left-right"></i>
+                                    </button>
+                                    <span class="qc-vis-hint">• Cộng đồng GEs</span>
+                                </div>
                                 <!-- PHẦN 1: THÔNG TIN TỔNG QUAN CHUYẾN ĐI -->
                                 <div class="qc-box-card p-3 rounded-4">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -957,14 +1154,26 @@
                                     <!-- 1. Nhãn địa điểm chính -->
                                     <div class="mb-3">
                                         <div class="d-flex align-items-center justify-content-between mb-1">
-                                            <label class="form-label text-dark small fw-bold mb-0">Nhãn địa điểm chính (Destination)</label>
-                                            <span class="badge qc-hashtag-badge" onclick="setQcDestination('#ĐàLạt')">#ĐàLạt</span>
+                                            <label class="form-label text-dark small fw-bold mb-0">Địa điểm</label>
+                                            <span class="d-flex gap-1 flex-wrap justify-content-end" id="qcDestChips" title="Địa điểm được đăng nhiều nhất"></span>
                                         </div>
                                         <div class="input-group input-group-sm">
                                             <span class="input-group-text qc-input-icon-box"><i class="bi bi-geo-alt-fill text-primary"></i></span>
                                             <input type="text" name="destination" id="qcPlanDestination" class="form-control qc-input-field" placeholder="Đà Lạt, Lâm Đồng" required>
                                         </div>
                                     </div>
+
+                            <!-- Địa chỉ Google Maps (tối đa 5) — nằm ngay dưới ô Địa điểm -->
+                            <div class="qc-map-block mb-3" id="qcPlanMapBlock">
+                                <div class="qc-map-head">
+                                    <i class="bi bi-map-fill text-primary"></i>
+                                    <span>Địa chỉ (Google Maps)</span>
+                                    <span class="qc-map-count" id="qcPlanMapCount">0/5</span>
+                                    <button type="button" class="qc-map-add" id="qcPlanMapAdd" onclick="qcOpenMapDialog('plan')" title="Thêm địa chỉ Google Maps" aria-label="Thêm địa chỉ Google Maps"><i class="bi bi-plus-lg"></i></button>
+                                </div>
+                                <div class="ges-map-chips" id="qcPlanMapList"></div>
+                                <input type="hidden" name="map_links" id="qcPlanMapJson" value="[]">
+                            </div>
 
                                     <!-- 2. Khoảng thời gian (Từ ngày - Đến ngày) -->
                                     <div class="mb-3">
@@ -1261,15 +1470,58 @@
             }
         }
 
-        function setQcDestination(tag) {
+        // Gợi ý điểm đến = 3 địa điểm được đăng nhiều nhất (bài viết + lịch trình). Bấm để điền tên sạch (không '#').
+        function setQcDestination(name) {
             const input = document.getElementById('qcPlanDestination');
             if (input) {
-                const cleanTag = tag.replace('#', '');
-                if (!input.value.includes(cleanTag)) {
-                    input.value = cleanTag + ', Lâm Đồng';
-                }
+                input.value = name;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
+
+        let qcChipsLoaded = false;
+        function loadQcDestChips() {
+            if (qcChipsLoaded) return;
+            qcChipsLoaded = true;
+            fetch('/locations/popular?limit=3', { credentials: 'same-origin' })
+                .then(r => r.ok ? r.json() : { places: [] })
+                .then(data => {
+                    const box = document.getElementById('qcDestChips');
+                    if (!box) return;
+                    box.textContent = '';
+                    (data.places || []).forEach(p => {
+                        const b = document.createElement('span');
+                        b.className = 'badge qc-hashtag-badge';
+                        b.textContent = p.name;            // textContent: tên địa điểm do người dùng nhập, không chèn HTML
+                        b.style.cursor = 'pointer';
+                        b.addEventListener('click', () => setQcDestination(p.name));
+                        box.appendChild(b);
+                    });
+                })
+                .catch(() => { qcChipsLoaded = false; });
+        }
+
+        // Công khai <-> Riêng tư cho RIÊNG bài/lịch trình đang soạn (không đổi cài đặt tài khoản)
+        function toggleQcVisibility(which) {
+            const input = document.getElementById(which === 'plan' ? 'qcPlanVisibility' : 'qcPostVisibility');
+            const btn = document.querySelector(`[data-qc-vis="${which}"]`);
+            if (!input || !btn) return;
+            const toPrivate = input.value !== 'private';
+            input.value = toPrivate ? 'private' : 'public';
+            btn.classList.toggle('private', toPrivate);
+            btn.querySelector('.qc-vis-label').textContent = toPrivate ? 'Riêng tư' : 'Công khai';
+            btn.querySelector('i').className = toPrivate ? 'bi bi-lock-fill' : 'bi bi-globe2';
+            const hint = btn.parentElement.querySelector('.qc-vis-hint');
+            if (hint) hint.textContent = toPrivate ? '• Chỉ người theo dõi bạn' : '• Cộng đồng GEs';
+        }
+        function resetQcVisibility() {
+            ['post', 'plan'].forEach(w => {
+                const input = document.getElementById(w === 'plan' ? 'qcPlanVisibility' : 'qcPostVisibility');
+                if (input && input.value === 'private') toggleQcVisibility(w);
+            });
+        }
+        document.addEventListener('hidden.bs.modal', function (e) { if (e.target && e.target.id === 'quickCreateModal') resetQcVisibility(); });
+        document.addEventListener('shown.bs.modal', function (e) { if (e.target && e.target.id === 'quickCreateModal') loadQcDestChips(); });
 
         function toggleQcDateInputs() {
             const row = document.getElementById('qcDateInputsRow');
@@ -1316,23 +1568,118 @@
             }
         }
 
+        // Nút "+ Thêm" ở Dạng chuyến đi: mở hộp nhập giữa màn hình (thay cho prompt() mặc định của trình duyệt)
         function promptAddQcStylePill() {
-            const newStyle = prompt('Nhập phong cách chuyến đi của bạn (ví dụ: Cắm trại, Leo núi, Check-in...):');
-            if (newStyle && newStyle.trim()) {
-                const container = document.getElementById('qcStylePills');
+            const container = document.getElementById('qcStylePills');
+            const existing = () => Array.from(container.querySelectorAll('.qc-pill-item')).filter(p => !p.classList.contains('text-primary'));
+            geAsk({
+                title: 'Thêm phong cách chuyến đi',
+                note: 'Ví dụ: Cắm trại, Leo núi, Check-in...',
+                fields: [{ name: 'style', label: 'Tên phong cách', placeholder: 'Cắm trại', maxlength: 30 }],
+                confirmText: 'Thêm',
+                validate: function (v) {
+                    const s = v.style.replace(/\s+/g, ' ').trim();
+                    if (!s) return 'Vui lòng nhập tên phong cách.';
+                    if (/[<>]/.test(s)) return 'Tên không được chứa ký tự < hoặc >.';
+                    return null;
+                }
+            }).then(function (v) {
+                if (!v) return;
+                const style = v.style.replace(/\s+/g, ' ').trim();
+                const same = existing().find(p => p.innerText.trim().toLowerCase() === style.toLowerCase());
+                container.querySelectorAll('.qc-pill-item').forEach(p => p.classList.remove('active'));
+                if (same) { same.classList.add('active'); syncQcTripType(); return; }      // đã có -> chỉ chọn lại
                 const lastItem = container.lastElementChild;
                 const newPill = document.createElement('span');
                 newPill.className = 'qc-pill-item active';
-                newPill.innerText = newStyle.trim();
-                newPill.onclick = function() { selectQcStylePill(newPill, newStyle.trim()); };
-                
-                const pills = container.querySelectorAll('.qc-pill-item');
-                pills.forEach(p => p.classList.remove('active'));
-                
+                newPill.textContent = style;
+                newPill.onclick = function () { selectQcStylePill(newPill, style); };
                 container.insertBefore(newPill, lastItem);
                 syncQcTripType();
-            }
+            });
         }
+
+        // ===== Địa chỉ Google Maps trong form đăng bài (tối đa 2) / đăng lịch trình (tối đa 5) =====
+        // Giao diện chỉ là lớp tiện ích: server (app/locations/maplinks.py) kiểm tra lại toàn bộ.
+        const QC_MAP = {
+            post: { max: 2, items: [], ids: ['qcPostMapList', 'qcPostMapCount', 'qcPostMapAdd', 'qcPostMapJson'] },
+            plan: { max: 5, items: [], ids: ['qcPlanMapList', 'qcPlanMapCount', 'qcPlanMapAdd', 'qcPlanMapJson'] }
+        };
+
+        function qcCheckMapUrl(raw) {
+            let u = (raw || '').trim();
+            if (!u) return { err: 'Vui lòng dán link Google Maps.' };
+            if (u.length > 500) return { err: 'Link quá dài (tối đa 500 ký tự).' };
+            if (/[\s\\]/.test(u)) return { err: 'Link không được chứa khoảng trắng hoặc ký tự lạ.' };
+            if (u.indexOf('://') < 0) u = 'https://' + u;
+            let p;
+            try { p = new URL(u); } catch (e) { return { err: 'Link Google Maps không hợp lệ.' }; }
+            if (p.protocol !== 'https:' && p.protocol !== 'http:') return { err: 'Chỉ chấp nhận link bắt đầu bằng http hoặc https.' };
+            if (p.username || p.password || (p.port && p.port !== '80' && p.port !== '443')) return { err: 'Link Google Maps không hợp lệ.' };
+            const h = p.hostname.toLowerCase().replace(/\.$/, ''), path = p.pathname;
+            const ok = h === 'maps.google.com'
+                || (h === 'maps.app.goo.gl' && path.replace(/\//g, '').length > 0)
+                || (h === 'goo.gl' && path.indexOf('/maps') === 0)
+                || (/^(www\.)?google\.(com|com\.[a-z]{2}|co\.[a-z]{2}|[a-z]{2})$/.test(h) && (path === '/maps' || path.indexOf('/maps/') === 0));
+            if (!ok) return { err: 'Chỉ nhận link Google Maps (google.com/maps, maps.app.goo.gl...).' };
+            return { url: 'https://' + h + path + p.search };
+        }
+
+        function qcMapRender(kind) {
+            const m = QC_MAP[kind];
+            const list = document.getElementById(m.ids[0]), count = document.getElementById(m.ids[1]);
+            const add = document.getElementById(m.ids[2]), json = document.getElementById(m.ids[3]);
+            if (!list) return;
+            list.textContent = '';
+            if (!m.items.length) {
+                const e = document.createElement('span');
+                e.className = 'qc-map-empty';
+                e.textContent = 'Chưa có địa chỉ. Bấm dấu + để dán link Google Maps.';
+                list.appendChild(e);
+            }
+            m.items.forEach(function (it, i) {
+                const chip = document.createElement('span');
+                chip.className = 'ges-map-chip';
+                chip.title = it.url;
+                const ic = document.createElement('i'); ic.className = 'bi bi-geo-alt-fill';
+                const t = document.createElement('span'); t.textContent = it.label || 'Xem trên Google Maps';
+                const x = document.createElement('button');
+                x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Xóa địa chỉ này');
+                x.addEventListener('click', function () { m.items.splice(i, 1); qcMapRender(kind); });
+                chip.appendChild(ic); chip.appendChild(t); chip.appendChild(x);
+                list.appendChild(chip);
+            });
+            count.textContent = m.items.length + '/' + m.max;
+            add.hidden = m.items.length >= m.max;                  // đủ số lượng thì ẩn dấu +
+            json.value = JSON.stringify(m.items.map(function (it) { return { url: it.url, label: it.label }; }));
+        }
+
+        function qcOpenMapDialog(kind) {
+            const m = QC_MAP[kind];
+            if (m.items.length >= m.max) return;
+            geAsk({
+                title: 'Thêm địa chỉ Google Maps',
+                note: 'Mở Google Maps → Chia sẻ → Sao chép liên kết, rồi dán vào đây. Bạn có thể đổi tên link cho gọn (ví dụ: Mỹ Tho).',
+                fields: [
+                    { name: 'url', label: 'Link Google Maps', placeholder: 'https://maps.app.goo.gl/...', maxlength: 500 },
+                    { name: 'label', label: 'Tên hiển thị (không bắt buộc)', placeholder: 'Mỹ Tho', maxlength: 60, hint: 'Để trống thì hiển thị "Xem trên Google Maps".' }
+                ],
+                confirmText: 'Thêm địa chỉ',
+                validate: function (v) {
+                    const r = qcCheckMapUrl(v.url);
+                    if (r.err) return { message: r.err, field: 'url' };
+                    if (m.items.some(function (x) { return x.url === r.url; })) return { message: 'Địa chỉ này đã được thêm rồi.', field: 'url' };
+                    return null;
+                }
+            }).then(function (v) {
+                if (!v) return;
+                const r = qcCheckMapUrl(v.url);
+                if (r.err || m.items.length >= m.max) return;
+                m.items.push({ url: r.url, label: v.label.replace(/\s+/g, ' ').trim() });
+                qcMapRender(kind);
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function () { qcMapRender('post'); qcMapRender('plan'); });
 
         function formatQcBudgetDisplay(input) {
             // keep raw numeric value clean
@@ -1567,6 +1914,845 @@
         })();
     </script>
 
+    {% if current_user.is_authenticated %}
+    <!-- ==================== CHAT KIỂU MESSENGER ==================== -->
+    {% set chat_hidden = request.endpoint in ['auth.explore', 'auth.settings', 'auth.settings_page'] %}
+    <div class="gc-root {% if chat_hidden %}gc-hide{% endif %}" id="gcRoot">
+        <div class="gc-list" id="gcList" hidden>
+            <div class="gc-list-head">
+                <span>Tin nhắn</span>
+                <button type="button" class="gc-icon-btn" id="gcNewBtn" title="Tin nhắn mới" aria-label="Tin nhắn mới"><i class="bi bi-pencil-square"></i></button>
+            </div>
+            <div class="gc-search"><i class="bi bi-search"></i><input id="gcSearch" type="text" data-clearable placeholder="Tìm kiếm trong tin nhắn" autocomplete="off" maxlength="60"></div>
+            <div class="gc-rows" id="gcRows"></div>
+        </div>
+        <div class="gc-windows" id="gcWindows"></div>
+        <div class="gc-bubbles" id="gcBubbles"></div>
+    </div>
+    <script>
+        window.GES_CHAT = {{ {'userId': current_user.id, 'hidden': chat_hidden, 'feedUrl': url_for('locations.feed')}|tojson }};
+    </script>
+    <script>
+    (function () {
+        'use strict';
+        var CFG = window.GES_CHAT;
+        if (!CFG) return;
+
+        var API = '/chat/api';
+        var KEY = 'ges-chat-v1:' + CFG.userId;   // theo từng tài khoản, tránh lẫn giữa 2 người dùng chung trình duyệt
+        var MAX_WIN = 3, MAX_BUB = 6;
+        var EMOJIS = ['😀','😂','😍','🥰','😎','😭','😡','👍','👏','🙏','🎉','❤️','🔥','✈️','🏖️','⛰️','📷','🍜','☕','🌴','🌅','🚗','🎒','⭐'];
+
+        var rootEl = document.getElementById('gcRoot');
+        var listEl = document.getElementById('gcList');
+        var rowsEl = document.getElementById('gcRows');
+        var searchEl = document.getElementById('gcSearch');
+        var newBtn = document.getElementById('gcNewBtn');
+        var winsEl = document.getElementById('gcWindows');
+        var bubblesEl = document.getElementById('gcBubbles');
+        var tabBtn = document.getElementById('stMsgBtn');
+        var badgeEl = document.getElementById('stMsgBadge');
+
+        var convs = {};          // id -> hội thoại (user, last, unread, ...)
+        var convOrder = [];      // thứ tự hiển thị trong danh sách
+        var wins = {};           // id -> cửa sổ đang dựng
+        var state = loadState(); // {items:[{id,min}], dismissed:{id:last_id}}
+        var listOpen = false, suggestions = [], suggestErr = '', suggestTimer = null, pollTimer = null;
+
+        /* ---------- tiện ích ---------- */
+        function el(tag, cls, text) {
+            var n = document.createElement(tag);
+            if (cls) n.className = cls;
+            if (text != null) n.textContent = text;
+            return n;
+        }
+        function norm(s) {
+            return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/\s+/g, '').toLowerCase();
+        }
+        function icon(name) { return el('i', 'bi bi-' + name); }
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+        function fmtShort(iso) {
+            if (!iso) return '';
+            var diff = (Date.now() - new Date(iso).getTime()) / 1000;
+            if (diff < 60) return 'vừa xong';
+            if (diff < 3600) return Math.floor(diff / 60) + ' phút';
+            if (diff < 86400) return Math.floor(diff / 3600) + ' giờ';
+            if (diff < 7 * 86400) return Math.floor(diff / 86400) + ' ngày';
+            var d = new Date(iso); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
+        }
+        function fmtClock(iso) {
+            var d = new Date(iso), now = new Date();
+            var t = pad(d.getHours()) + ':' + pad(d.getMinutes());
+            return d.toDateString() === now.toDateString() ? t : pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + t;
+        }
+        function fmtSize(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1048576) return (b / 1024).toFixed(1).replace('.0', '') + ' KB';
+            return (b / 1048576).toFixed(1).replace('.0', '') + ' MB';
+        }
+        function api(path, opts) {
+            return fetch(API + path, opts).then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (data) {
+                    if (!res.ok) throw new Error(data.error || 'Có lỗi xảy ra, thử lại sau');
+                    return data;
+                });
+            });
+        }
+        function avatarBox(user, cls) {
+            var box = el('span', 'gc-av' + (cls ? ' ' + cls : '') + (user.online && user.presence !== 'hidden' ? ' on' : ''));
+            var img = el('img'); img.alt = ''; img.src = user.avatar;
+            img.onerror = function () { img.onerror = null; img.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.display) + '&background=169fe3&color=fff'; };
+            box.appendChild(img);
+            return box;
+        }
+
+        /* ---------- trạng thái lưu trong trình duyệt ---------- */
+        function loadState() {
+            try {
+                var s = JSON.parse(localStorage.getItem(KEY) || 'null');
+                if (s && Array.isArray(s.items)) {
+                    s.items = s.items.filter(function (i) { return i && typeof i.id === 'number'; });
+                    s.dismissed = s.dismissed || {};
+                    return s;
+                }
+            } catch (e) {}
+            return { items: [], dismissed: {} };
+        }
+        function saveState() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+        window.addEventListener('storage', function (e) {
+            if (e.key === KEY) { state = loadState(); render(); }
+        });
+
+        /* ---------- dữ liệu hội thoại ---------- */
+        function refreshConvs() {
+            return api('/conversations').then(function (data) {
+                convs = {}; convOrder = [];
+                data.conversations.forEach(function (c) { convs[c.id] = c; convOrder.push(c.id); });
+                updateBadge();
+                return data;
+            });
+        }
+        function updateBadge() {
+            var n = 0;
+            Object.keys(convs).forEach(function (id) { if (convs[id].unread > 0 && !convs[id].is_request) n++; });   // đếm theo SỐ NGƯỜI; tin nhắn chờ không tính
+            if (badgeEl) { badgeEl.textContent = n > 99 ? '99+' : String(n); badgeEl.hidden = n === 0; }
+            if (tabBtn) tabBtn.setAttribute('title', n ? 'Tin nhắn (' + n + ' người nhắn bạn)' : 'Tin nhắn');
+        }
+
+        /* ---------- mở / thu nhỏ / đóng ---------- */
+        function openConv(id) {
+            if (!convs[id]) return;
+            var idx = -1;
+            state.items.forEach(function (i, k) { if (i.id === id) idx = k; });
+            var item = idx >= 0 ? state.items.splice(idx, 1)[0] : { id: id };
+            item.min = false; state.items.push(item);
+            var open = state.items.filter(function (i) { return !i.min; });
+            while (open.length > MAX_WIN) open.shift().min = true;     // cửa sổ cũ nhất thu thành bong bóng
+            var mins = state.items.filter(function (i) { return i.min; });
+            while (mins.length > MAX_BUB) { var old = mins.shift(); state.items.splice(state.items.indexOf(old), 1); }
+            delete state.dismissed[id];
+            saveState(); setList(false); render();
+            if (wins[id]) { wins[id].ta.focus(); }
+        }
+        function minimizeConv(id) {
+            state.items.forEach(function (i) { if (i.id === id) i.min = true; });
+            saveState(); render();
+        }
+        function closeConv(id) {
+            state.items = state.items.filter(function (i) { return i.id !== id; });
+            state.dismissed[id] = convs[id] ? convs[id].last_id : 0;   // chỉ hiện lại khi có tin MỚI hơn
+            saveState(); render();
+        }
+        function openWithUser(userId) {
+            return api('/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId }) })
+                .then(function (res) { convs[res.conversation.id] = res.conversation; if (convOrder.indexOf(res.conversation.id) < 0) convOrder.unshift(res.conversation.id); openConv(res.conversation.id); })
+                .catch(function (err) { alert(err.message); });
+        }
+
+        /* ---------- vẽ cửa sổ + bong bóng ---------- */
+        function render() {
+            if (CFG.hidden) return;   // trang Tìm kiếm / Cài đặt: ẩn hẳn, KHÔNG dựng cửa sổ (tránh đánh dấu "đã đọc" nhầm)
+            var open = state.items.filter(function (i) { return !i.min && convs[i.id]; });
+            var openIds = open.map(function (i) { return i.id; });
+            Object.keys(wins).forEach(function (id) { if (openIds.indexOf(+id) < 0) destroyWin(+id); });
+            open.forEach(function (i) { if (!wins[i.id]) createWin(i.id); });
+            var want = open.map(function (i) { return wins[i.id].el; });
+            var same = want.length === winsEl.children.length && want.every(function (n, k) { return winsEl.children[k] === n; });
+            if (!same) want.forEach(function (n) { winsEl.appendChild(n); });   // chỉ sắp lại khi thứ tự đổi (để khỏi mất vị trí cuộn)
+            renderBubbles();
+        }
+        function renderBubbles() {
+            bubblesEl.textContent = '';
+            state.items.filter(function (i) { return i.min && convs[i.id] && !convs[i.id].is_request; }).forEach(function (i) {
+                var c = convs[i.id];
+                var btn = el('button', 'gc-bubble-btn'); btn.type = 'button'; btn.title = c.user.display;
+                btn.appendChild(avatarBox(c.user));
+                if (c.unread > 0) btn.appendChild(el('span', 'gc-reddot'));      // chỉ chấm đỏ, không số
+                var x = el('span', 'gc-bubble-x'); x.appendChild(icon('x-lg')); x.title = 'Đóng';
+                x.addEventListener('click', function (e) { e.stopPropagation(); closeConv(i.id); });
+                btn.appendChild(x);
+                btn.addEventListener('click', function () { openConv(i.id); });
+                bubblesEl.appendChild(btn);
+            });
+            var pen = el('button', 'gc-pen'); pen.type = 'button'; pen.title = 'Tin nhắn mới'; pen.appendChild(icon('pencil-square'));
+            pen.addEventListener('click', function (e) { e.stopPropagation(); setList(true, true); });
+            bubblesEl.appendChild(pen);
+        }
+
+        function createWin(id) {
+            var c = convs[id];
+            var w = { id: id, heartSig: null, msgs: [], lastId: 0, seenId: 0, hasMore: false, loadingOlder: false, file: null, sending: false, statusEl: null };
+            w.el = el('div', 'gc-win');
+
+            var head = el('div', 'gc-win-head');
+            var avLink = el('a', 'gc-win-av'); avLink.href = c.user.profile_url; avLink.title = 'Xem trang cá nhân';
+            avLink.appendChild(avatarBox(c.user, 'sm')); w.avWrap = avLink;
+            var who = el('div', 'gc-win-who');
+            w.nameEl = el('a', 'gc-win-name', c.user.display); w.nameEl.href = c.user.profile_url;
+            w.statusTxt = el('span', 'gc-win-status');
+            who.appendChild(w.nameEl); who.appendChild(w.statusTxt);
+            var minBtn = el('button', 'gc-icon-btn'); minBtn.type = 'button'; minBtn.title = 'Thu nhỏ'; minBtn.appendChild(icon('dash-lg'));
+            var closeBtn = el('button', 'gc-icon-btn'); closeBtn.type = 'button'; closeBtn.title = 'Đóng'; closeBtn.appendChild(icon('x-lg'));
+            minBtn.addEventListener('click', function () { minimizeConv(id); });
+            closeBtn.addEventListener('click', function () { closeConv(id); });
+            head.appendChild(avLink); head.appendChild(who); head.appendChild(minBtn); head.appendChild(closeBtn);
+
+            w.body = el('div', 'gc-body');
+            w.note = el('div', 'gc-note'); w.note.hidden = true;
+            w.info = el('div', 'gc-info'); w.info.hidden = true;
+            w.reqBar = el('div', 'gc-req'); w.reqBar.hidden = true;
+            w.reqTxt = el('div', 'gc-req-txt');
+            var reqBtns = el('div', 'gc-req-btns');
+            var okBtn = el('button', 'gc-req-ok', 'Chấp nhận'); okBtn.type = 'button';
+            var noBtn = el('button', 'gc-req-no', 'Từ chối'); noBtn.type = 'button';
+            okBtn.addEventListener('click', function () { acceptReq(w); });
+            noBtn.addEventListener('click', function () { declineReq(w); });
+            reqBtns.appendChild(okBtn); reqBtns.appendChild(noBtn);
+            w.reqBar.appendChild(w.reqTxt); w.reqBar.appendChild(reqBtns);
+
+            w.prev = el('div', 'gc-attach-prev');
+            w.prevName = el('span', 'nm'); var prevX = el('button', 'gc-icon-btn'); prevX.type = 'button'; prevX.appendChild(icon('x-lg'));
+            w.prev.appendChild(icon('paperclip')); w.prev.appendChild(w.prevName); w.prev.appendChild(prevX);
+            prevX.addEventListener('click', function () { setFile(w, null); });
+
+            var inputRow = el('div', 'gc-input');
+            var attachBtn = w.attachBtn = el('button', 'gc-icon-btn'); attachBtn.type = 'button'; attachBtn.title = 'Đính kèm ảnh, video hoặc tệp'; attachBtn.appendChild(icon('paperclip'));
+            w.fileInput = el('input'); w.fileInput.type = 'file'; w.fileInput.hidden = true;
+            attachBtn.addEventListener('click', function () { w.fileInput.click(); });
+            w.fileInput.addEventListener('change', function () { setFile(w, w.fileInput.files[0] || null); });
+            w.ta = el('textarea'); w.ta.rows = 1; w.ta.placeholder = 'Aa'; w.ta.maxLength = 4000;
+            w.ta.addEventListener('input', function () { w.ta.style.height = 'auto'; w.ta.style.height = Math.min(w.ta.scrollHeight, 96) + 'px'; });
+            w.ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(w); } });
+            var emojiBtn = el('button', 'gc-icon-btn'); emojiBtn.type = 'button'; emojiBtn.title = 'Biểu tượng cảm xúc'; emojiBtn.appendChild(icon('emoji-smile'));
+            w.emojiPop = el('div', 'gc-emoji-pop');
+            EMOJIS.forEach(function (em) {
+                var b = el('button', null, em); b.type = 'button';
+                b.addEventListener('click', function () {
+                    var s = w.ta.selectionStart || w.ta.value.length, e2 = w.ta.selectionEnd || s;
+                    w.ta.value = w.ta.value.slice(0, s) + em + w.ta.value.slice(e2);
+                    w.ta.focus(); w.ta.selectionStart = w.ta.selectionEnd = s + em.length;
+                    w.emojiPop.classList.remove('show');
+                });
+                w.emojiPop.appendChild(b);
+            });
+            emojiBtn.addEventListener('click', function (e) { e.stopPropagation(); w.emojiPop.classList.toggle('show'); });
+            w.sendBtn = el('button', 'gc-icon-btn'); w.sendBtn.type = 'button'; w.sendBtn.title = 'Gửi'; w.sendBtn.appendChild(icon('send-fill'));
+            w.sendBtn.addEventListener('click', function () { send(w); });
+            inputRow.appendChild(attachBtn); inputRow.appendChild(w.fileInput); inputRow.appendChild(w.ta);
+            inputRow.appendChild(emojiBtn); inputRow.appendChild(w.sendBtn); inputRow.appendChild(w.emojiPop);
+
+            w.el.appendChild(head); w.el.appendChild(w.body); w.el.appendChild(w.reqBar); w.el.appendChild(w.info); w.el.appendChild(w.note); w.el.appendChild(w.prev); w.el.appendChild(inputRow);
+            w.body.addEventListener('scroll', function () { if (w.body.scrollTop < 30 && w.hasMore && !w.loadingOlder) loadOlder(w); });
+            w.el.addEventListener('click', function (e) { if (!e.target.closest('.gc-emoji-pop') && !e.target.closest('.gc-input .gc-icon-btn')) w.emojiPop.classList.remove('show'); });
+            wins[id] = w;
+            applyUser(w);
+            loadInitial(w);
+            return w;
+        }
+        function destroyWin(id) {
+            var w = wins[id]; if (!w) return;
+            if (w.el.parentNode) w.el.parentNode.removeChild(w.el);
+            delete wins[id];
+        }
+        function applyUser(w) {
+            var c = convs[w.id]; if (!c) return;
+            w.statusTxt.textContent = c.user.presence === 'hidden' ? '' : (c.user.online ? 'Online' : 'Offline');
+            var box = w.avWrap.querySelector('.gc-av');
+            if (box) box.classList.toggle('on', !!c.user.online);
+            var canSend = c.can_send !== false;
+            var canAttach = c.can_attach !== false && canSend;
+            w.ta.disabled = !canSend; w.sendBtn.disabled = !canSend;
+            w.attachBtn.disabled = !canAttach;
+            w.attachBtn.title = canAttach ? 'Đính kèm ảnh, video hoặc tệp' : 'Chưa thể gửi tệp';
+            if (!canAttach && w.file) setFile(w, null);
+            w.ta.placeholder = canSend ? 'Aa' : (c.is_request ? 'Chấp nhận để trả lời' : 'Chưa thể nhắn thêm');
+            var isReq = !!c.is_request;
+            w.reqBar.hidden = !isReq;
+            if (isReq) w.reqTxt.textContent = c.user.display + ' (người lạ) muốn nhắn tin cho bạn. Chấp nhận để trò chuyện bình thường.';
+            w.info.textContent = (!isReq && c.note) ? c.note : '';
+            w.info.hidden = !w.info.textContent;
+        }
+        function mergeConv(id, data) {
+            var c = convs[id]; if (!c || !data) return;
+            ['can_send', 'can_attach', 'note', 'is_request', 'awaiting', 'status'].forEach(function (k) { if (data[k] !== undefined) c[k] = data[k]; });
+        }
+        function acceptReq(w) {
+            api('/conversations/' + w.id + '/accept', { method: 'POST' }).then(function (res) {
+                mergeConv(w.id, res.conversation); applyUser(w); updateBadge(); renderBubbles(); if (listOpen) renderList();
+            }).catch(function (err) { showNote(w, err.message); });
+        }
+        function declineReq(w) {
+            var id = w.id;
+            api('/conversations/' + id + '/decline', { method: 'POST' }).then(function () {
+                state.items = state.items.filter(function (i) { return i.id !== id; });
+                delete convs[id]; convOrder = convOrder.filter(function (x) { return x !== id; });
+                saveState(); render(); updateBadge(); if (listOpen) renderList();
+            }).catch(function (err) { showNote(w, err.message); });
+        }
+        function showNote(w, text) {
+            w.note.textContent = text || ''; w.note.hidden = !text;
+            if (text) setTimeout(function () { if (w.note.textContent === text) w.note.hidden = true; }, 5000);
+        }
+        function setFile(w, file) {
+            w.file = file; w.fileInput.value = '';
+            w.prev.classList.toggle('show', !!file);
+            if (file) w.prevName.textContent = file.name + ' (' + fmtSize(file.size) + ')';
+        }
+
+        /* ---------- tin nhắn trong cửa sổ ---------- */
+        function nearBottom(w) { return w.body.scrollHeight - w.body.scrollTop - w.body.clientHeight < 90; }
+        function toBottom(w) { w.body.scrollTop = w.body.scrollHeight; }
+
+        function buildMsg(m, w) {
+            var wrap = el('div', 'gc-msg ' + (m.mine ? 'mine' : 'other'));
+            wrap.dataset.id = m.id;
+            var line = el('div', 'gc-line');
+            var content = el('div', 'gc-content');
+            if (m.file) {
+                if (m.file.kind === 'image') {
+                    var a = el('a'); a.href = m.file.url; a.target = '_blank'; a.rel = 'noopener';
+                    var img = el('img', 'gc-media'); img.src = m.file.url; img.alt = m.file.name; img.loading = 'lazy'; a.appendChild(img); content.appendChild(a);
+                } else if (m.file.kind === 'video') {
+                    var v = el('video', 'gc-media'); v.src = m.file.url; v.controls = true; v.preload = 'metadata'; content.appendChild(v);
+                } else {
+                    var f = el('a', 'gc-file'); f.href = m.file.url; f.setAttribute('download', m.file.name);
+                    f.appendChild(icon('file-earmark-arrow-down'));
+                    var tx = el('div'); tx.appendChild(el('div', 'gc-file-name', m.file.name)); tx.appendChild(el('small', null, fmtSize(m.file.size) + ' · Bấm để tải về'));
+                    f.appendChild(tx); content.appendChild(f);
+                }
+            }
+            if (m.body) content.appendChild(el('div', 'gc-bubble', m.body));   // textContent => không bị chèn HTML/script
+            var hb = el('button', 'gc-heart-btn'); hb.type = 'button'; hb.title = 'Thả tim';
+            hb.addEventListener('click', function () { toggleHeart(w, m, wrap); });
+            var badge = el('span', 'gc-heart-badge'); badge.hidden = true;
+            content.appendChild(badge);
+            if (m.mine) { line.appendChild(hb); line.appendChild(content); } else { line.appendChild(content); line.appendChild(hb); }
+            wrap.appendChild(line);
+            wrap._hb = hb; wrap._badge = badge;
+            paintHeart(wrap, m);
+            return wrap;
+        }
+        function paintHeart(wrap, m) {
+            var h = m.hearts || { count: 0, mine: false };
+            wrap._hb.textContent = '';
+            wrap._hb.appendChild(icon(h.mine ? 'heart-fill' : 'heart'));
+            wrap._hb.classList.toggle('on', !!h.mine);
+            wrap._badge.hidden = h.count < 1;
+            wrap._badge.textContent = h.count > 1 ? '❤️ ' + h.count : '❤️';
+            wrap.classList.toggle('has-heart', h.count > 0);
+        }
+        function nodeOf(w, id) { return w.body.querySelector('.gc-msg[data-id="' + id + '"]'); }
+        function toggleHeart(w, m, wrap) {
+            var before = m.hearts || { count: 0, mine: false };
+            m.hearts = { count: Math.max(0, before.count + (before.mine ? -1 : 1)), mine: !before.mine };
+            paintHeart(wrap, m);   // hiện ngay, không chờ máy chủ
+            api('/messages/' + m.id + '/heart', { method: 'POST' }).then(function (res) {
+                m.hearts = res.hearts; paintHeart(wrap, m);
+            }).catch(function (err) { m.hearts = before; paintHeart(wrap, m); if (w) showNote(w, err.message); });
+        }
+        function fetchHearts(w) {
+            api('/conversations/' + w.id + '/hearts').then(function (data) {
+                var map = data.hearts || {};
+                w.msgs.forEach(function (m) {
+                    m.hearts = map[m.id] || { count: 0, mine: false };
+                    var n = nodeOf(w, m.id); if (n) paintHeart(n, m);
+                });
+            }).catch(function () {});
+        }
+        function timeGap(prev, m) { return !prev || (new Date(m.at) - new Date(prev.at)) > 15 * 60 * 1000; }
+
+        function renderAll(w) {
+            w.body.textContent = '';
+            if (w.hasMore) w.body.appendChild(el('div', 'gc-older', 'Cuộn lên để xem tin cũ hơn'));
+            w.msgs.forEach(function (m, k) {
+                if (timeGap(w.msgs[k - 1], m)) w.body.appendChild(el('div', 'gc-time', fmtClock(m.at)));
+                w.body.appendChild(buildMsg(m, w));
+            });
+            w.statusEl = null; updateStatus(w);
+        }
+        function appendMsgs(w, list) {
+            var stick = nearBottom(w) || list.some(function (m) { return m.mine; });
+            if (w.statusEl && w.statusEl.parentNode) w.statusEl.parentNode.removeChild(w.statusEl);
+            list.forEach(function (m) {
+                if (m.id <= w.lastId) return;
+                var prev = w.msgs[w.msgs.length - 1];
+                if (timeGap(prev, m)) w.body.appendChild(el('div', 'gc-time', fmtClock(m.at)));
+                w.msgs.push(m); w.lastId = m.id;
+                w.body.appendChild(buildMsg(m, w));
+            });
+            w.statusEl = null; updateStatus(w);
+            if (stick) toBottom(w);
+        }
+        function updateStatus(w) {
+            if (w.statusEl && w.statusEl.parentNode) w.statusEl.parentNode.removeChild(w.statusEl);
+            w.statusEl = null;
+            var last = w.msgs[w.msgs.length - 1];
+            if (last && last.mine) {
+                w.msgs.forEach(function (m) { if (m.mine && m.id <= w.seenId) m.read = true; });
+                w.statusEl = el('div', 'gc-status', last.read ? 'Đã xem' : 'Đã gửi');
+                w.body.appendChild(w.statusEl);
+            }
+        }
+        function loadInitial(w) {
+            api('/conversations/' + w.id + '/messages').then(function (data) {
+                w.msgs = data.messages; w.hasMore = data.has_more;
+                w.lastId = w.msgs.length ? w.msgs[w.msgs.length - 1].id : 0;
+                var c = convs[w.id]; if (c) { c.user.online = data.online; mergeConv(w.id, data); applyUser(w); }
+                renderAll(w); toBottom(w);
+                markReadIfNeeded(w.id);
+            }).catch(function () { showNote(w, 'Không tải được tin nhắn'); });
+        }
+        function loadOlder(w) {
+            if (!w.msgs.length) return;
+            w.loadingOlder = true;
+            var before = w.msgs[0].id, oldH = w.body.scrollHeight;
+            api('/conversations/' + w.id + '/messages?before_id=' + before).then(function (data) {
+                w.msgs = data.messages.concat(w.msgs); w.hasMore = data.has_more;
+                renderAll(w); w.body.scrollTop = w.body.scrollHeight - oldH;
+            }).catch(function () {}).then(function () { w.loadingOlder = false; });
+        }
+        function fetchNew(w) {
+            return api('/conversations/' + w.id + '/messages?after_id=' + w.lastId).then(function (data) {
+                if (data.messages.length) { appendMsgs(w, data.messages); markReadIfNeeded(w.id); }
+            }).catch(function () {});
+        }
+        function markReadIfNeeded(id) {
+            var c = convs[id];
+            if (!c || CFG.hidden || document.hidden || !wins[id]) return;
+            if (c.unread > 0) {
+                api('/conversations/' + id + '/read', { method: 'POST' }).then(function () { c.unread = 0; updateBadge(); renderBubbles(); if (listOpen) renderList(); }).catch(function () {});
+            }
+        }
+        function send(w) {
+            if (w.sending) return;
+            var text = w.ta.value.trim(), file = w.file;
+            if (!text && !file) return;
+            w.sending = true; w.sendBtn.disabled = true;
+            var fd = new FormData(); fd.append('body', text); if (file) fd.append('file', file);
+            api('/conversations/' + w.id + '/messages', { method: 'POST', body: fd }).then(function (res) {
+                w.ta.value = ''; w.ta.style.height = 'auto'; setFile(w, null);
+                appendMsgs(w, [res.message]);
+                mergeConv(w.id, res.permissions);
+                var c = convs[w.id]; if (c) { c.last_id = res.message.id; c.last = { text: res.message.body || '[Tệp]', mine: true, at: res.message.at }; }
+                if (listOpen) renderList();
+            }).catch(function (err) { showNote(w, err.message); })
+              .then(function () { w.sending = false; applyUser(w); w.ta.focus(); });
+        }
+
+        /* ---------- danh sách hội thoại ---------- */
+        function setList(open, focusSearch) {
+            listOpen = open; listEl.hidden = !open;
+            if (tabBtn) tabBtn.classList.toggle('active', open);
+            if (open) {
+                refreshConvs().then(function () { renderList(); }).catch(function () {});
+                if (focusSearch) { searchEl.focus(); fetchSuggest(searchEl.value); }
+                schedulePoll(1500);
+            }
+        }
+        function convRow(id, isReq) {
+            var c = convs[id];
+            var row = el('div', 'gc-row' + (c.unread > 0 ? ' unread' : ''));
+            row.appendChild(avatarBox(c.user));
+            var main = el('div', 'gc-row-main');
+            main.appendChild(el('div', 'gc-row-name', c.user.display));
+            main.appendChild(el('div', 'gc-row-msg', c.last ? ((c.last.mine ? 'Bạn: ' : '') + c.last.text) : 'Chưa có tin nhắn'));
+            row.appendChild(main);
+            var meta = el('div', 'gc-row-meta');
+            if (c.last) meta.appendChild(el('span', null, fmtShort(c.last.at)));
+            if (!c.user.online && c.user.presence !== 'hidden') meta.appendChild(el('span', null, 'Offline'));
+            if (c.unread > 0) meta.appendChild(el('span', 'gc-dot-unread'));
+            row.appendChild(meta);
+            row.addEventListener('click', function () { openConv(id); });
+            return row;
+        }
+        function renderList() {
+            if (!listOpen) return;
+            var qn = norm(searchEl.value);
+            rowsEl.textContent = '';
+            var shown = convOrder.filter(function (id) {
+                var u = convs[id].user; return !qn || norm(u.display + u.username).indexOf(qn) >= 0;
+            });
+            var reqs = shown.filter(function (id) { return convs[id].is_request; });
+            var normal = shown.filter(function (id) { return !convs[id].is_request; });
+            if (reqs.length) {
+                rowsEl.appendChild(el('div', 'gc-section', 'Tin nhắn chờ (' + reqs.length + ')'));
+                reqs.forEach(function (id) { rowsEl.appendChild(convRow(id, true)); });
+                if (normal.length) rowsEl.appendChild(el('div', 'gc-section', 'Đoạn chat'));
+            }
+            normal.forEach(function (id) { rowsEl.appendChild(convRow(id, false)); });
+            var have = {}; convOrder.forEach(function (id) { have[convs[id].user.id] = true; });
+            var extra = suggestions.filter(function (u) { return !have[u.id]; });
+            var searching = qn.length >= 2;
+            if (extra.length) {
+                rowsEl.appendChild(el('div', 'gc-section', searching ? 'Kết quả tìm kiếm' : 'Bắt đầu cuộc trò chuyện mới'));
+                extra.forEach(function (u) {
+                    var ok = u.can_message !== false;
+                    var row = el('div', 'gc-row' + (ok ? '' : ' dim'));
+                    row.appendChild(avatarBox(u));
+                    var main = el('div', 'gc-row-main'); main.appendChild(el('div', 'gc-row-name', u.display));
+                    var sub = '@' + u.username;
+                    if (u.relation === 'friend') sub += ' · Bạn bè';
+                    else sub += ' · ' + (u.followers || 0) + ' người theo dõi · Chưa kết nối';
+                    if (!ok && u.note) sub = u.note;
+                    main.appendChild(el('div', 'gc-row-msg', sub));
+                    row.appendChild(main);
+                    if (ok) row.addEventListener('click', function () { openWithUser(u.id); });
+                    rowsEl.appendChild(row);
+                });
+            }
+            if (suggestErr) rowsEl.appendChild(el('div', 'gc-empty', suggestErr));
+            else if (qn.length === 1) rowsEl.appendChild(el('div', 'gc-empty', 'Gõ ít nhất 2 ký tự để tìm cả người chưa kết nối'));
+            if (!shown.length && !extra.length && !suggestErr && qn.length !== 1) {
+                rowsEl.appendChild(el('div', 'gc-empty', qn ? 'Không tìm thấy ai' : 'Chưa có cuộc trò chuyện nào. Gõ tên (từ 2 ký tự) để tìm người và nhắn tin.'));
+            }
+        }
+        function fetchSuggest(q) {
+            clearTimeout(suggestTimer);
+            suggestTimer = setTimeout(function () {
+                api('/search?q=' + encodeURIComponent((q || '').trim())).then(function (d) { suggestions = d.users || []; suggestErr = ''; renderList(); }).catch(function (err) { suggestions = []; suggestErr = err.message; renderList(); });
+            }, 220);
+        }
+        searchEl.addEventListener('input', function () { renderList(); fetchSuggest(searchEl.value); });
+        newBtn.addEventListener('click', function () { searchEl.focus(); fetchSuggest(searchEl.value); });
+
+        if (tabBtn) tabBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (CFG.hidden) { window.location.href = CFG.feedUrl + '#chat'; return; }   // trang Tìm kiếm/Cài đặt: về Bảng tin rồi mở danh sách
+            setList(!listOpen);
+        });
+        document.addEventListener('click', function (e) {
+            if (listOpen && !listEl.contains(e.target) && !(tabBtn && tabBtn.contains(e.target))) setList(false);
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && listOpen) setList(false); });
+
+        /* ---------- polling: số đỏ, tin mới, online ---------- */
+        function schedulePoll(ms) {
+            clearTimeout(pollTimer);
+            if (ms == null) {
+                var active = Object.keys(wins).length > 0 || listOpen;
+                ms = document.hidden ? 30000 : (active ? 4000 : 12000);
+            }
+            pollTimer = setTimeout(poll, ms);
+        }
+        function poll() {
+            api('/poll').then(function (data) {
+                var unknown = data.conversations.some(function (p) { return !convs[p.id]; });
+                return (unknown ? refreshConvs() : Promise.resolve()).then(function () { applyPoll(data); });
+            }).catch(function () {}).then(function () { schedulePoll(); });
+        }
+        function applyPoll(data) {
+            data.conversations.forEach(function (p) {
+                var c = convs[p.id]; if (!c) return;
+                c.unread = p.unread; c.user.online = p.online; c.user.presence = p.presence; c.seen_id = p.seen_id;
+                mergeConv(p.id, { is_request: p.request, can_send: p.can_send, can_attach: p.can_attach, note: p.note, awaiting: p.awaiting, status: p.status });
+                var hadNew = p.last_id > (c.last_id || 0);
+                c.last_id = p.last_id;
+                var w = wins[p.id];
+                if (w) {
+                    w.seenId = p.seen_id; applyUser(w);
+                    if (w.heartSig === null) w.heartSig = p.hearts;
+                    else if (p.hearts !== w.heartSig) { w.heartSig = p.hearts; fetchHearts(w); }
+                    if (p.last_id > w.lastId) fetchNew(w); else updateStatus(w);
+                    if (p.unread > 0) markReadIfNeeded(p.id);
+                } else if (p.unread > 0 && !CFG.hidden && !p.request) {
+                    var inState = state.items.some(function (i) { return i.id === p.id; });
+                    if (!inState && p.last_id > (state.dismissed[p.id] || 0)) {   // tin mới từ người chưa mở => hiện bong bóng + chấm đỏ
+                        state.items.push({ id: p.id, min: true });
+                        var mins = state.items.filter(function (i) { return i.min; });
+                        while (mins.length > MAX_BUB) { var old = mins.shift(); state.items.splice(state.items.indexOf(old), 1); }
+                        saveState();
+                    }
+                }
+            });
+            updateBadge(); renderBubbles();
+            if (listOpen) { refreshConvs().then(renderList).catch(function () {}); }
+        }
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) { schedulePoll(300); Object.keys(wins).forEach(function (id) { markReadIfNeeded(+id); }); } });
+
+        /* ---------- khởi động ---------- */
+        window.GesChat = { openWithUser: openWithUser, open: openConv };
+        refreshConvs().then(function () {
+            state.items = state.items.filter(function (i) { return !!convs[i.id]; });   // bỏ cửa sổ thuộc hội thoại không còn / không phải của mình
+            saveState(); render();
+            if (window.location.hash === '#chat' && !CFG.hidden) {
+                setList(true);
+                try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) {}
+            }
+        }).catch(function () {}).then(function () { schedulePoll(1500); });
+    })();
+    </script>
+    {% endif %}
+    {% if current_user.is_authenticated %}
+    <!-- ==================== CHẤM ONLINE / OFFLINE TRÊN MỌI AVATAR ==================== -->
+    <style>
+        .ges-av { position: relative; display: inline-flex; flex: none; vertical-align: middle; }
+        .ges-dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid #fff; background: #22c55e; box-sizing: border-box; pointer-events: none; }
+        .ges-dot.off { background: #94a3b8; }
+        .ges-dot.hidden { display: none; }
+        .ges-plabel { font-size: 0.72rem; font-weight: 600; }
+        .ges-plabel.on { color: #16a34a; }
+        .ges-plabel.off { color: #94a3b8; }
+        .ges-plabel.hidden { display: none; }
+        [data-bs-theme="dark"] .ges-dot { border-color: #1b2330; }
+        .qc-vis-toggle { border: 0; background: rgba(22, 159, 227, 0.1); color: inherit; border-radius: 999px; padding: 1px 9px; font-size: 0.72rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background .15s; }
+        .qc-vis-toggle:hover { background: rgba(22, 159, 227, 0.22); }
+        .qc-vis-toggle.private { background: rgba(245, 158, 11, 0.18); }
+    </style>
+    <script>
+    (function () {
+        'use strict';
+        var LABEL = { on: 'Online', off: 'Offline', hidden: '' };
+        function apply(map) {
+            Object.keys(map).forEach(function (id) {
+                var st = map[id];
+                document.querySelectorAll('[data-presence="' + id + '"]').forEach(function (el) { el.className = 'ges-dot ' + st; });
+                document.querySelectorAll('[data-presence-label="' + id + '"]').forEach(function (el) { el.className = 'ges-plabel ' + st; el.textContent = LABEL[st] || ''; });
+            });
+        }
+        function refresh() {
+            var seen = {}, ids = [];
+            document.querySelectorAll('[data-presence]').forEach(function (el) { var id = el.getAttribute('data-presence'); if (!seen[id]) { seen[id] = 1; ids.push(id); } });
+            if (!ids.length) return Promise.resolve();
+            var chunks = [];
+            for (var i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));
+            return Promise.all(chunks.map(function (c) {
+                return fetch('/chat/api/presence?ids=' + c.join(','), { credentials: 'same-origin' })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (d) { if (d && d.presence) apply(d.presence); })
+                    .catch(function () {});
+            }));
+        }
+        window.GesPresence = { refresh: refresh };
+        setInterval(function () { if (!document.hidden) refresh(); }, 30000);   // cập nhật mỗi 30s
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+    })();
+    </script>
+    {% endif %}
+    <!-- ==================== NÚT "X" XÓA NHANH CHO Ô TÌM KIẾM ==================== -->
+    <style>
+        .ges-clearable-wrap { position: relative; }
+        .ges-clearable-wrap > input[data-clearable] { padding-right: 32px !important; }
+        .ges-clear {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            background: rgba(100, 116, 139, 0.35); color: #fff; font-size: 0.8rem; line-height: 1; cursor: pointer; z-index: 10; margin: 0 !important;
+        }
+        .ges-clear:hover { background: rgba(100, 116, 139, 0.65); }
+        .ges-clear.show { display: flex; }
+    </style>
+    <script>
+    (function () {
+        'use strict';
+        function attach(input) {
+            if (!input || input._gesClear) return;
+            var host = input.parentElement;
+            if (!host) return;
+            input._gesClear = true;
+            host.classList.add('ges-clearable-wrap');
+            var btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'ges-clear'; btn.title = 'Xóa văn bản'; btn.setAttribute('aria-label', 'Xóa văn bản');
+            btn.innerHTML = '<i class="bi bi-x"></i>';
+            function sync() { btn.classList.toggle('show', input.value.length > 0 && !input.disabled); }
+            btn.addEventListener('mousedown', function (e) { e.preventDefault(); });   // giữ focus trong ô
+            btn.addEventListener('click', function () {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                sync(); input.focus();
+            });
+            input.addEventListener('input', sync);
+            input.addEventListener('change', sync);
+            host.insertBefore(btn, input);   // đặt TRƯỚC ô nhập để ô vẫn là phần tử cuối (giữ bo góc của input-group)
+            sync();
+        }
+        function scan(root) { (root || document).querySelectorAll('input[data-clearable]').forEach(attach); }
+        document.addEventListener('focusin', function (e) { if (e.target && e.target.matches && e.target.matches('input[data-clearable]')) attach(e.target); });
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { scan(); }); else scan();
+        window.GesClearable = { attach: attach, scan: scan };
+    })();
+    </script>
+
+    <!-- ============ HỘP NHẬP NHANH (thay cho prompt() của trình duyệt) — dùng chung cho mọi nút ＋ ============ -->
+    <style>
+        .ge-ask-overlay {
+            position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
+            padding: 16px; background: rgba(15, 23, 42, 0.45); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+            animation: geAskFade .15s ease-out;
+        }
+        .ge-ask {
+            width: min(420px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; color: #0f172a;
+            border-radius: 18px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35); padding: 18px 18px 16px;
+            animation: geAskPop .18s cubic-bezier(.2, .9, .3, 1.2);
+        }
+        .ge-ask-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+        .ge-ask-title { font-size: 1.02rem; font-weight: 800; margin: 0; line-height: 1.3; }
+        .ge-ask-close { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: #f1f5f9; color: #64748b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+        .ge-ask-close:hover { background: #e2e8f0; }
+        .ge-ask-note { font-size: .8rem; color: #64748b; margin: 0 0 12px; line-height: 1.45; }
+        .ge-ask-field { margin-bottom: 12px; }
+        .ge-ask-label { display: flex; justify-content: space-between; align-items: baseline; font-size: .8rem; font-weight: 700; margin-bottom: 4px; }
+        .ge-ask-count { font-weight: 600; font-size: .72rem; color: #94a3b8; }
+        .ge-ask-input { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: .55rem .8rem; font-size: .9rem; background: #f8fafc; color: inherit; outline: none; }
+        .ge-ask-input:focus { border-color: #1a8fcf; box-shadow: 0 0 0 3px rgba(26, 143, 207, .18); background: #fff; }
+        .ge-ask-hint { font-size: .72rem; color: #94a3b8; margin-top: 3px; }
+        .ge-ask-preview { font-size: .8rem; font-weight: 700; color: #0b6a99; min-height: 1.2em; margin: -4px 0 10px; }
+        .ge-ask-err { display: none; font-size: .8rem; color: #b42318; background: #fef3f2; border: 1px solid #fecdca; border-radius: 10px; padding: .45rem .7rem; margin-bottom: 12px; }
+        .ge-ask-err.show { display: block; }
+        .ge-ask-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+        .ge-ask-btn { border: 0; border-radius: 999px; padding: .5rem 1.15rem; font-size: .85rem; font-weight: 700; cursor: pointer; }
+        .ge-ask-btn.cancel { background: #f1f5f9; color: #475569; }
+        .ge-ask-btn.cancel:hover { background: #e2e8f0; }
+        .ge-ask-btn.ok { background: #1a8fcf; color: #fff; }
+        .ge-ask-btn.ok:hover { background: #1580b9; }
+        [data-bs-theme="dark"] .ge-ask { background: #1e293b; color: #e2e8f0; }
+        [data-bs-theme="dark"] .ge-ask-close, [data-bs-theme="dark"] .ge-ask-btn.cancel { background: #334155; color: #cbd5e1; }
+        [data-bs-theme="dark"] .ge-ask-input { background: #0f172a; border-color: #475569; }
+        [data-bs-theme="dark"] .ge-ask-input:focus { background: #0b1220; }
+        [data-bs-theme="dark"] .ge-ask-preview { color: #7cc8ee; }
+        [data-bs-theme="dark"] .ge-ask-err { background: #3b1219; border-color: #7a271a; color: #fda29b; }
+        @keyframes geAskFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes geAskPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) { .ge-ask-overlay, .ge-ask { animation: none; } }
+
+        /* Địa chỉ Google Maps: chip hiển thị + khối nhập trong form */
+        .ges-map-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+        .ges-map-chip { display: inline-flex; align-items: center; gap: .3rem; max-width: 100%; padding: .18rem .6rem; border-radius: 999px; background: #e8f4fb; color: #0b6a99; border: 1px solid #cfe7f5; font-size: .78rem; font-weight: 600; text-decoration: none; line-height: 1.4; }
+        a.ges-map-chip:hover { background: #d6ecf8; color: #085a85; }
+        .ges-map-chip > i { color: #e5484d; font-size: .8rem; }
+        .ges-map-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+        .ges-map-chip .x { border: 0; background: transparent; color: #64748b; padding: 0 0 0 .15rem; font-size: 1rem; line-height: 1; cursor: pointer; }
+        .ges-map-chip .x:hover { color: #b42318; }
+        [data-bs-theme="dark"] .ges-map-chip { background: #12324a; border-color: #1f4a6b; color: #8fd0f2; }
+        [data-bs-theme="dark"] a.ges-map-chip:hover { background: #17415f; color: #b6e3f9; }
+        .qc-map-block { margin-bottom: 1rem; }
+        .qc-map-head { display: flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 700; margin-bottom: .4rem; }
+        .qc-map-count { margin-left: auto; font-size: .72rem; color: #64748b; font-weight: 600; }
+        .qc-map-add { width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed #1a8fcf; background: transparent; color: #1a8fcf; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+        .qc-map-add:hover { background: rgba(26, 143, 207, .12); }
+        .qc-map-add[hidden] { display: none; }
+        .qc-map-empty { font-size: .74rem; color: #94a3b8; }
+    </style>
+    <script>
+    (function () {
+        var seq = 0;
+        function mk(tag, cls, text) {
+            var n = document.createElement(tag);
+            if (cls) n.className = cls;
+            if (text != null) n.textContent = text;       // textContent: không bao giờ chèn HTML từ dữ liệu người dùng
+            return n;
+        }
+
+        /* geAsk({title, note, fields:[{name,label,placeholder,maxlength,value,hint}], confirmText, cancelText,
+                  validate(values) -> null | "lỗi" | {message, field}, preview(values) -> "chuỗi xem trước"})
+           -> Promise<values | null> (null nếu hủy). Hộp nằm giữa màn hình, Enter = xác nhận, Esc = hủy. */
+        window.geAsk = function (opt) {
+            opt = opt || {};
+            return new Promise(function (resolve) {
+                var id = 'geAsk' + (++seq);
+                var host = document.querySelector('.modal.show') || document.body;   // nằm TRONG modal đang mở để focus-trap của Bootstrap không giành focus
+                var prevFocus = document.activeElement;
+                var overlay = mk('div', 'ge-ask-overlay');
+                var dlg = mk('div', 'ge-ask');
+                dlg.setAttribute('role', 'dialog'); dlg.setAttribute('aria-modal', 'true'); dlg.setAttribute('aria-labelledby', id + 't');
+
+                var head = mk('div', 'ge-ask-head');
+                var title = mk('h6', 'ge-ask-title', opt.title || ''); title.id = id + 't';
+                var closeBtn = mk('button', 'ge-ask-close'); closeBtn.type = 'button'; closeBtn.setAttribute('aria-label', 'Đóng');
+                closeBtn.appendChild(mk('i', 'bi bi-x-lg')); closeBtn.firstChild.style.fontSize = '.8rem';
+                head.appendChild(title); head.appendChild(closeBtn); dlg.appendChild(head);
+                if (opt.note) dlg.appendChild(mk('p', 'ge-ask-note', opt.note));
+
+                var inputs = {}, order = [];
+                (opt.fields || []).forEach(function (f, i) {
+                    var wrap = mk('div', 'ge-ask-field');
+                    var lab = mk('label', 'ge-ask-label'); lab.htmlFor = id + 'f' + i;
+                    lab.appendChild(mk('span', null, f.label || ''));
+                    var cnt = mk('span', 'ge-ask-count'); lab.appendChild(cnt);
+                    var inp = mk('input', 'ge-ask-input'); inp.type = 'text'; inp.id = id + 'f' + i;
+                    inp.autocomplete = 'off'; inp.spellcheck = false;
+                    if (f.maxlength) inp.maxLength = f.maxlength;
+                    if (f.placeholder) inp.placeholder = f.placeholder;
+                    if (f.value) inp.value = f.value;
+                    function upd() { cnt.textContent = f.maxlength ? (inp.value.length + '/' + f.maxlength) : ''; refresh(); }
+                    inp.addEventListener('input', upd);
+                    wrap.appendChild(lab); wrap.appendChild(inp);
+                    if (f.hint) wrap.appendChild(mk('div', 'ge-ask-hint', f.hint));
+                    dlg.appendChild(wrap);
+                    inputs[f.name] = inp; order.push(f.name);
+                    inp._upd = upd;
+                });
+
+                var preview = mk('div', 'ge-ask-preview'); if (opt.preview) dlg.appendChild(preview);
+                var err = mk('div', 'ge-ask-err'); err.setAttribute('role', 'alert'); dlg.appendChild(err);
+                var foot = mk('div', 'ge-ask-foot');
+                var cancel = mk('button', 'ge-ask-btn cancel', opt.cancelText || 'Hủy'); cancel.type = 'button';
+                var ok = mk('button', 'ge-ask-btn ok', opt.confirmText || 'Xác nhận'); ok.type = 'button';
+                foot.appendChild(cancel); foot.appendChild(ok); dlg.appendChild(foot);
+                overlay.appendChild(dlg); host.appendChild(overlay);
+
+                function values() { var v = {}; order.forEach(function (n) { v[n] = inputs[n].value; }); return v; }
+                function refresh() { if (opt.preview) preview.textContent = opt.preview(values()) || ''; err.classList.remove('show'); }
+                function showErr(msg, field) {
+                    err.textContent = msg; err.classList.add('show');
+                    var t = inputs[field] || inputs[order[0]]; if (t) t.focus();
+                }
+                var done = false;
+                function close(result) {
+                    if (done) return; done = true;
+                    overlay.remove();
+                    try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) { /* bỏ qua */ }
+                    resolve(result);
+                }
+                function submit() {
+                    var v = values();
+                    if (opt.validate) {
+                        var r = opt.validate(v);
+                        if (r) return typeof r === 'string' ? showErr(r) : showErr(r.message, r.field);
+                    }
+                    close(v);
+                }
+                ok.addEventListener('click', submit);
+                cancel.addEventListener('click', function () { close(null); });
+                closeBtn.addEventListener('click', function () { close(null); });
+                overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(null); });
+                overlay.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); return; }   // chặn Esc lan xuống modal Bootstrap bên dưới
+                    if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') { e.preventDefault(); e.stopPropagation(); submit(); return; }
+                    if (e.key === 'Tab') {
+                        var f = Array.prototype.slice.call(dlg.querySelectorAll('input, button')).filter(function (n) { return !n.disabled; });
+                        if (!f.length) return;
+                        var first = f[0], last = f[f.length - 1];
+                        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                    }
+                });
+                order.forEach(function (n) { inputs[n]._upd(); });
+                refresh();
+                var f0 = inputs[order[0]]; if (f0) setTimeout(function () { f0.focus(); f0.select && f0.select(); }, 30); else ok.focus();
+            });
+        };
+    })();
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

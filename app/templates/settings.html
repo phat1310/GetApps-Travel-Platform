@@ -39,6 +39,8 @@
 
     .st-pill { border: 1.5px solid #9fd3ea; background: #eaf6fc; color: #17688f; border-radius: 999px; padding: .5rem 1.1rem; font-weight: 600; cursor: pointer; }
     .st-pill.active { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
+    .st-pill.st-pill-add { border-style: dashed; background: transparent; color: var(--st-accent); min-width: 44px; padding-left: .8rem; padding-right: .8rem; }
+    .st-pill.st-pill-add:hover { background: rgba(26, 143, 207, .12); }
     .st-added-chip { display: inline-flex; align-items: center; gap: .45rem; border: 1.5px solid #9fd3ea; background: #eaf6fc; color: #17688f; border-radius: 999px; padding: .3rem .85rem; font-weight: 600; font-size: .92rem; }
     .st-x { border: 0; background: none; color: inherit; padding: 0; line-height: 1; cursor: pointer; }
 
@@ -164,7 +166,7 @@
         </button>
 
         <!-- Chế độ riêng tư. Khi Trúc thêm cột riêng tư vào User, đặt checked theo giá trị đó (hiện đọc current_user.is_private nếu có). -->
-        <div class="st-row st-last" style="cursor: default;">
+        <div class="st-row" style="cursor: default;">
             <span class="st-ico"><i class="bi bi-lock"></i></span>
             <span class="st-grow">
                 <div class="st-label">Chế độ riêng tư</div>
@@ -172,6 +174,18 @@
             </span>
             <div class="form-check form-switch m-0">
                 <input class="form-check-input st-switch" type="checkbox" role="switch" id="private-switch" aria-label="Chế độ riêng tư" {% if current_user.is_private %}checked{% endif %}>
+            </div>
+        </div>
+
+        <!-- Hiện trạng thái hoạt động: tắt thì chấm Online/Offline của bạn bị ẩn với mọi người (và bạn cũng không thấy của người khác) -->
+        <div class="st-row st-last" style="cursor: default;">
+            <span class="st-ico"><i class="bi bi-circle-fill" style="color: #22c55e; font-size: 0.8rem;"></i></span>
+            <span class="st-grow">
+                <div class="st-label">Hiện trạng thái hoạt động</div>
+                <div class="st-sub">Cho phép mọi người thấy bạn đang Online/Offline. Tắt thì chỉ hiện avatar.</div>
+            </span>
+            <div class="form-check form-switch m-0">
+                <input class="form-check-input st-switch" type="checkbox" role="switch" id="activity-switch" aria-label="Hiện trạng thái hoạt động" {% if current_user.show_activity %}checked{% endif %}>
             </div>
         </div>
     </section>
@@ -366,18 +380,42 @@
         ["nguoi_noi_tieng", "Người nổi tiếng"]
     ];
     const INIT = {{ init|tojson }};
+    // Hashtag hiển thị của 5 nhãn có sẵn (khớp app/auth/tags.py). Nhãn tự đặt hiển thị đúng slug: "Người đi bộ" -> #nguoidibo
+    const FIXED_HASHTAG = {
+        nguoi_du_lich: "#nguoidulich", dia_phuong: "#dandiaphuong", phuot: "#daphuot",
+        huong_dan_vien: "#huongdanvien", nguoi_noi_tieng: "#nguoidanoitieng"
+    };
+    const MAX_NAME_LEN = 30;
+    const RESERVED = ["admin", "quantri", "xacminh", "chinhthuc", "official", "verified", "moderator", "support", "hotro"];
+    function isFixed(code) { return Object.prototype.hasOwnProperty.call(FIXED_HASHTAG, code); }
+    function isCustom(code) { return typeof code === "string" && !isFixed(code) && /^[a-z0-9]{2,30}$/.test(code); }   // "phuot" là nhãn có sẵn, không phải nhãn tự đặt
+    function slugify(name) {
+        return String(name).replace(/đ/g, "d").replace(/Đ/g, "D").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+    // Kiểm tra giống server (server vẫn kiểm tra lại): trả về {code} hoặc {error}
+    function parseCustomTag(raw) {
+        const s = String(raw || "").normalize("NFC").replace(/^#+/, "").replace(/\s+/g, " ").trim();
+        if (!s) return { error: "Vui lòng nhập tên nhãn." };
+        if (s.length > MAX_NAME_LEN) return { error: "Tên nhãn tối đa " + MAX_NAME_LEN + " ký tự." };
+        if (!/^[\p{L}\p{N} ]+$/u.test(s)) return { error: "Tên nhãn chỉ gồm chữ, số và khoảng trắng." };
+        const slug = slugify(s);
+        if (slug.length < 2) return { error: "Tên nhãn cần có ít nhất 2 chữ cái Latin hoặc số để tạo hashtag." };
+        if (RESERVED.some(function (w) { return slug.indexOf(w) >= 0; })) return { error: "Tên nhãn chứa từ dễ gây hiểu nhầm là tài khoản chính thức, hãy chọn tên khác." };
+        const fixed = Object.keys(FIXED_HASHTAG).find(function (k) { return FIXED_HASHTAG[k] === "#" + slug; });
+        return { code: fixed || slug, slug: slug };
+    }
 
     const state = {
         nickname: INIT.nickname || "",
         avatar_url: INIT.avatar_url || "",
-        tags: (INIT.tags || []).filter(function (t) { return TAGS.some(function (x) { return x[0] === t; }); }),
+        tags: (INIT.tags || []).filter(function (t) { return isFixed(t) || isCustom(t); }),
         secondary_email: INIT.secondary_email || "",
         phone: INIT.phone || "",
         bio: INIT.bio || ""
     };
 
     const $ = function (id) { return document.getElementById(id); };
-    const tagText = function (code) { return "#" + code.replace(/_/g, ""); };
+    const tagText = function (code) { return isFixed(code) ? FIXED_HASHTAG[code] : "#" + code; };
 
     function alertIn(el, type, text) {
         el.innerHTML = "";
@@ -463,14 +501,55 @@
 
     // ---- Chọn nhãn ----
     let picked = [];
-    TAGS.forEach(function (t) {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "st-pill";
-        b.dataset.tag = t[0];
-        b.textContent = t[1];
-        $("tag-pills").appendChild(b);
-    });
+    // Dựng lại danh sách: 5 nhãn có sẵn + nhãn tự đặt (đã lưu hoặc vừa thêm) + nút ＋ ở cuối
+    function buildPills() {
+        const box = $("tag-pills");
+        box.innerHTML = "";
+        function pill(code, text) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "st-pill";
+            b.dataset.tag = code;
+            b.textContent = text;           // textContent: không chèn HTML
+            box.appendChild(b);
+        }
+        TAGS.forEach(function (t) { pill(t[0], t[1]); });
+        const customs = [];
+        state.tags.concat(picked).forEach(function (c) { if (isCustom(c) && customs.indexOf(c) < 0) customs.push(c); });
+        customs.forEach(function (c) { pill(c, "#" + c); });
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "st-pill st-pill-add";
+        add.id = "tag-add";
+        add.title = "Thêm nhãn của riêng bạn";
+        add.setAttribute("aria-label", "Thêm nhãn của riêng bạn");
+        add.innerHTML = '<i class="bi bi-plus-lg"></i>';
+        box.appendChild(add);
+        syncPills();
+    }
+    async function addCustomTag() {
+        const box = $("f-tags").querySelector(".modal-alert");
+        if (picked.length >= MAX_TAGS) return alertIn(box, "warning", "Bạn đã chọn đủ " + MAX_TAGS + " nhãn. Hãy bỏ chọn 1 nhãn trước khi thêm nhãn mới.");
+        box.innerHTML = "";
+        const v = await geAsk({
+            title: "Thêm nhãn của bạn",
+            note: "Nhãn sẽ hiển thị dạng hashtag trên hồ sơ. Tối đa " + MAX_NAME_LEN + " ký tự, chỉ gồm chữ, số và khoảng trắng.",
+            fields: [{ name: "name", label: "Tên nhãn", placeholder: "Ví dụ: Người đi bộ", maxlength: MAX_NAME_LEN }],
+            preview: function (vals) { const s = slugify(String(vals.name || "").normalize("NFC")); return s ? "Hiển thị: #" + s : ""; },
+            confirmText: "Thêm nhãn",
+            validate: function (vals) {
+                const r = parseCustomTag(vals.name);
+                if (r.error) return r.error;
+                if (picked.indexOf(r.code) >= 0) return "Bạn đã chọn nhãn #" + r.slug + " rồi.";
+                return null;
+            }
+        });
+        if (!v) return;
+        const r = parseCustomTag(v.name);
+        if (r.error || picked.length >= MAX_TAGS || picked.indexOf(r.code) >= 0) return;
+        picked.push(r.code);
+        buildPills();
+    }
     function syncPills() {
         document.querySelectorAll(".st-pill").forEach(function (p) {
             p.classList.toggle("active", picked.indexOf(p.dataset.tag) >= 0);
@@ -479,6 +558,7 @@
     $("tag-pills").addEventListener("click", function (e) {
         const p = e.target.closest(".st-pill");
         if (!p) return;
+        if (p.id === "tag-add") return addCustomTag();
         const box = $("f-tags").querySelector(".modal-alert");
         const i = picked.indexOf(p.dataset.tag);
         if (i >= 0) picked.splice(i, 1);
@@ -570,6 +650,20 @@
         } finally { sw.disabled = false; }
     });
 
+    // ---- Hiện trạng thái hoạt động (Online/Offline) ----
+    $("activity-switch").addEventListener("change", async function (e) {
+        const sw = e.target, want = sw.checked, box = $("page-alert");
+        sw.disabled = true;
+        try {
+            const r = await postJson("/profile/activity-status", {show_activity: want});
+            if (!r.ok) { sw.checked = !want; return alertIn(box, "danger", errText(r)); }
+            box.innerHTML = "";
+        } catch (err) {
+            sw.checked = !want;
+            alertIn(box, "danger", "Không kết nối được máy chủ.");
+        } finally { sw.disabled = false; }
+    });
+
     // ---- Đổi mật khẩu ----
     $("f-password").addEventListener("submit", function (e) {
         e.preventDefault();
@@ -603,7 +697,7 @@
     // ---- Điền sẵn dữ liệu mỗi lần mở cửa sổ ----
     const prefill = {
         "m-nickname": function () { $("in-nickname").value = state.nickname; },
-        "m-tags": function () { picked = state.tags.slice(); syncPills(); },
+        "m-tags": function () { picked = state.tags.slice(); buildPills(); },
         "m-email": function () { $("in-secondary").value = state.secondary_email; },
         "m-phone": function () { $("in-phone").value = state.phone; },
         "m-bio": function () { $("in-bio").value = state.bio; },

@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% from "_presence.html" import dot, label with context %}
+{% from "_maplinks.html" import map_chips %}
 {% block title %}Bảng tin Du lịch — GetApps (GEs){% endblock %}
 
 {% block extra_css %}
@@ -147,6 +149,13 @@
         color: #38BDF8 !important;
         border-color: #334155 !important;
     }
+    .ges-repost-avs { position: relative; width: 52px; height: 46px; flex: none; }
+    .ges-repost-avs .ges-av-main { position: absolute; left: 0; top: 0; }
+    .ges-repost-avs .ges-av-mini { position: absolute; right: 0; bottom: 0; width: 24px; height: 24px; border: 2px solid #fff; border-radius: 50%; overflow: hidden; background: #e2e8f0; display: flex; align-items: center; justify-content: center; }
+    .ges-repost-avs .ges-av-mini img { width: 100%; height: 100%; object-fit: cover; }
+    .ges-mini-ph { font-size: 0.7rem; font-weight: 700; color: #0f172a; }
+    .repost-note { border-left: 3px solid #22c55e; background: rgba(34, 197, 94, 0.08); border-radius: 0 10px 10px 0; padding: 8px 12px; font-size: 0.92rem; white-space: pre-line; color: var(--bs-body-color, #1f2d3d); }
+    [data-bs-theme="dark"] .ges-repost-avs .ges-av-mini { border-color: #1b2330; }
 </style>
 {% endblock %}
 
@@ -157,26 +166,48 @@
         <!-- Feed List -->
         {% if posts %}
             {% for post in posts %}
-                <article class="post-card" id="post-article-{{ post.id }}">
+                <article class="post-card" id="post-article-{{ post.id }}" data-repost-locked="{{ 1 if post.repost_locked else 0 }}">
                     <!-- Post Header -->
                     <div class="p-3 d-flex align-items-center justify-content-between">
                         <div class="d-flex align-items-center gap-2">
-                            {% if post.author and post.author.avatar_url %}
-                                <img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}" class="avatar avatar-sm">
+                            {% if post.author %}{% set author_href = url_for('auth.profile', username=post.author.username) %}{% else %}{% set author_href = '#' %}{% endif %}
+                            {% if post.is_repost and post.reposter %}
+                                <!-- Repost: avatar chủ gốc (lớn) + avatar người đăng lại (nhỏ, chồng lên) -->
+                                <div class="ges-repost-avs">
+                                    <a href="{{ author_href }}" class="ges-av ges-av-main" title="{{ post.author.username if post.author else '' }}">
+                                        {% if post.author and post.author.avatar_url %}<img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}" class="avatar avatar-sm">{% else %}<span class="avatar-placeholder avatar-sm">{{ post.author.username[0]|upper if post.author else 'U' }}</span>{% endif %}
+                                        {% if post.author %}{{ dot(post.author) }}{% endif %}
+                                    </a>
+                                    <a href="{{ url_for('auth.profile', username=post.reposter.username) }}" class="ges-av ges-av-mini" title="{{ post.reposter.username }} đã đăng lại">
+                                        {% if post.reposter.avatar_url %}<img src="{{ post.reposter.avatar_url }}" alt="{{ post.reposter.username }}">{% else %}<span class="ges-mini-ph">{{ post.reposter.username[0]|upper }}</span>{% endif %}
+                                    </a>
+                                </div>
                             {% else %}
-                                <span class="avatar-placeholder avatar-sm">
-                                    {{ post.author.username[0]|upper if post.author else 'U' }}
-                                </span>
+                                <a href="{{ author_href }}" class="ges-av" title="Xem trang cá nhân">
+                                    {% if post.author and post.author.avatar_url %}
+                                        <img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}" class="avatar avatar-sm">
+                                    {% else %}
+                                        <span class="avatar-placeholder avatar-sm">{{ post.author.username[0]|upper if post.author else 'U' }}</span>
+                                    {% endif %}
+                                    {% if post.author %}{{ dot(post.author) }}{% endif %}
+                                </a>
                             {% endif %}
                             <div>
-                                <div class="d-flex align-items-center gap-1">
-                                    <span class="fw-bold text-dark fs-6">{{ post.author.username if post.author else 'Ẩn danh' }}</span>
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    <a href="{{ author_href }}" class="fw-bold text-dark fs-6 text-decoration-none">{{ post.author.username if post.author else 'Ẩn danh' }}</a>
                                     {% if post.author and post.author.role %}
                                         <span class="badge badge-role badge-role-{{ post.author.role }}">{{ post.author.role }}</span>
                                     {% endif %}
+                                    {% if post.author %}<small class="text-muted">{{ label(post.author) }}</small>{% endif %}
                                 </div>
+                                {% if post.is_repost and post.reposter %}
+                                    <div class="small text-success fw-semibold"><i class="bi bi-arrow-repeat"></i> <a href="{{ url_for('auth.profile', username=post.reposter.username) }}" class="text-success text-decoration-none">{{ post.reposter.username }}</a> đã đăng lại</div>
+                                {% endif %}
                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.78rem;">
                                     <span>{{ post.created_at }}</span>
+                                    {% if post.visibility == 'private' %}
+                                        <span title="Riêng tư"><i class="bi bi-lock-fill"></i> Riêng tư</span>
+                                    {% endif %}
                                     {% if post.location %}
                                         <span>•</span>
                                         <span class="text-primary fw-semibold">
@@ -184,6 +215,7 @@
                                         </span>
                                     {% endif %}
                                 </div>
+                                {{ map_chips(post.map_links, 'mt-1') }}
                             </div>
                         </div>
 
@@ -208,6 +240,12 @@
                             </ul>
                         </div>
                     </div>
+
+                    {% if post.is_repost and post.repost_note %}
+                        <div class="px-3 pb-2">
+                            <div class="repost-note">{{ post.repost_note }}</div>
+                        </div>
+                    {% endif %}
 
                     <!-- Post Caption -->
                     {% if post.caption %}
@@ -292,7 +330,7 @@
                                     {% for comment in post.comments %}
                                         <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-{{ comment.id }}">
                                             <div>
-                                                <strong class="text-dark">{{ comment.author_name }}:</strong>
+                                                {% if comment.author_username %}<a href="{{ url_for('auth.profile', username=comment.author_username) }}" class="text-decoration-none"><strong class="text-dark">{{ comment.author_name }}:</strong></a>{% else %}<strong class="text-dark">{{ comment.author_name }}:</strong>{% endif %}
                                                 <span class="text-secondary ms-1">{{ comment.content }}</span>
                                                 <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">{{ comment.created_at }}</div>
                                             </div>
@@ -368,25 +406,24 @@
             </div>
         </div>
 
-        <!-- Suggested Locations Card -->
+        <!-- Địa điểm nổi bật: xếp theo số bài đăng + lịch trình công khai; mặc định 3, "Xem thêm" mở tối đa 10 -->
         <div class="sidebar-card">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <h6 class="fw-bold text-dark mb-0">
                     <i class="bi bi-fire text-danger me-1"></i> Địa điểm nổi bật
                 </h6>
-                <a href="/locations/locations/search" class="text-decoration-none small fw-semibold text-primary">Xem tất cả</a>
             </div>
-            {% if suggested_locations %}
-                <div class="d-flex flex-column gap-2">
-                    {% for loc in suggested_locations %}
-                        <div class="d-flex align-items-center justify-content-between p-2 rounded-2 hover-bg-light">
-                            <div class="d-flex align-items-center gap-2">
+            {% if popular_places %}
+                <div class="d-flex flex-column gap-2" id="popularList">
+                    {% for loc in popular_places %}
+                        <div class="popular-item d-flex align-items-center justify-content-between p-2 rounded-2 hover-bg-light {% if loop.index > 3 %}d-none{% endif %}" data-extra="{{ 1 if loop.index > 3 else 0 }}">
+                            <div class="d-flex align-items-center gap-2 min-w-0">
                                 <div class="bg-light rounded-circle p-2 text-primary">
                                     <i class="bi bi-geo-alt-fill"></i>
                                 </div>
-                                <div>
-                                    <div class="fw-semibold text-dark small">{{ loc.name }}</div>
-                                    <small class="text-muted">{{ loc.address if loc.address else 'Việt Nam' }}</small>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-dark small truncate">{{ loc.name }}</div>
+                                    <small class="text-muted">{{ loc.posts }} bài viết · {{ loc.plans }} lịch trình</small>
                                 </div>
                             </div>
                             <a href="/plans/create?location_id={{ loc.id }}" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.75rem;" title="Lên lịch trình">
@@ -395,12 +432,14 @@
                         </div>
                     {% endfor %}
                 </div>
+                <button type="button" id="popularMoreBtn" class="btn btn-link btn-sm text-decoration-none fw-semibold p-0 mt-2" onclick="togglePopular()">Xem thêm</button>
+                <div id="popularNoMore" class="text-muted small mt-1 d-none">Hiện mới có {{ popular_places|length }} địa điểm được đăng. Đăng thêm bài hoặc lịch trình để danh sách dài ra nhé!</div>
             {% else %}
-                <p class="text-muted small mb-0">Chưa có dữ liệu địa điểm gợi ý.</p>
+                <p class="text-muted small mb-0">Chưa có địa điểm nào được đăng. Hãy là người đầu tiên gắn địa điểm cho bài viết!</p>
             {% endif %}
         </div>
 
-        <!-- Suggested Creators / Users Card -->
+        <!-- Gợi ý kết nối: 5 người (đăng bài nhiều tương tác nhất; chưa ai đăng thì người đăng ký sớm nhất) -->
         <div class="sidebar-card">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <h6 class="fw-bold text-dark mb-0">
@@ -410,18 +449,24 @@
             {% if suggested_users %}
                 <div class="d-flex flex-column gap-3">
                     {% for u in suggested_users %}
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div class="d-flex align-items-center gap-2">
-                                {% if u.avatar_url %}
-                                    <img src="{{ u.avatar_url }}" alt="{{ u.username }}" class="avatar avatar-sm">
-                                {% else %}
-                                    <span class="avatar-placeholder avatar-sm">{{ u.username[0]|upper }}</span>
-                                {% endif %}
-                                <div>
-                                    <div class="fw-bold text-dark small">{{ u.username }}</div>
-                                    <span class="badge badge-role badge-role-{{ u.role }}">{{ u.role }}</span>
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                            <a href="{{ url_for('auth.profile', username=u.username) }}" class="d-flex align-items-center gap-2 text-decoration-none min-w-0 flex-grow-1" title="Xem trang cá nhân">
+                                <span class="ges-av">
+                                    {% if u.avatar_url %}
+                                        <img src="{{ u.avatar_url }}" alt="{{ u.username }}" class="avatar avatar-sm">
+                                    {% else %}
+                                        <span class="avatar-placeholder avatar-sm">{{ u.username[0]|upper }}</span>
+                                    {% endif %}
+                                    {{ dot(u) }}
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="fw-bold text-dark small truncate">{{ u.nickname or u.username }}</div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="badge badge-role badge-role-{{ u.role }}">{{ u.role }}</span>
+                                        <small class="text-muted">{{ label(u) }}</small>
+                                    </div>
                                 </div>
-                            </div>
+                            </a>
                             <button type="button" class="btn btn-sm btn-ges-outline py-0 px-2" style="font-size: 0.75rem;" onclick="followUser({{ u.id }}, this)">
                                 Follow
                             </button>
@@ -438,6 +483,37 @@
             <p class="mb-0">© 2026 GetApps (GEs) · Get Up & Explore</p>
         </div>
 
+    </div>
+</div>
+
+<!-- Modal Xác nhận Đăng lại (Repost): chọn Công khai/Riêng tư + ghi chú -->
+<div class="modal fade" id="repostModal" tabindex="-1" aria-labelledby="repostModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold text-dark" id="repostModalLabel"><i class="bi bi-arrow-repeat text-success me-2"></i>Đăng lại bài viết</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Ghi chú của bạn (không bắt buộc)</label>
+                <textarea id="repostNote" class="form-control rounded-3" rows="3" maxlength="500" placeholder="Bạn nghĩ gì về bài viết này?"></textarea>
+                <div class="text-end text-muted" style="font-size: 0.72rem;"><span id="repostNoteCount">0</span>/500</div>
+
+                <label class="form-label small fw-semibold text-muted mt-2 mb-1">Ai xem được bản đăng lại?</label>
+                <div class="btn-group w-100" role="group" aria-label="Chế độ hiển thị">
+                    <button type="button" class="btn btn-outline-primary active" id="repostVisPublic" onclick="setRepostVis('public')"><i class="bi bi-globe2 me-1"></i> Công khai</button>
+                    <button type="button" class="btn btn-outline-primary" id="repostVisPrivate" onclick="setRepostVis('private')"><i class="bi bi-lock-fill me-1"></i> Riêng tư</button>
+                </div>
+                <div class="small text-warning-emphasis bg-warning-subtle rounded-3 p-2 mt-2 d-none" id="repostLockHint">
+                    <i class="bi bi-info-circle me-1"></i>Bài gốc đang ở chế độ riêng tư nên bản đăng lại cũng chỉ ở chế độ riêng tư.
+                </div>
+                <div class="small text-danger mt-2 d-none" id="repostError"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-ges-primary rounded-pill px-4" id="repostSubmitBtn" onclick="submitRepost()"><i class="bi bi-arrow-repeat me-1"></i> Đăng lại</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -507,28 +583,8 @@
             const countSpan = document.getElementById(`share-count-${postId}`);
             if (countSpan) countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
         } else if (action === 'repost') {
-            try {
-                const res = await fetch(`/locations/posts/${postId}/repost`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    }
-                });
-                const data = await res.json();
-                if (shareModalInstance) shareModalInstance.hide();
-                if (res.ok) {
-                    alert("Đăng lại bài viết thành công!");
-                    const countSpan = document.getElementById(`share-count-${postId}`);
-                    if (countSpan) countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
-                    window.location.reload();
-                } else {
-                    alert(data.error || "Không thể đăng lại bài viết!");
-                }
-            } catch (err) {
-                console.error("Lỗi đăng lại:", err);
-                alert("Đã xảy ra lỗi khi đăng lại!");
-            }
+            if (shareModalInstance) shareModalInstance.hide();
+            openRepostDialog(postId);
         } else if (action === 'copy') {
             try {
                 const res = await fetch(`/locations/posts/${postId}/share`, {
@@ -554,6 +610,74 @@
                 if (shareModalInstance) shareModalInstance.hide();
             }
         }
+    }
+
+    // ---------- Đăng lại (Repost) có xác nhận ----------
+    let repostModalInstance = null, repostPostId = null, repostVis = 'public', repostLocked = false;
+
+    function setRepostVis(v) {
+        if (repostLocked) v = 'private';
+        repostVis = v;
+        document.getElementById('repostVisPublic').classList.toggle('active', v === 'public');
+        document.getElementById('repostVisPrivate').classList.toggle('active', v === 'private');
+    }
+
+    function openRepostDialog(postId) {
+        repostPostId = postId;
+        const art = document.getElementById(`post-article-${postId}`);
+        repostLocked = !!art && art.dataset.repostLocked === '1';
+        document.getElementById('repostNote').value = '';
+        document.getElementById('repostNoteCount').innerText = '0';
+        document.getElementById('repostError').classList.add('d-none');
+        document.getElementById('repostLockHint').classList.toggle('d-none', !repostLocked);
+        document.getElementById('repostVisPublic').disabled = repostLocked;
+        setRepostVis(repostLocked ? 'private' : 'public');
+        if (!repostModalInstance) repostModalInstance = new bootstrap.Modal(document.getElementById('repostModal'));
+        repostModalInstance.show();
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'repostNote') document.getElementById('repostNoteCount').innerText = e.target.value.length;
+    });
+
+    async function submitRepost() {
+        const btn = document.getElementById('repostSubmitBtn');
+        const errBox = document.getElementById('repostError');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        errBox.classList.add('d-none');
+        btn.disabled = true;
+        try {
+            const res = await fetch(`/locations/posts/${repostPostId}/repost`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ visibility: repostVis, note: document.getElementById('repostNote').value })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                repostModalInstance.hide();
+                window.location.reload();
+            } else {
+                errBox.innerText = data.error || 'Không thể đăng lại bài viết!';
+                errBox.classList.remove('d-none');
+            }
+        } catch (err) {
+            errBox.innerText = 'Đã xảy ra lỗi khi đăng lại!';
+            errBox.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // Địa điểm nổi bật: "Xem thêm" mở tối đa 10, "Thu gọn" về 3
+    function togglePopular() {
+        const items = document.querySelectorAll('#popularList .popular-item[data-extra="1"]');
+        const btn = document.getElementById('popularMoreBtn');
+        const opening = btn.dataset.open !== '1';
+        const note = document.getElementById('popularNoMore');
+        if (note) note.classList.toggle('d-none', !(opening && items.length === 0));   // chưa có thêm địa điểm nào để mở
+        items.forEach(it => it.classList.toggle('d-none', !opening));
+        btn.dataset.open = opening ? '1' : '0';
+        btn.innerText = opening ? 'Thu gọn' : 'Xem thêm';
     }
 
     function copyPostLink(postId) {
@@ -622,7 +746,7 @@
                 const newCommentHtml = `
                     <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-${c.id}">
                         <div>
-                            <strong class="text-dark">${c.user_id === {{ current_user.id }} ? '{{ current_user.username }}' : 'Bạn'}:</strong>
+                            <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${escapeHtml(c.author_username || '{{ current_user.username }}')}:</strong></a>
                             <span class="text-secondary ms-1">${escapeHtml(c.content)}</span>
                             <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">Vừa xong</div>
                         </div>

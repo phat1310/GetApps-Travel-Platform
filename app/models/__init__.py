@@ -18,5 +18,6 @@ from app.models.itinerary import (
     ItineraryAttachment
 )
 from app.models.hashtag import Hashtag
+from app.models.map_link import MapLink
 from app.models.notification import Notification
-
+from app.models.chat import Conversation, Message, MessageReaction

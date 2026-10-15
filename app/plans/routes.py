@@ -11,6 +11,8 @@ from app.extensions import db
 from app.models import Itinerary, Plan, ItineraryDay, ItineraryStop, ItineraryLodging, User
 from app.plans import plans_bp
 from app.plans.forms import PlanCreateForm, PlanDayForm, PlanStopForm
+from app.locations.discovery import link_destination
+from app.locations.maplinks import parse_map_links, attach_map_links, PLAN_LIMIT
 
 
 def save_uploaded_file(file_storage, subfolder):
@@ -107,6 +109,10 @@ def create():
         if not title or not destination:
             return jsonify({"error": "Thiếu tiêu đề hoặc điểm đến của lịch trình"}), 400
 
+        map_links, map_error = parse_map_links(data.get('map_links'), PLAN_LIMIT)
+        if map_error:
+            return jsonify({"error": map_error}), 400
+
         start_date = None
         if data.get('start_date'):
             try:
@@ -121,10 +127,12 @@ def create():
             except ValueError:
                 pass
 
+        dest_loc = link_destination(destination)   # chuẩn hóa điểm đến -> Location để thống kê "Địa điểm nổi bật"
         plan = Itinerary(
             user_id=current_user.id,
             title=title,
             destination=destination,
+            location_id=dest_loc.id if dest_loc else None,
             start_date=start_date,
             end_date=end_date,
             estimated_budget=float(data.get('estimated_budget') or 0.0),
@@ -133,6 +141,7 @@ def create():
         )
         db.session.add(plan)
         db.session.flush()
+        attach_map_links(map_links, itinerary=plan)
 
         # Tạo ngày 1 mặc định
         day1 = ItineraryDay(itinerary_id=plan.id, day_number=1, title="Ngày 1: Khởi hành")
@@ -143,16 +152,24 @@ def create():
 
     # 2. Xử lý Form HTML (Flask-WTF)
     if form.validate_on_submit():
+        # Địa chỉ Google Maps: kiểm tra ở server (tối đa 5, đúng tên miền Google Maps) TRƯỚC khi lưu file/DB
+        map_links, map_error = parse_map_links(request.form.get('map_links'), PLAN_LIMIT)
+        if map_error:
+            flash(map_error, "danger")
+            return render_template('plans/create.html', form=form), 400
+
         cover_url = save_uploaded_file(form.cover_image.data, 'plans')
         attach_url = save_uploaded_file(form.attachment_file.data, 'attachments')
 
         participants_cnt = form.participants_count.data or (int(request.form.get('participants_count')) if request.form.get('participants_count', '').isdigit() else None)
         trip_type = form.trip_type.data or request.form.get('trip_type')
 
+        dest_loc = link_destination(form.destination.data)   # chuẩn hóa điểm đến -> Location
         plan = Itinerary(
             user_id=current_user.id,
             title=form.title.data.strip(),
             destination=form.destination.data.strip(),
+            location_id=dest_loc.id if dest_loc else None,
             start_date=form.start_date.data,
             end_date=form.end_date.data,
             estimated_budget=form.estimated_budget.data or 0.0,
@@ -165,6 +182,7 @@ def create():
         )
         db.session.add(plan)
         db.session.flush()
+        attach_map_links(map_links, itinerary=plan)
 
         # Tạo tự động các ngày dựa trên khoảng thời gian bắt đầu - kết thúc
         total_days = 1
@@ -267,6 +285,8 @@ def edit(plan_id):
     if form.validate_on_submit():
         plan.title = form.title.data.strip()
         plan.destination = form.destination.data.strip()
+        dest_loc = link_destination(plan.destination)
+        plan.location_id = dest_loc.id if dest_loc else None
         plan.start_date = form.start_date.data
         plan.end_date = form.end_date.data
         plan.estimated_budget = form.estimated_budget.data or 0.0

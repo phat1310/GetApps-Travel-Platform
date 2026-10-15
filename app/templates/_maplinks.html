@@ -1,0 +1,12 @@
+{# Hiển thị các địa chỉ Google Maps (chip bấm được). Chỉ link đã qua kiểm tra (safe_url) mới được render.
+   Mở tab mới + rel="noopener noreferrer nofollow": trang Google Maps không truy cập được window.opener của GEs, không gửi Referer, không tăng SEO cho link do người dùng nhập. #}
+{% macro map_chips(links, cls='') %}
+{%- set shown = (links or [])|selectattr('safe_url')|list -%}
+{%- if shown %}
+<div class="ges-map-chips {{ cls }}">
+    {%- for m in shown %}
+    <a class="ges-map-chip" href="{{ m.safe_url }}" target="_blank" rel="noopener noreferrer nofollow" title="Mở Google Maps trong tab mới"><i class="bi bi-geo-alt-fill"></i><span>{{ m.text }}</span></a>
+    {%- endfor %}
+</div>
+{%- endif %}
+{% endmacro %}
