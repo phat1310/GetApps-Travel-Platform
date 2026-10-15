@@ -146,6 +146,9 @@ def create():
         cover_url = save_uploaded_file(form.cover_image.data, 'plans')
         attach_url = save_uploaded_file(form.attachment_file.data, 'attachments')
 
+        participants_cnt = form.participants_count.data or (int(request.form.get('participants_count')) if request.form.get('participants_count', '').isdigit() else None)
+        trip_type = form.trip_type.data or request.form.get('trip_type')
+
         plan = Itinerary(
             user_id=current_user.id,
             title=form.title.data.strip(),
@@ -156,7 +159,9 @@ def create():
             visibility=form.visibility.data,
             cover_image=cover_url,
             attachment_file=attach_url,
-            description=form.description.data
+            description=form.description.data,
+            trip_type=trip_type,
+            participants_count=participants_cnt
         )
         db.session.add(plan)
         db.session.flush()
@@ -167,6 +172,7 @@ def create():
             delta = (plan.end_date - plan.start_date).days + 1
             total_days = max(delta, 1)
 
+        first_day = None
         for i in range(1, min(total_days + 1, 15)):  # Tối đa 14 ngày tạo sẵn
             day = ItineraryDay(
                 itinerary_id=plan.id,
@@ -174,6 +180,39 @@ def create():
                 title=f"Ngày {i}: Khám phá {plan.destination}" if i > 1 else f"Ngày 1: Khởi hành & Đến {plan.destination}"
             )
             db.session.add(day)
+            if i == 1:
+                first_day = day
+
+        db.session.flush()
+
+        # Lưu chặng hoạt động đầu tiên nếu có nhập
+        stop_name = request.form.get('stop_activity_name', '').strip()
+        if stop_name and first_day:
+            first_stop = ItineraryStop(
+                day_id=first_day.id,
+                order_index=1,
+                activity_name=stop_name,
+                location_name=stop_name
+            )
+            db.session.add(first_stop)
+
+        # Lưu nơi lưu trú nếu có nhập
+        hotel_name = request.form.get('hotel_name', '').strip()
+        if hotel_name:
+            price_night = 0.0
+            raw_price = request.form.get('lodging_price', '').replace('.', '').replace(',', '').strip()
+            if raw_price.isdigit():
+                price_night = float(raw_price)
+
+            lodging = ItineraryLodging(
+                itinerary_id=plan.id,
+                day_id=first_day.id if first_day else None,
+                hotel_name=hotel_name,
+                price_per_night=price_night,
+                booking_link=request.form.get('booking_link', '').strip(),
+                note=request.form.get('lodging_note', '').strip()
+            )
+            db.session.add(lodging)
 
         db.session.commit()
         flash(f"Đã tạo thành công lịch trình '{plan.title}'! Hãy thêm các điểm đến chi tiết.", "success")

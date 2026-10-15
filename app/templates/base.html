@@ -458,6 +458,190 @@
             border-color: #334155;
             color: #f8fafc;
         }
+
+        /* Plan Creation Specific Styles (Matching Leader's Gamma mockups) */
+        .qc-card-badge-required {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-weight: 700;
+            font-size: 0.72rem;
+        }
+        .qc-plan-cover-box {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #0f172a;
+            cursor: pointer;
+            border: 1px solid #cbd5e1;
+        }
+        .qc-plan-cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.25s ease;
+        }
+        .qc-plan-cover-box:hover .qc-plan-cover-img {
+            transform: scale(1.03);
+        }
+        .qc-change-cover-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(4px);
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+        .qc-input-field {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            color: #0f172a;
+        }
+        .qc-input-field:focus {
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+        .qc-textarea-field {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 0.86rem;
+            resize: none;
+            color: #0f172a;
+        }
+        .qc-textarea-field:focus {
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+        .qc-hashtag-badge {
+            background: #e0f2fe;
+            color: #0284c7;
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .qc-hashtag-badge:hover {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        .qc-date-display-box {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+        }
+        .qc-pill-item {
+            background: #f1f5f9;
+            color: #475569;
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+        .qc-pill-item:hover {
+            border-color: #0284c7;
+            color: #0284c7;
+        }
+        .qc-pill-item.active {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+        }
+        .qc-stat-card {
+            background: #f0f9ff;
+            border: 1px solid #e0f2fe;
+        }
+        .qc-stat-input {
+            background: transparent;
+            font-size: 1.1rem;
+            width: 100%;
+        }
+        .qc-file-attached-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        .qc-file-icon-box {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        .qc-day-pill {
+            background: #0284c7;
+            color: #ffffff;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+        .qc-activity-box {
+            background: #f8fafc;
+            border: 1px solid #edf2f7;
+        }
+        .qc-input-icon-box {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-right: none;
+            color: #64748b;
+        }
+
+        /* Dark mode for plan styles */
+        [data-bs-theme="dark"] .qc-input-field,
+        [data-bs-theme="dark"] .qc-textarea-field {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        [data-bs-theme="dark"] .qc-card-badge-required {
+            background: #1e3a8a;
+            color: #93c5fd;
+        }
+        [data-bs-theme="dark"] .qc-date-display-box,
+        [data-bs-theme="dark"] .qc-file-attached-card,
+        [data-bs-theme="dark"] .qc-activity-box {
+            background: #0f172a;
+            border-color: #334155;
+            color: #f8fafc;
+        }
+        [data-bs-theme="dark"] .qc-stat-card {
+            background: #0f172a;
+            border-color: #0284c7;
+        }
+        [data-bs-theme="dark"] .qc-pill-item {
+            background: #0f172a;
+            border-color: #334155;
+            color: #94a3b8;
+        }
+        [data-bs-theme="dark"] .qc-pill-item.active {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        [data-bs-theme="dark"] .qc-input-icon-box {
+            background: #1e293b;
+            border-color: #334155;
+            color: #94a3b8;
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -565,7 +749,7 @@
     {% if current_user.is_authenticated %}
     <!-- ==================== QUICK CREATE MODAL (FEEDBACK KHANH) ==================== -->
     <div class="modal fade" id="quickCreateModal" tabindex="-1" aria-labelledby="quickCreateModalTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 490px;">
+        <div class="modal-dialog modal-dialog-centered" id="quickCreateModalDialog" style="max-width: 500px; transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
             <div class="modal-content border-0 shadow-lg qc-modal-content">
                 <!-- Modal Header -->
                 <div class="modal-header border-0 pb-1 pt-3 px-3 d-flex align-items-center justify-content-between">
@@ -689,61 +873,241 @@
 
                     <!-- ==================== TAB 2: ĐĂNG LỊCH TRÌNH ==================== -->
                     <div id="qcTabPlanContent" style="display: none;">
-                        <form action="/plans/create" method="POST" id="qcPlanForm">
+                        <form action="/plans/create" method="POST" enctype="multipart/form-data" id="qcPlanForm">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="visibility" value="public">
+                            <input type="hidden" name="trip_type" id="qcTripTypeInput" value="3N2Đ - Nghỉ dưỡng">
 
-                            <div class="qc-box-card mb-3 p-3 rounded-4">
-                                <div class="mb-2">
-                                    <label class="form-label fw-bold text-dark small mb-1">
-                                        <i class="bi bi-signpost-2 text-primary me-1"></i> Tên chuyến đi / Lịch trình <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" name="title" class="form-control rounded-3" placeholder="Ví dụ: Khám phá Đà Lạt mùa hoa 3N2Đ" required style="font-size: 0.88rem;">
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label fw-bold text-dark small mb-1">
-                                        <i class="bi bi-geo-alt-fill text-danger me-1"></i> Điểm đến chính <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" name="destination" class="form-control rounded-3" placeholder="Ví dụ: Đà Lạt, Lâm Đồng" required style="font-size: 0.88rem;">
-                                </div>
-                                <div class="row g-2 mb-2">
-                                    <div class="col-6">
-                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Bắt đầu</label>
-                                        <input type="date" name="start_date" class="form-control rounded-3" style="font-size: 0.82rem;">
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Kết thúc</label>
-                                        <input type="date" name="end_date" class="form-control rounded-3" style="font-size: 0.82rem;">
-                                    </div>
-                                </div>
-                                <div class="row g-2 mb-2">
-                                    <div class="col-6">
-                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Ngân sách dự kiến</label>
-                                        <div class="input-group input-group-sm">
-                                            <input type="number" name="estimated_budget" class="form-control rounded-start-3" placeholder="0" min="0" style="font-size: 0.82rem;">
-                                            <span class="input-group-text rounded-end-3" style="font-size: 0.75rem;">đ</span>
+                            <div class="row g-3">
+                                <!-- ==================== CỘT 1: THÔNG TIN TỔNG QUAN CHUYẾN ĐI ==================== -->
+                                <div class="col-lg-4 col-12">
+                                    <div class="qc-box-card p-3 rounded-4 h-100">
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <span class="fw-bold text-dark small d-flex align-items-center gap-1">
+                                                <i class="bi bi-info-circle text-primary"></i> Thông tin tổng quan chuyến đi
+                                            </span>
+                                            <span class="badge qc-card-badge-required">Bắt buộc</span>
+                                        </div>
+
+                                        <!-- 1. Ảnh bìa chuyến đi (Tỉ lệ 16:9) -->
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Ảnh bìa chuyến đi (Tỉ lệ 16:9)</label>
+                                            <div class="qc-plan-cover-box" id="qcPlanCoverBox" onclick="document.getElementById('qcPlanCoverInput').click()" title="Bấm để chọn hoặc đổi ảnh bìa">
+                                                <img src="{{ url_for('static', filename='images/hero-bg.jpg') }}" alt="Ảnh bìa chuyến đi" id="qcPlanCoverPreview" class="qc-plan-cover-img">
+                                                <button type="button" class="btn btn-sm qc-change-cover-btn">
+                                                    <i class="bi bi-camera me-1"></i> Đổi ảnh bìa
+                                                </button>
+                                            </div>
+                                            <input type="file" name="cover_image" id="qcPlanCoverInput" accept="image/png,image/jpeg,image/webp,image/jpg" class="d-none" onchange="previewQcPlanCover(this)">
+                                        </div>
+
+                                        <!-- 2. Tên chuyến đi -->
+                                        <div class="mb-3">
+                                            <label class="form-label text-dark small fw-bold mb-1">Tên chuyến đi</label>
+                                            <input type="text" name="title" id="qcPlanTitle" class="form-control qc-input-field" placeholder="Đà Lạt 3N2Đ - Chuyến đi săn mây & thư..." value="Đà Lạt 3N2Đ - Chuyến đi săn mây & thư giãn" required>
+                                        </div>
+
+                                        <!-- 3. Đoạn mô tả ngắn cảm nghĩ, tổng quan chuyến đi -->
+                                        <div>
+                                            <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Đoạn mô tả ngắn cảm nghĩ, tổng quan chuyến đi</label>
+                                            <textarea name="description" id="qcPlanDesc" class="form-control qc-textarea-field" rows="4" placeholder="Lịch trình săn mây đồi chè, thư giãn ngắm hoàng hôn và khám phá ẩm thực bản địa phố núi một cách chill nhất dành cho 2 người.">Lịch trình săn mây đồi chè, thư giãn ngắm hoàng hôn và khám phá ẩm thực bản địa phố núi một cách chill nhất dành cho 2 người.</textarea>
                                         </div>
                                     </div>
-                                    <div class="col-6">
-                                        <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Quyền riêng tư</label>
-                                        <select name="visibility" class="form-select form-select-sm rounded-3" style="font-size: 0.82rem;">
-                                            <option value="public">Công khai</option>
-                                            <option value="private">Riêng tư</option>
-                                        </select>
+                                </div>
+
+                                <!-- ==================== CỘT 2: ĐỊA ĐIỂM, THỜI GIAN, TRIP STYLE & STATS ==================== -->
+                                <div class="col-lg-4 col-12">
+                                    <div class="qc-box-card p-3 rounded-4 h-100">
+                                        <!-- 1. Nhãn địa điểm chính -->
+                                        <div class="mb-3">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <label class="form-label text-dark small fw-bold mb-0">Nhãn địa điểm chính (Destination)</label>
+                                                <span class="badge qc-hashtag-badge" onclick="setQcDestination('#ĐàLạt')">#ĐàLạt</span>
+                                            </div>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text qc-input-icon-box"><i class="bi bi-geo-alt-fill text-primary"></i></span>
+                                                <input type="text" name="destination" id="qcPlanDestination" class="form-control qc-input-field" placeholder="Đà Lạt, Lâm Đồng" value="Đà Lạt, Lâm Đồng" required>
+                                            </div>
+                                        </div>
+
+                                        <!-- 2. Khoảng thời gian (Từ ngày - Đến ngày) -->
+                                        <div class="mb-3">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <label class="form-label text-muted small fw-semibold mb-0" style="font-size: 0.78rem;">Khoảng thời gian (Từ ngày - Đến ngày)</label>
+                                                <button type="button" class="btn btn-link p-0 text-primary small text-decoration-none fw-semibold" style="font-size: 0.78rem;" onclick="toggleQcDateInputs()">Đổi ngày</button>
+                                            </div>
+                                            <div class="qc-date-display-box d-flex align-items-center justify-content-between p-2 rounded-3" id="qcDateDisplayBox">
+                                                <div class="d-flex align-items-center gap-2 small fw-semibold text-dark">
+                                                    <i class="bi bi-calendar3 text-primary"></i>
+                                                    <span id="qcDateRangeLabel">12/10/2026 — 14/10/2026</span>
+                                                </div>
+                                            </div>
+                                            <div class="row g-2 mt-1" id="qcDateInputsRow" style="display: none;">
+                                                <div class="col-6">
+                                                    <input type="date" name="start_date" id="qcPlanStartDate" class="form-control form-control-sm qc-input-field" value="2026-10-12" onchange="updateQcDateRange()">
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="date" name="end_date" id="qcPlanEndDate" class="form-control form-control-sm qc-input-field" value="2026-10-14" onchange="updateQcDateRange()">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 3. Dạng chuyến đi (Trip Style) -->
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Dạng chuyến đi (Trip Style)</label>
+                                            <!-- Duration pills -->
+                                            <div class="d-flex flex-wrap gap-1 mb-2" id="qcDurationPills">
+                                                <span class="qc-pill-item" onclick="selectQcDurationPill(this, '2N1Đ')">2N1Đ</span>
+                                                <span class="qc-pill-item active" onclick="selectQcDurationPill(this, '3N2Đ')">3N2Đ</span>
+                                                <span class="qc-pill-item" onclick="selectQcDurationPill(this, '1 tuần')">1 tuần</span>
+                                                <span class="qc-pill-item" onclick="selectQcDurationPill(this, '2 tuần')">2 tuần</span>
+                                                <span class="qc-pill-item" onclick="selectQcDurationPill(this, '1 tháng')">1 tháng</span>
+                                            </div>
+                                            <!-- Style pills -->
+                                            <div class="d-flex flex-wrap gap-1" id="qcStylePills">
+                                                <span class="qc-pill-item" onclick="selectQcStylePill(this, 'Đi phượt')">Đi phượt</span>
+                                                <span class="qc-pill-item active" onclick="selectQcStylePill(this, 'Nghỉ dưỡng')">Nghỉ dưỡng</span>
+                                                <span class="qc-pill-item" onclick="selectQcStylePill(this, 'Gia đình')">Gia đình</span>
+                                                <span class="qc-pill-item text-primary" onclick="promptAddQcStylePill()">+ Thêm</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- 4. Số người tham gia & Dự toán ngân sách (2 boxes stats) -->
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <div class="qc-stat-card p-2 rounded-3">
+                                                    <div class="text-muted small fw-semibold d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                                        <i class="bi bi-people text-primary"></i> Số người tham gia
+                                                    </div>
+                                                    <div class="mt-1 d-flex align-items-baseline gap-1">
+                                                        <input type="number" name="participants_count" id="qcParticipantsInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input" value="2" min="1" max="100">
+                                                        <span class="fw-bold small text-dark">người</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="qc-stat-card p-2 rounded-3">
+                                                    <div class="text-muted small fw-semibold d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                                        <i class="bi bi-wallet2 text-primary"></i> Dự toán ngân sách
+                                                    </div>
+                                                    <div class="mt-1 d-flex align-items-baseline gap-1">
+                                                        <input type="text" name="estimated_budget" id="qcBudgetInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input text-primary" value="3500000" oninput="formatQcBudgetDisplay(this)">
+                                                        <span class="fw-bold small text-primary">đ</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div>
-                                    <label class="form-label fw-semibold text-muted small mb-1" style="font-size: 0.78rem;">Mô tả hành trình</label>
-                                    <textarea name="description" class="form-control rounded-3" rows="2" placeholder="Ghi chú kế hoạch, cảm hứng..." style="font-size: 0.85rem; resize: none;"></textarea>
-                                </div>
-                            </div>
 
-                            <div class="d-flex gap-2">
-                                <a href="/plans/create" class="btn btn-outline-secondary py-2 px-3 rounded-3 small fw-semibold d-flex align-items-center" style="font-size: 0.85rem;" title="Mở trang tạo lịch trình chi tiết">
-                                    Chi tiết <i class="bi bi-box-arrow-up-right ms-1"></i>
-                                </a>
-                                <button type="submit" class="btn btn-primary flex-grow-1 py-2 rounded-3 fw-bold qc-submit-btn text-white">
-                                    <i class="bi bi-calendar-check-fill me-1"></i> Tạo lịch trình ngay
-                                </button>
+                                <!-- ==================== CỘT 3: TÀI LIỆU, LỊCH TRÌNH NGÀY, LƯU TRÚ & SUBMIT ==================== -->
+                                <div class="col-lg-4 col-12">
+                                    <div class="qc-box-card p-3 rounded-4 d-flex flex-column h-100">
+                                        <!-- 1. Đính kèm tệp tài liệu lịch trình -->
+                                        <div class="mb-3">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <label class="form-label text-dark small fw-bold mb-0 d-flex align-items-center gap-1">
+                                                    <i class="bi bi-paperclip text-primary"></i> Đính kèm tệp tài liệu lịch trình
+                                                </label>
+                                                <span class="text-muted" style="font-size: 0.7rem;">.docx, .xlsx, .pdf, .pptx</span>
+                                            </div>
+                                            <!-- File Uploaded Preview Item -->
+                                            <div class="qc-file-attached-card d-flex align-items-center justify-content-between p-2 mb-2 rounded-3" id="qcAttachedFileCard">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="qc-file-icon-box">
+                                                        <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+                                                    </div>
+                                                    <div style="line-height: 1.2;">
+                                                        <div class="fw-bold text-dark small text-truncate" id="qcAttachedFileName" style="max-width: 170px;">Lich_trinh_chi_tiet_DaLat.pdf</div>
+                                                        <small class="text-muted" id="qcAttachedFileSize" style="font-size: 0.7rem;">1.8 MB • Đã tải lên thành công</small>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-light rounded-circle p-0 d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;" onclick="removeQcAttachedFile()" title="Xóa file này">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                            </div>
+                                            <input type="file" name="attachment_file" id="qcAttachmentInput" accept=".pdf,.docx,.xlsx,.pptx" class="d-none" onchange="handleQcAttachmentSelected(this)">
+                                            <button type="button" class="btn btn-outline-secondary w-100 py-1 rounded-3 small fw-semibold d-flex align-items-center justify-content-center gap-2" style="font-size: 0.78rem; border-style: dashed;" onclick="document.getElementById('qcAttachmentInput').click()">
+                                                <i class="bi bi-file-earmark-arrow-up"></i> Tải lên tệp lịch trình khác (.pdf, .xlsx, .docx, .pptx)
+                                            </button>
+                                        </div>
+
+                                        <!-- 2. Lịch trình chi tiết từng ngày -->
+                                        <div class="mb-3">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <span class="fw-bold text-dark small d-flex align-items-center gap-1">
+                                                    <i class="bi bi-calendar-check text-primary"></i> Lịch trình chi tiết từng ngày
+                                                </span>
+                                                <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.7rem;" id="qcDaysBadge">1 ngày đã lên</span>
+                                            </div>
+                                            <div class="mb-2">
+                                                <span class="badge qc-day-pill px-3 py-2"><i class="bi bi-calendar-event me-1"></i> Ngày 1 • 12/10</span>
+                                            </div>
+                                            <div class="p-2 rounded-3 qc-activity-box mb-2">
+                                                <div class="text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">
+                                                    <i class="bi bi-info-circle me-1"></i> Các chặng hoạt động trong Ngày 1 (12/10)
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge bg-primary px-2 py-1 small">Chặng 1</span>
+                                                    <input type="text" name="stop_activity_name" class="form-control form-control-sm qc-input-field" placeholder="Đón xe lên đồi chè Cầu Đất săn mây..." value="Đón xe lên đồi chè Cầu Đất săn mây">
+                                                    <button type="button" class="btn btn-sm text-danger p-0" title="Xóa chặng"><i class="bi bi-trash"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 3. Khối lưu trú & dịch vụ (Khách sạn / Homestay) -->
+                                        <div class="mb-3">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <span class="fw-bold text-dark small d-flex align-items-center gap-1">
+                                                    <i class="bi bi-building text-primary"></i> Khối lưu trú & dịch vụ (Khách sạn / Homestay)
+                                                </span>
+                                                <span class="badge bg-info-subtle text-info border px-2 py-1" style="font-size: 0.7rem;">Đề xuất</span>
+                                            </div>
+                                            <div class="p-2 rounded-3 qc-activity-box">
+                                                <div class="mb-2">
+                                                    <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Tên khách sạn / homestay</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text qc-input-icon-box"><i class="bi bi-house-door text-primary"></i></span>
+                                                        <input type="text" name="hotel_name" class="form-control qc-input-field" placeholder="Làng Boho Homestay Đà Lạt" value="Làng Boho Homestay Đà Lạt">
+                                                    </div>
+                                                </div>
+                                                <div class="row g-2 mb-2">
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Giá phòng / đêm</label>
+                                                        <div class="input-group input-group-sm">
+                                                            <span class="input-group-text qc-input-icon-box">$</span>
+                                                            <input type="text" name="lodging_price" class="form-control qc-input-field" placeholder="650.000 đ / đêm" value="650000">
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Cách đặt</label>
+                                                        <div class="input-group input-group-sm">
+                                                            <span class="input-group-text qc-input-icon-box"><i class="bi bi-link-45deg"></i></span>
+                                                            <input type="text" name="booking_link" class="form-control qc-input-field" placeholder="Đặt qua Agoda / ..." value="Đặt qua Agoda / Booking">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Ghi chú khách sạn (Mẹo nhận phòng, view phòng...)</label>
+                                                    <textarea name="lodging_note" class="form-control qc-textarea-field" rows="2" placeholder="Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng...">Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng để ngắm mây sớm. Đường dốc hơi khó đi một chút.</textarea>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-light w-100 small fw-semibold text-primary" style="font-size: 0.75rem;">
+                                                    <i class="bi bi-plus-circle me-1"></i> + Thêm nơi lưu trú khác
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- 4. Nút Đăng lịch trình ngay -->
+                                        <div class="mt-auto pt-2">
+                                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3 fw-bold qc-submit-btn text-white d-flex align-items-center justify-content-center gap-2">
+                                                <i class="bi bi-send-fill"></i> Đăng lịch trình ngay
+                                            </button>
+                                            <div class="text-center text-muted mt-2" style="font-size: 0.7rem; line-height: 1.3;">
+                                                Lịch trình được công khai và hiển thị trực tiếp tại mục Kế hoạch du lịch cộng đồng GETAPPS.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -762,6 +1126,7 @@
             const postContent = document.getElementById('qcTabPostContent');
             const planContent = document.getElementById('qcTabPlanContent');
             const title = document.getElementById('quickCreateModalTitle');
+            const dialog = document.getElementById('quickCreateModalDialog');
 
             if (tab === 'post') {
                 postBtn.classList.add('active');
@@ -769,12 +1134,14 @@
                 postContent.style.display = 'block';
                 planContent.style.display = 'none';
                 if (title) title.innerText = 'Tạo bài viết mới';
+                if (dialog) dialog.style.maxWidth = '500px';
             } else {
                 planBtn.classList.add('active');
                 postBtn.classList.remove('active');
                 postContent.style.display = 'none';
                 planContent.style.display = 'block';
                 if (title) title.innerText = 'Tạo lịch trình chuyến đi';
+                if (dialog) dialog.style.maxWidth = '1140px';
             }
         }
 
@@ -798,6 +1165,112 @@
             }
             updateQcCharCounter();
             caption.focus();
+        }
+
+        function previewQcPlanCover(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('qcPlanCoverPreview');
+                    if (img) img.src = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function setQcDestination(tag) {
+            const input = document.getElementById('qcPlanDestination');
+            if (input) {
+                const cleanTag = tag.replace('#', '');
+                if (!input.value.includes(cleanTag)) {
+                    input.value = cleanTag + ', Lâm Đồng';
+                }
+            }
+        }
+
+        function toggleQcDateInputs() {
+            const row = document.getElementById('qcDateInputsRow');
+            if (row) {
+                row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+            }
+        }
+
+        function updateQcDateRange() {
+            const start = document.getElementById('qcPlanStartDate')?.value;
+            const end = document.getElementById('qcPlanEndDate')?.value;
+            const label = document.getElementById('qcDateRangeLabel');
+            if (start && end && label) {
+                const formatDate = (ds) => {
+                    const p = ds.split('-');
+                    return `${p[2]}/${p[1]}/${p[0]}`;
+                };
+                label.innerText = `${formatDate(start)} — ${formatDate(end)}`;
+            }
+        }
+
+        function selectQcDurationPill(el, val) {
+            const pills = document.querySelectorAll('#qcDurationPills .qc-pill-item');
+            pills.forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+            syncQcTripType();
+        }
+
+        function selectQcStylePill(el, val) {
+            const pills = document.querySelectorAll('#qcStylePills .qc-pill-item');
+            pills.forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+            syncQcTripType();
+        }
+
+        function syncQcTripType() {
+            const duration = document.querySelector('#qcDurationPills .qc-pill-item.active')?.innerText || '';
+            const style = document.querySelector('#qcStylePills .qc-pill-item.active')?.innerText || '';
+            const input = document.getElementById('qcTripTypeInput');
+            if (input) {
+                input.value = `${duration} - ${style}`;
+            }
+        }
+
+        function promptAddQcStylePill() {
+            const newStyle = prompt('Nhập phong cách chuyến đi của bạn (ví dụ: Cắm trại, Leo núi, Check-in...):');
+            if (newStyle && newStyle.trim()) {
+                const container = document.getElementById('qcStylePills');
+                const lastItem = container.lastElementChild;
+                const newPill = document.createElement('span');
+                newPill.className = 'qc-pill-item active';
+                newPill.innerText = newStyle.trim();
+                newPill.onclick = function() { selectQcStylePill(newPill, newStyle.trim()); };
+                
+                const pills = container.querySelectorAll('.qc-pill-item');
+                pills.forEach(p => p.classList.remove('active'));
+                
+                container.insertBefore(newPill, lastItem);
+                syncQcTripType();
+            }
+        }
+
+        function formatQcBudgetDisplay(input) {
+            // keep raw numeric value clean
+        }
+
+        function handleQcAttachmentSelected(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const card = document.getElementById('qcAttachedFileCard');
+                const nameEl = document.getElementById('qcAttachedFileName');
+                const sizeEl = document.getElementById('qcAttachedFileSize');
+
+                if (card) card.style.display = 'flex';
+                if (nameEl) nameEl.innerText = file.name;
+                if (sizeEl) sizeEl.innerText = `${(file.size / (1024 * 1024)).toFixed(1)} MB • Đã tải lên thành công`;
+            }
+        }
+
+        function removeQcAttachedFile() {
+            const input = document.getElementById('qcAttachmentInput');
+            const card = document.getElementById('qcAttachedFileCard');
+            if (input) input.value = '';
+            if (card) card.style.display = 'none';
         }
 
         function renderQcPreviews() {
