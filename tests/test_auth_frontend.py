@@ -24,16 +24,15 @@ def test_login_page_get(client):
 
 
 def test_register_page_get(client):
-    """GET /register hiển thị giao diện đăng ký 200 OK và đầy đủ nhãn vai trò mới."""
+    """GET /register hiển thị giao diện đăng ký 200 OK và trường Họ và tên mới."""
     res = client.get("/register")
     assert res.status_code == 200
     html = res.data.decode("utf-8")
     assert "Tạo tài khoản GETAPPS" in html
     assert "register-form" in html
+    assert "full_name" in html
+    assert "Họ và tên" in html
     assert "email" in html
-    assert "Traveler Enthusiast • Người đam mê du lịch" in html
-    assert "Local Guides • Hướng dẫn viên địa phương" in html
-    assert "Travel content creator • Người sáng tạo nội dung du lịch" in html
 
 
 def test_login_form_post_success(client):
@@ -72,11 +71,11 @@ def test_register_form_post_success(client):
     res = client.post(
         "/register",
         data={
+            "full_name": "Nguyễn Văn Du Lịch",
             "username": "newtraveler",
             "email": "newtraveler@example.com",
             "password": "StrongPassword123!",
             "confirm_password": "StrongPassword123!",
-            "role": "traveler",
             "agree_terms": "y"
         },
         headers={"Accept": "text/html"}
@@ -92,7 +91,8 @@ def test_register_form_post_success(client):
     with client.application.app_context():
         user = User.query.filter_by(username="newtraveler").first()
         assert user is not None
-        assert user.role == "traveler"
+        assert user.role == "user"
+        assert user.full_name == "Nguyễn Văn Du Lịch"
 
 
 def test_register_while_authenticated_clears_session_and_redirects_to_login(client, users):
@@ -102,11 +102,11 @@ def test_register_while_authenticated_clears_session_and_redirects_to_login(clie
     res = client.post(
         "/register",
         data={
+            "full_name": "Brand New User",
             "username": "brandnewuser",
             "email": "brandnew@example.com",
             "password": "StrongPassword123!",
             "confirm_password": "StrongPassword123!",
-            "role": "traveler",
             "agree_terms": "y"
         },
         headers={"Accept": "text/html"}
@@ -128,11 +128,11 @@ def test_register_weak_password_rejected(client):
     res_short = client.post(
         "/register",
         data={
+            "full_name": "Short Pass User",
             "username": "shortpass",
             "email": "shortpass@example.com",
             "password": "Aa1!",
             "confirm_password": "Aa1!",
-            "role": "traveler",
             "agree_terms": "y"
         },
         headers={"Accept": "text/html"}
@@ -144,11 +144,11 @@ def test_register_weak_password_rejected(client):
     res_no_special = client.post(
         "/register",
         data={
+            "full_name": "No Special User",
             "username": "nospecial",
             "email": "nospecial@example.com",
             "password": "Password1234",
             "confirm_password": "Password1234",
-            "role": "traveler",
             "agree_terms": "y"
         },
         headers={"Accept": "text/html"}
@@ -606,11 +606,11 @@ def test_onboarding_flow(client, app):
     res_reg = client.post(
         "/register",
         data={
+            "full_name": "Phượt Thủ Hà Nội",
             "username": "onboarduser",
             "email": "onboard@example.com",
             "password": "StrongPassword123!",
             "confirm_password": "StrongPassword123!",
-            "role": "traveler",
             "agree_terms": "y"
         },
         headers={"Accept": "text/html"}
@@ -670,11 +670,11 @@ def test_onboarding_skip(client, app):
     client.post(
         "/register",
         data={
+            "full_name": "Người Dùng Bỏ Qua",
             "username": "skipuser",
             "email": "skip@example.com",
             "password": "StrongPassword123!",
             "confirm_password": "StrongPassword123!",
-            "role": "traveler",
             "agree_terms": "y"
         },
         headers={"Accept": "text/html"}

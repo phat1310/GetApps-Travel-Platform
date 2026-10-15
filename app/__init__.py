@@ -35,6 +35,8 @@ def create_app(config_override=None):
             with db.engine.connect() as conn:
                 if 'users' in tables:
                     user_cols = [col['name'] for col in inspector.get_columns('users')]
+                    if 'full_name' not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR(150)"))
                     if 'nickname' not in user_cols:
                         conn.execute(text("ALTER TABLE users ADD COLUMN nickname VARCHAR(64)"))
                     if 'profile_tag' not in user_cols:
