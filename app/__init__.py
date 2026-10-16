@@ -55,6 +55,8 @@ def create_app(config_override=None):
                         conn.execute(text("ALTER TABLE users ADD COLUMN last_seen DATETIME"))
                     if 'show_activity' not in user_cols:
                         conn.execute(text("ALTER TABLE users ADD COLUMN show_activity BOOLEAN NOT NULL DEFAULT 1"))
+                    if 'profile_bg' not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_bg VARCHAR(255)"))
 
                 if 'conversations' in tables:
                     conv_cols = [col['name'] for col in inspector.get_columns('conversations')]

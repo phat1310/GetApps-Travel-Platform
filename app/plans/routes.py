@@ -254,6 +254,7 @@ def index():
     loc_id = request.args.get('loc', '').strip()
     ttype = request.args.get('type', '').strip()
     q = request.args.get('q', '').strip()[:160]
+    kw = ' '.join(request.args.get('kw', '').split())[:100]   # từ khóa từ thanh "Tìm kiếm hành trình" ở top bar
 
     viewer_id = current_user.id if current_user.is_authenticated else None
     viewer_follow = viewer_follow_set(viewer_id)
@@ -309,6 +310,15 @@ def index():
                 return bool(q_code and t is not None and t.code == q_code)
             plans = [p for p in plans if _in_prov(p) or _loc_match(qn, [norm_text(loc_name(p)), norm_text(p.destination)])]
 
+    if kw:
+        # Mọi từ khóa phải xuất hiện (không phân biệt hoa/thường, dấu) trong tên / điểm đến / mô tả / loại chuyến đi.
+        # Lọc trong bộ nhớ trên danh sách ĐÃ qua can_view_itinerary -> không SQL tự ghép, không lộ lịch trình riêng tư.
+        tokens = [t for t in (norm_text(w) for w in kw.split()) if t]   # tách TRƯỚC rồi mới chuẩn hóa (norm_text bỏ hết khoảng trắng)
+
+        def _hay(p):
+            return norm_text(' '.join([p.title or '', p.destination or '', loc_name(p) or '', p.description or '', p.trip_type or '']))
+        plans = [p for p in plans if tokens and all(t in _hay(p) for t in tokens)]
+
     if request.is_json or request.headers.get('Accept') == 'application/json':
         return jsonify({"plans": [p.to_dict() for p in plans], "count": len(plans)}), 200
 
@@ -317,7 +327,7 @@ def index():
     price_label = bucket[1] if bucket else ''
     loc_label = next((o["name"] for o in loc_options if str(o["id"]) == loc_id), '')
     ttype_ok = ttype if any(o["name"] == ttype for o in type_options) else ''
-    cur = {'price': price if bucket else '', 'loc': loc_id if loc_label else '', 'type': ttype_ok, 'q': q}
+    cur = {'price': price if bucket else '', 'loc': loc_id if loc_label else '', 'type': ttype_ok, 'q': q, 'kw': kw}
 
     def href(**over):
         """URL trang Lịch trình với bộ lọc hiện tại, ghi đè bằng `over` (giá trị rỗng/None = bỏ lọc đó)."""
@@ -330,7 +340,7 @@ def index():
         price=price if bucket else '', price_label=price_label, price_buckets=PRICE_BUCKETS,
         loc=loc_id if loc_label else '', loc_label=loc_label, loc_options=loc_options,
         ttype=ttype_ok, type_options=type_options, href=href,
-        q=q, any_filter=bool(bucket or loc_label or ttype_ok or q),
+        q=q, kw=kw, any_filter=bool(bucket or loc_label or ttype_ok or q or kw),
     )
 
 
