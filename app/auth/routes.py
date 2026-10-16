@@ -39,8 +39,10 @@ from app.auth.forms import (
     SettingsForm,
 )
 from app.auth.utils import validate_password
-from app.locations.discovery import following_ids, can_view_post, can_view_itinerary, viewer_follow_set, norm_text
+from app.locations.discovery import (following_ids, can_view_post, can_view_itinerary, viewer_follow_set, norm_text,
+                                     likers_of, liker_count)
 from app.presence import presence_state
+from app.timeutil import relative_label
 from app.notifications import notify
 from app.extensions import db, csrf
 from app.models import (
@@ -59,6 +61,8 @@ from app.models import (
 from app.auth.tags import normalize_tags, hashtag_for, FIXED_TAG_HASHTAGS
 
 FIXED_TAGS = set(FIXED_TAG_HASHTAGS)  # 5 nhãn có sẵn (nhãn tự đặt: xem app/auth/tags.py)
+
+PROFILE_POSTS_CAP = 30   # tab "Bài viết" hiện đầy đủ tối đa 30 bài mới nhất (mỗi thẻ có ảnh/bình luận nên không nạp hết)
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -296,30 +300,28 @@ def profile(username=None):
         raw_posts = []
     posts_count = len(raw_posts)
 
-    user_posts = []
+    # Album = ảnh do chính người này đăng (không tính ảnh của bài đăng lại, không tính video)
     album_photos = []
     for p in raw_posts:
-        photos = Photo.query.filter_by(post_id=p.id).all()
-        likes_cnt = Like.query.filter_by(post_id=p.id).count()
-        cmts_cnt = Comment.query.filter_by(post_id=p.id).count()
-        user_posts.append({
-            "id": p.id,
-            "caption": p.caption,
-            "photos": photos,
-            "likes_count": likes_cnt,
-            "comments_count": cmts_cnt,
-            "is_repost": bool(p.original_post_id),
-            "visibility": p.visibility,
-        })
-        # Album = ảnh do chính người này đăng (không tính ảnh của bài đăng lại, không tính video)
         if not p.original_post_id:
-            for ph in photos:
+            for ph in Photo.query.filter_by(post_id=p.id).order_by(Photo.id.asc()).all():
                 if ph.media_type != "video":
-                    album_photos.append({"file_path": ph.file_path, "post_id": p.id})
+                    album_photos.append({"file_path": ph.file_path, "post_id": p.id, "photo_id": ph.id})
+
+    # Tab "Bài viết": thẻ đầy đủ như ngoài bảng tin, chỉ bài của chính hồ sơ này (đã lọc quyền xem ở trên).
+    # Lazy import: tránh vòng lặp import (locations.routes <-> auth).
+    from app.locations.routes import build_post_cards
+    from app.plans.routes import cards_for_profile
+    post_cards = build_post_cards(raw_posts[:PROFILE_POSTS_CAP], current_user.id)
 
     # Lịch trình: chủ hồ sơ thấy hết; người khác chỉ thấy lịch trình công khai
     plans = sorted(profile_user.itineraries, key=lambda it: it.created_at or datetime.min, reverse=True)
     plans = [it for it in plans if can_view_itinerary(it, current_user.id, my_follow_set)] if not profile_locked else []
+    plan_cards = cards_for_profile(plans, current_user.id)
+
+    # Ô "Lượt thích" (số người đã tim bài của mình): chỉ chủ trang thấy
+    is_owner = profile_user.id == current_user.id
+    likers_count = liker_count(profile_user.id) if is_owner else None
 
     edit_form = EditProfileForm(obj=profile_user) if profile_user.id == current_user.id else None
 
@@ -330,9 +332,12 @@ def profile(username=None):
         followers_count=followers_count,
         following_count=following_count,
         is_following=is_following,
-        user_posts=user_posts,
+        post_cards=post_cards,
+        posts_capped=posts_count > len(post_cards),
         album_photos=album_photos,
         plans=plans,
+        plan_cards=plan_cards,
+        likers_count=likers_count,
         edit_form=edit_form,
         profile_locked=profile_locked
     )
@@ -341,18 +346,26 @@ def profile(username=None):
 @auth_bp.route('/profile/<username>/connections', methods=['GET'])
 @login_required
 def profile_connections(username):
-    """Danh sách Follower / Following của 1 người (có tìm kiếm không dấu, không phân biệt hoa thường)."""
+    """Danh sách Follower / Following / Lượt thích của 1 người (có tìm kiếm không dấu, không phân biệt hoa thường).
+    type=likes (những người đã thả tim bài của mình, mỗi người 1 lần) chỉ CHỦ TRANG xem được."""
     profile_user = User.query.filter_by(username=username).first_or_404()
     kind = request.args.get("type", "followers")
-    if kind not in ("followers", "following"):
-        return jsonify({"error": "type phải là followers hoặc following"}), 400
+    if kind not in ("followers", "following", "likes"):
+        return jsonify({"error": "type phải là followers, following hoặc likes"}), 400
+    if kind == "likes" and profile_user.id != current_user.id:
+        return jsonify({"error": "Chỉ chủ trang mới xem được danh sách này"}), 403
 
-    if profile_user.is_private and profile_user.id != current_user.id:
+    if kind != "likes" and profile_user.is_private and profile_user.id != current_user.id:
         is_follower = Follow.query.filter_by(follower_id=current_user.id, followed_id=profile_user.id).first()
         if not is_follower:
             return jsonify({"error": "Bạn cần follow để xem"}), 403
 
-    if kind == "followers":
+    like_info = {}
+    if kind == "likes":
+        rows = likers_of(profile_user.id)
+        ids = [r[0] for r in rows]
+        like_info = {r[0]: (r[1], r[2]) for r in rows}
+    elif kind == "followers":
         rows = (Follow.query.filter_by(followed_id=profile_user.id)
                 .order_by(Follow.created_at.desc(), Follow.id.desc()).all())
         ids = [r.follower_id for r in rows]
@@ -383,6 +396,10 @@ def profile_connections(username):
             "is_following": u.id in mine,
             "is_me": u.id == current_user.id,
         })
+        if kind == "likes":
+            n, last_at = like_info.get(uid, (0, None))
+            items[-1]["liked_posts"] = n
+            items[-1]["last_label"] = relative_label(last_at) if last_at else ""
         if len(items) >= 300:
             break
 

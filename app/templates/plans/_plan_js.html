@@ -1,0 +1,134 @@
+<script>
+(function () {
+    // Chọn xong một địa điểm trong ô tìm kiếm thì lọc luôn
+    var plSearch = document.getElementById('plSearch');
+    if (plSearch) plSearch.addEventListener('change', function () { if (window.GesPlace && GesPlace.code(plSearch) && plSearch.form) plSearch.form.submit(); });
+    const AUTH = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const $ = (s, r) => (r || document).querySelector(s);
+    const panelEl = $('#planPanel'), shareEl = $('#planShare');
+    const panel = new bootstrap.Modal(panelEl), share = new bootstrap.Modal(shareEl);
+    let shareId = null, shareAttach = false;
+
+    function needLogin() { location.href = '{{ url_for("auth.login") }}'; }
+    async function post(url, body) {
+        const r = await fetch(url, { method: 'POST', credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrf(), 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: body ? JSON.stringify(body) : '{}' });
+        let j = {}; try { j = await r.json(); } catch (e) {}
+        return { ok: r.ok, status: r.status, data: j };
+    }
+
+    async function openPanel(id, focusComments) {
+        const body = $('#planPanelBody');
+        body.innerHTML = '<div class="text-center py-5 text-muted">Đang tải...</div>';
+        panel.show();
+        try {
+            const r = await fetch('/plans/' + id + '/panel', { credentials: 'same-origin' });
+            if (!r.ok) throw new Error();
+            body.innerHTML = await r.text();       // HTML do server render (đã autoescape)
+            if (window.gesTimeTick) window.gesTimeTick();
+            if (focusComments) setTimeout(() => $('#ppComments', body)?.scrollIntoView({ behavior: 'smooth' }), 250);
+        } catch (e) {
+            body.innerHTML = '<div class="text-center py-5 text-muted">Không mở được lịch trình này (có thể đã bị xóa hoặc ở chế độ riêng tư).</div>';
+        }
+    }
+
+    function openShare(id, hasAttach) {
+        shareId = id; shareAttach = !!hasAttach;
+        const dl = $('#shDownload');
+        dl.disabled = !shareAttach;
+        $('#shDownloadSub').textContent = shareAttach ? 'Tệp .pdf / .docx / .xlsx / .pptx do người đăng tải lên' : 'Người dùng này không đăng tệp đính kèm';
+        $('#shNote').style.display = shareAttach ? '' : 'none';
+        $('#shMsg').textContent = '';
+        share.show();
+    }
+
+    async function toggleLike(card) {
+        if (!AUTH) return needLogin();
+        const id = card.dataset.planId;
+        const r = await post('/locations/itineraries/' + id + '/like');
+        if (!r.ok) return;
+        const btn = $('[data-act="like"]', card), n = $('span', btn);
+        n.textContent = Math.max(0, parseInt(n.textContent || '0', 10) + (r.data.liked ? 1 : -1));
+        btn.classList.toggle('liked', !!r.data.liked);
+        $('i', btn).className = 'bi ' + (r.data.liked ? 'bi-heart-fill' : 'bi-heart');
+    }
+
+    document.addEventListener('click', function (e) {
+        const act = e.target.closest('[data-act]');
+        const card = e.target.closest('.pl-card');
+        if (act && card) {
+            e.stopPropagation();
+            const id = card.dataset.planId;
+            if (act.dataset.act === 'like') toggleLike(card);
+            else if (act.dataset.act === 'comment') openPanel(id, true);
+            else if (act.dataset.act === 'share') openShare(id, act.dataset.hasAttach === '1');
+            return;
+        }
+        if (card && !e.target.closest('a')) { openPanel(card.dataset.planId); return; }
+
+        // Bên trong cửa sổ chi tiết
+        const pp = e.target.closest('.pp');
+        if (!pp) return;
+        const id = pp.dataset.planId;
+        const tab = e.target.closest('.pp-daytab');
+        if (tab) {
+            pp.querySelectorAll('.pp-daytab').forEach(t => t.classList.toggle('active', t === tab));
+            pp.querySelectorAll('.pp-day').forEach(d => d.classList.toggle('active', d.dataset.dayPane === tab.dataset.day));
+            return;
+        }
+        const b = e.target.closest('[data-pp]');
+        if (!b) return;
+        if (b.dataset.pp === 'share') { panel.hide(); openShare(id, pp.dataset.hasAttach === '1'); }
+        if (b.dataset.pp === 'save') {
+            if (!AUTH) return needLogin();
+            post('/locations/itineraries/' + id + '/save').then(r => {
+                if (!r.ok) return;
+                b.className = 'btn btn-sm rounded-pill px-3 ' + (r.data.saved ? 'btn-primary' : 'btn-outline-secondary');
+                b.innerHTML = '<i class="bi ' + (r.data.saved ? 'bi-bookmark-fill' : 'bi-bookmark') + ' me-1"></i><span>' + (r.data.saved ? 'Đã lưu' : 'Lưu') + '</span>';
+            });
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('pl-card')) { e.preventDefault(); openPanel(e.target.dataset.planId); }
+    });
+
+    // Gửi bình luận trong cửa sổ chi tiết
+    document.addEventListener('submit', async function (e) {
+        const f = e.target.closest('[data-pp-form="comment"]');
+        if (!f) return;
+        e.preventDefault();
+        const input = $('input', f), text = input.value.trim();
+        if (!text) return;
+        const pp = f.closest('.pp');
+        const r = await post('/locations/itineraries/' + pp.dataset.planId + '/comments', { content: text });
+        if (!r.ok) return;
+        $('#ppNoCmt')?.remove();
+        const row = document.createElement('div');
+        row.className = 'pp-cmt';
+        const who = document.createElement('b'); who.textContent = {{ (current_user.username if current_user.is_authenticated else '') | tojson }};
+        const span = document.createElement('span'); span.textContent = ' ' + text;      // textContent: không chèn HTML
+        row.append(who, span);
+        $('#ppCmtList').appendChild(row);
+        input.value = '';
+    });
+
+    // Cửa sổ chia sẻ
+    $('#shDownload').addEventListener('click', function () { if (shareAttach) location.href = '/plans/' + shareId + '/attachment'; });
+    $('#shCopy').addEventListener('click', async function () {
+        const url = location.origin + '/plans/' + shareId;
+        try { await navigator.clipboard.writeText(url); $('#shMsg').textContent = 'Đã sao chép liên kết.'; }
+        catch (e) { $('#shMsg').textContent = url; }
+    });
+    $('#shRepost').addEventListener('click', async function () {
+        if (!AUTH) return needLogin();
+        const r = await post('/plans/' + shareId + '/repost');
+        $('#shMsg').textContent = r.data.message || r.data.error || 'Không thực hiện được.';
+        if (r.ok && !r.data.already) {
+            const c = document.querySelector('.pl-card[data-plan-id="' + shareId + '"] [data-act="share"] span');
+            if (c) c.textContent = parseInt(c.textContent || '0', 10) + 1;
+        }
+    });
+})();
+</script>

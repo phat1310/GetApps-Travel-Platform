@@ -19,12 +19,14 @@ from app.models import (
     Notification,
 )
 from app.locations.utils import get_or_create_location, normalize_location_name
+import app.locations.places as places
+from app.locations.places import resolve_location
 from app.locations.hashtag_utils import parse_hashtags, get_or_create_hashtag
 from app.locations.serializers import serialize_posts
 from app.locations.maplinks import parse_map_links, attach_map_links, visible_links, POST_LIMIT
 from app.locations.discovery import (
     popular_locations, suggest_users, following_ids, root_post, can_view_post,
-    can_view_itinerary,
+    can_view_itinerary, profile_card,
 )
 
 
@@ -133,17 +135,24 @@ def create_post():
     if map_error:
         return jsonify({"error": map_error}), 400
 
-    # Tạo/tìm địa điểm TRƯỚC khi tạo Post, vì get_or_create_location có thể commit
-    location = get_or_create_location(request.form.get("location_name", ""))
+    # Tạo/tìm địa điểm TRƯỚC khi tạo Post (resolve_location có thể commit). Chỉ nhận địa điểm trong danh mục hành chính.
+    location, loc_error = resolve_location(request.form.get("location_name", ""), request.form.get("location_code", ""))
+    if loc_error:
+        if is_browser_form:
+            flash(loc_error, "error")
+            return render_template("locations/upload.html"), 400
+        return jsonify({"error": loc_error}), 400
 
     warning = None
 
     extra_names = request.form.getlist("extra_location_names")
     extra_links = request.form.getlist("extra_location_links")
+    extra_codes = request.form.getlist("extra_location_codes")
 
     if len(extra_names) > 2:
         extra_names = extra_names[:2]
         extra_links = extra_links[:2]
+        extra_codes = extra_codes[:2]
 
         warning = (
             "Bạn đã thêm tối đa 2 địa điểm phụ, "
@@ -151,9 +160,14 @@ def create_post():
         )
 
     extra_locations = []
-    for name, link in zip(extra_names, extra_links):
-        extra_loc = get_or_create_location(name, map_link=link)
-        if extra_loc and extra_loc not in extra_locations:
+    for i, name in enumerate(extra_names):
+        extra_loc, e_err = resolve_location(name, extra_codes[i] if i < len(extra_codes) else "")
+        if e_err:
+            if is_browser_form:
+                flash("Địa điểm phụ: " + e_err, "error")
+                return render_template("locations/upload.html"), 400
+            return jsonify({"error": "Địa điểm phụ: " + e_err}), 400
+        if extra_loc and extra_loc not in extra_locations and (not location or extra_loc.id != location.id):
             extra_locations.append(extra_loc)
 
     post = Post(
@@ -167,7 +181,7 @@ def create_post():
     db.session.flush()
 
     post.extra_locations.extend(extra_locations)
-    attach_map_links(map_links, post=post)
+    attach_map_links(map_links, post=post, locations=[location] + list(extra_locations))
 
     upload_folder = os.path.join(
         current_app.root_path,
@@ -353,10 +367,16 @@ def edit_post(post_id):
     before = _post_snapshot(post)
 
     # ---- áp dụng ----
-    location = get_or_create_location(request.form.get("location_name", ""))
+    keep = [db.session.get(Location, post.location_id) if post.location_id else None] + list(post.extra_locations)      # địa điểm cũ (gõ tay) giữ nguyên nếu người dùng không đổi chữ
+    location, loc_error = resolve_location(request.form.get("location_name", ""), request.form.get("location_code", ""), keep)
+    if loc_error:
+        return jsonify({"error": loc_error}), 400
     extra_locations = []
-    for name in request.form.getlist("extra_location_names")[:2]:
-        loc = get_or_create_location(name)
+    e_codes = request.form.getlist("extra_location_codes")
+    for i, name in enumerate(request.form.getlist("extra_location_names")[:2]):
+        loc, e_err = resolve_location(name, e_codes[i] if i < len(e_codes) else "", keep)
+        if e_err:
+            return jsonify({"error": "Địa điểm phụ: " + e_err}), 400
         if loc and loc not in extra_locations and (not location or loc.id != location.id):
             extra_locations.append(loc)
 
@@ -369,7 +389,7 @@ def edit_post(post_id):
     for m in list(post.map_links):
         db.session.delete(m)
     db.session.flush()
-    attach_map_links(map_links, post=post)
+    attach_map_links(map_links, post=post, locations=[location] + list(extra_locations))
 
     saved_paths = []
     upload_folder = os.path.join(current_app.root_path, "static", "uploads")
@@ -417,9 +437,95 @@ def delete_post(post_id):
     ids = delete_post_cascade(post)
     return jsonify({"message": "Đã xóa bài viết", "deleted_ids": ids})
 
+
+@locations_bp.route("/photos/<int:photo_id>/delete", methods=["POST", "DELETE"])
+@login_required
+def delete_photo(photo_id):
+    """Chủ bài xóa 1 ẢNH của bài mình (từ tab Album). Chỉ ảnh, không đụng video.
+    Bài không còn ảnh/video nào VÀ không có chữ -> xóa luôn bài (bài rỗng vô nghĩa); có chữ thì giữ bài."""
+    photo = db.session.get(Photo, photo_id)
+    post = db.session.get(Post, photo.post_id) if photo else None
+    if photo is None or post is None or not user_can_access_post(post):
+        return jsonify({"error": "Ảnh không tồn tại"}), 404
+    if post.user_id != current_user.id:
+        return jsonify({"error": "Chỉ chủ bài mới được xóa ảnh"}), 403
+    if photo.media_type == "video":
+        return jsonify({"error": "Chỉ xóa được ảnh ở Album"}), 400
+    others = Photo.query.filter(Photo.post_id == post.id, Photo.id != photo.id).count()
+    if others == 0 and not (post.caption or "").strip():
+        from app.deletion import delete_post_cascade
+        delete_post_cascade(post)                    # xóa cả bài (kèm file ảnh)
+        return jsonify({"message": "Đã xóa ảnh và bài viết trống", "post_deleted": True, "photo_id": photo_id})
+    path = photo.file_path
+    db.session.delete(photo)
+    db.session.commit()
+    from app.deletion import remove_files_if_unused
+    remove_files_if_unused([path])
+    return jsonify({"message": "Đã xóa ảnh", "post_deleted": False, "photo_id": photo_id})
+
 # =========================================================
 # FEED
 # =========================================================
+
+def build_post_cards(posts, viewer_id):
+    """Dữ liệu thẻ bài viết (bảng tin + tab "Bài viết" ở trang cá nhân dùng chung 1 mẫu: locations/_post_card.html).
+    `posts` đã được lọc quyền xem ở nơi gọi. `is_mine` / `edit_data` chỉ bật cho chủ bài."""
+    post_cards = []
+    for p in posts:
+        reposter = db.session.get(User, p.user_id)
+        src = root_post(p) if p.original_post_id else None
+        author = db.session.get(User, src.user_id) if src else reposter
+        content = src or p        # bản đăng lại luôn hiển thị NỘI DUNG của bài gốc (gốc sửa thì đăng lại đổi theo)
+        photos = Photo.query.filter_by(post_id=content.id).order_by(Photo.id.asc()).all()
+        loc = db.session.get(Location, content.location_id) if content.location_id else None
+        likes_count = Like.query.filter_by(post_id=p.id).count()
+        is_liked = bool(Like.query.filter_by(user_id=viewer_id, post_id=p.id).first())
+        comments = Comment.query.filter_by(post_id=p.id).order_by(Comment.created_at.asc()).all()
+        comments_count = len(comments)
+        is_saved = bool(SavedPost.query.filter_by(user_id=viewer_id, post_id=p.id).first())
+        shares_count = Share.query.filter_by(post_id=p.id).count()
+
+        formatted_comments = []
+        for c in comments:
+            c_author = db.session.get(User, c.user_id)
+            formatted_comments.append({
+                "id": c.id,
+                "user_id": c.user_id,
+                "author_name": c_author.username if c_author else f"User #{c.user_id}",
+                "author_username": c_author.username if c_author else None,
+                "content": c.content,
+                "created_at": c.created_at.strftime("%H:%M %d/%m/%Y") if c.created_at else "",
+                "can_delete": (c.user_id == viewer_id)
+            })
+
+        post_cards.append({
+            "id": p.id,
+            "author": author,
+            "is_repost": bool(p.original_post_id),
+            "reposter": reposter if p.original_post_id else None,
+            "repost_note": p.repost_note,
+            "visibility": p.visibility,
+            # Bài sắp được repost (gốc thật sự) là riêng tư => bản repost bị khóa ở chế độ riêng tư
+            "repost_locked": ((src or p).visibility == "private"),
+            "caption": content.caption,
+            "location": loc,
+            "is_mine": p.user_id == viewer_id,
+            "edit_data": edit_data_for(p) if (p.user_id == viewer_id and not p.original_post_id) else None,
+            "map_links": visible_links(src or p),   # bài repost hiển thị địa chỉ của bài gốc
+            "created_at": p.created_at.strftime("%d/%m/%Y %H:%M") if p.created_at else "",
+            "created_dt": p.created_at,                                  # giờ đăng (UTC) -> time_tag
+            "edited_dt": None if p.original_post_id else p.edited_at,   # bài đăng lại không tự sửa được
+            "src_edited_dt": src.edited_at if src else None,            # lần cập nhật gần nhất của bài gốc
+            "photos": photos,
+            "likes_count": likes_count,
+            "is_liked": is_liked,
+            "comments_count": comments_count,
+            "comments": formatted_comments,
+            "is_saved": is_saved,
+            "shares_count": shares_count,
+        })
+    return post_cards
+
 
 @locations_bp.route("/feed", methods=["GET"])
 @login_required
@@ -472,64 +578,12 @@ def feed():
         )
         posts = [p for p in cand if can_view_post(p, current_user.id, follow_set)][:20]
 
-    post_cards = []
-    for p in posts:
-        reposter = db.session.get(User, p.user_id)
-        src = root_post(p) if p.original_post_id else None
-        author = db.session.get(User, src.user_id) if src else reposter
-        content = src or p        # bản đăng lại luôn hiển thị NỘI DUNG của bài gốc (gốc sửa thì đăng lại đổi theo)
-        photos = Photo.query.filter_by(post_id=content.id).order_by(Photo.id.asc()).all()
-        loc = db.session.get(Location, content.location_id) if content.location_id else None
-        likes_count = Like.query.filter_by(post_id=p.id).count()
-        is_liked = bool(Like.query.filter_by(user_id=current_user.id, post_id=p.id).first())
-        comments = Comment.query.filter_by(post_id=p.id).order_by(Comment.created_at.asc()).all()
-        comments_count = len(comments)
-        is_saved = bool(SavedPost.query.filter_by(user_id=current_user.id, post_id=p.id).first())
-        shares_count = Share.query.filter_by(post_id=p.id).count()
-
-        formatted_comments = []
-        for c in comments:
-            c_author = db.session.get(User, c.user_id)
-            formatted_comments.append({
-                "id": c.id,
-                "user_id": c.user_id,
-                "author_name": c_author.username if c_author else f"User #{c.user_id}",
-                "author_username": c_author.username if c_author else None,
-                "content": c.content,
-                "created_at": c.created_at.strftime("%H:%M %d/%m/%Y") if c.created_at else "",
-                "can_delete": (c.user_id == current_user.id)
-            })
-
-        post_cards.append({
-            "id": p.id,
-            "author": author,
-            "is_repost": bool(p.original_post_id),
-            "reposter": reposter if p.original_post_id else None,
-            "repost_note": p.repost_note,
-            "visibility": p.visibility,
-            # Bài sắp được repost (gốc thật sự) là riêng tư => bản repost bị khóa ở chế độ riêng tư
-            "repost_locked": ((src or p).visibility == "private"),
-            "caption": content.caption,
-            "location": loc,
-            "is_mine": p.user_id == current_user.id,
-            "edit_data": edit_data_for(p) if (p.user_id == current_user.id and not p.original_post_id) else None,
-            "map_links": visible_links(src or p),   # bài repost hiển thị địa chỉ của bài gốc
-            "created_at": p.created_at.strftime("%d/%m/%Y %H:%M") if p.created_at else "",
-            "created_dt": p.created_at,                                  # giờ đăng (UTC) -> time_tag
-            "edited_dt": None if p.original_post_id else p.edited_at,   # bài đăng lại không tự sửa được
-            "src_edited_dt": src.edited_at if src else None,            # lần cập nhật gần nhất của bài gốc
-            "photos": photos,
-            "likes_count": likes_count,
-            "is_liked": is_liked,
-            "comments_count": comments_count,
-            "comments": formatted_comments,
-            "is_saved": is_saved,
-            "shares_count": shares_count,
-        })
+    post_cards = build_post_cards(posts, current_user.id)
 
     return render_template(
         "locations/feed.html",
         posts=post_cards,
+        me_card=profile_card(current_user),
         popular_places=popular_locations(10),
         suggested_users=suggest_users(current_user.id, 5),
     )
@@ -1110,10 +1164,9 @@ def create_location():
             "error": "Tên địa điểm không được để trống"
         }), 400
 
-    location = get_or_create_location(
-        name,
-        map_link=map_link
-    )
+    location, loc_error = resolve_location(name, data.get("code", ""))
+    if loc_error:
+        return jsonify({"error": loc_error}), 400
 
     return jsonify({
         "location": {
@@ -1123,6 +1176,81 @@ def create_location():
             "map_link": location.map_link
         }
     }), 201
+
+
+# =========================================================
+# DANH MỤC HÀNH CHÍNH — gợi ý / duyệt tỉnh → phường/xã (dữ liệu công khai, không chứa thông tin người dùng)
+# =========================================================
+
+def _places_guard():
+    key = (str(current_user.id) if current_user.is_authenticated else (request.remote_addr or "?"))
+    if not places.rate_ok("places:" + key):
+        return jsonify({"error": "Bạn thao tác quá nhanh, thử lại sau ít giây"}), 429
+    return None
+
+
+@locations_bp.route("/places/suggest", methods=["GET"])
+def places_suggest():
+    """Gõ → gợi ý. ?q=...&province=<mã tỉnh, tuỳ chọn>&limit=8"""
+    blocked = _places_guard()
+    if blocked:
+        return blocked
+    try:
+        limit = int(request.args.get("limit", 8))
+    except ValueError:
+        limit = 8
+    return jsonify({"results": places.search(request.args.get("q", ""), request.args.get("province") or None, limit)})
+
+
+@locations_bp.route("/places/provinces", methods=["GET"])
+def places_provinces():
+    blocked = _places_guard()
+    if blocked:
+        return blocked
+    return jsonify({"provinces": [places.public(p) for p in places.provinces()]})
+
+
+@locations_bp.route("/places/wards", methods=["GET"])
+def places_wards():
+    """Phường/xã/đặc khu của 1 tỉnh: ?province=<mã>&q=<lọc, tuỳ chọn>"""
+    blocked = _places_guard()
+    if blocked:
+        return blocked
+    code = (request.args.get("province") or "").strip()
+    info = places.get(code)
+    if not info or info["kind"] != "province":
+        return jsonify({"error": "Tỉnh/thành không hợp lệ"}), 404
+    return jsonify({"province": places.public(info),
+                    "wards": [places.public(w) for w in places.wards_of(code, request.args.get("q", ""))]})
+
+
+@locations_bp.route("/places/check-links", methods=["POST"])
+@login_required
+def places_check_links():
+    """Kiểm tra TRƯỚC khi đăng (chỉ để cảnh báo, không lưu gì): link Google Maps có vẻ lệch tỉnh đã chọn không?
+    Body JSON: {kind:'post'|'plan', locations:[{code,name}], links:[{url,label}]} → {warning: str|None, results:[...]}"""
+    if not places.rate_ok("chk:%s" % current_user.id, limit=20, window=60):
+        return jsonify({"error": "Bạn thao tác quá nhanh, thử lại sau ít giây"}), 429
+    from app.locations import geocheck
+    data = request.get_json(silent=True) or {}
+    kind = "plan" if data.get("kind") == "plan" else "post"
+    limit = POST_LIMIT if kind == "post" else 5
+    links, err = parse_map_links(data.get("links"), limit)
+    if err:
+        return jsonify({"error": err}), 400
+    locs = []
+    for item in (data.get("locations") or [])[:3]:
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get("code") or "").strip()
+        if not places.get(code):
+            code = places.resolve_text(item.get("name")) or ""
+        if code:                                   # chỉ cần mã để biết tỉnh — không tạo gì trong DB
+            from types import SimpleNamespace
+            locs.append(SimpleNamespace(code=code, name=""))
+    results = geocheck.check_links(links, locs, kind)
+    return jsonify({"warning": geocheck.warning_text(results),
+                    "results": [{k: r[k] for k in ("url", "label", "status", "km", "province")} for r in results]})
 
 
 # =========================================================
@@ -1210,9 +1338,9 @@ def create_itinerary():
         return jsonify({"error": "Thiếu tên chuyến đi"}), 400
 
     from datetime import datetime
-    location = None
-    if data.get("location_name"):
-        location = get_or_create_location(data["location_name"], data.get("map_link"))
+    location, loc_error = resolve_location(data.get("location_name"), data.get("location_code"))
+    if loc_error:
+        return jsonify({"error": loc_error}), 400
 
     itinerary = Itinerary(
         user_id=current_user.id,

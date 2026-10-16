@@ -1,0 +1,130 @@
+<!-- Modal Xác nhận Đăng lại (Repost): chọn Công khai/Riêng tư + ghi chú -->
+<div class="modal fade" id="repostModal" tabindex="-1" aria-labelledby="repostModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold text-dark" id="repostModalLabel"><i class="bi bi-arrow-repeat text-success me-2"></i>Đăng lại bài viết</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <label class="form-label small fw-semibold text-muted mb-1">Ghi chú của bạn (không bắt buộc)</label>
+                <textarea id="repostNote" class="form-control rounded-3" rows="3" maxlength="500" placeholder="Bạn nghĩ gì về bài viết này?"></textarea>
+                <div class="text-end text-muted" style="font-size: 0.72rem;"><span id="repostNoteCount">0</span>/500</div>
+
+                <label class="form-label small fw-semibold text-muted mt-2 mb-1">Ai xem được bản đăng lại?</label>
+                <div class="btn-group w-100" role="group" aria-label="Chế độ hiển thị">
+                    <button type="button" class="btn btn-outline-primary active" id="repostVisPublic" onclick="setRepostVis('public')"><i class="bi bi-globe2 me-1"></i> Công khai</button>
+                    <button type="button" class="btn btn-outline-primary" id="repostVisPrivate" onclick="setRepostVis('private')"><i class="bi bi-lock-fill me-1"></i> Riêng tư</button>
+                </div>
+                <div class="small text-warning-emphasis bg-warning-subtle rounded-3 p-2 mt-2 d-none" id="repostLockHint">
+                    <i class="bi bi-info-circle me-1"></i>Bài gốc đang ở chế độ riêng tư nên bản đăng lại cũng chỉ ở chế độ riêng tư.
+                </div>
+                <div class="small text-danger mt-2 d-none" id="repostError"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-ges-primary rounded-pill px-4" id="repostSubmitBtn" onclick="submitRepost()"><i class="bi bi-arrow-repeat me-1"></i> Đăng lại</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Chỉnh sửa bài đăng (chỉ chủ bài; không sửa/xóa ảnh-video đã đăng) -->
+<div class="modal fade" id="editPostModal" tabindex="-1" aria-labelledby="editPostTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold" id="editPostTitle"><i class="bi bi-pencil-square text-primary me-2"></i>Chỉnh sửa bài đăng</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold" for="epCaption">Nội dung</label>
+                    <textarea class="form-control" id="epCaption" rows="4" maxlength="1500"></textarea>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label small fw-semibold" for="epHashtags">Hashtag <span class="text-muted fw-normal">(tối đa 3)</span></label>
+                        <input type="text" class="form-control" id="epHashtags" maxlength="120" placeholder="dalat phuot">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small fw-semibold" for="epVisibility">Chế độ</label>
+                        <select class="form-select" id="epVisibility">
+                            <option value="public">Công khai</option>
+                            <option value="private">Riêng tư (chỉ mình tôi)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold" for="epLocation">Địa điểm</label>
+                    <input type="text" class="form-control mb-2" id="epLocation" maxlength="160" placeholder="Bấm để chọn Tỉnh/Thành → Phường/Xã" data-place-picker data-place-code-name="location_code">
+                    <div class="row g-2">
+                        <div class="col-6"><input type="text" class="form-control form-control-sm" id="epExtra0" maxlength="160" placeholder="Địa điểm phụ 1 (không bắt buộc)" data-place-picker data-place-code-name="extra_location_code0"></div>
+                        <div class="col-6"><input type="text" class="form-control form-control-sm" id="epExtra1" maxlength="160" placeholder="Địa điểm phụ 2 (không bắt buộc)" data-place-picker data-place-code-name="extra_location_code1"></div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Địa chỉ Google Maps <span class="text-muted fw-normal">(tối đa 2)</span></label>
+                    <div class="row g-2 mb-2">
+                        <div class="col-7"><input type="text" class="form-control form-control-sm" id="epMapUrl0" maxlength="500" placeholder="https://maps.app.goo.gl/..."></div>
+                        <div class="col-5"><input type="text" class="form-control form-control-sm" id="epMapLabel0" maxlength="60" placeholder="Tên hiển thị"></div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-7"><input type="text" class="form-control form-control-sm" id="epMapUrl1" maxlength="500" placeholder="https://maps.app.goo.gl/..."></div>
+                        <div class="col-5"><input type="text" class="form-control form-control-sm" id="epMapLabel1" maxlength="60" placeholder="Tên hiển thị"></div>
+                    </div>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label small fw-semibold" for="epFiles">Thêm ảnh/video mới</label>
+                    <input type="file" class="form-control form-control-sm" id="epFiles" accept=".png,.jpg,.jpeg,.gif,.mp4,.mov,.webm" multiple>
+                    <div class="form-text" id="epMediaHint"></div>
+                </div>
+                <div class="alert alert-danger py-2 small mt-3 mb-0 d-none" id="epError" role="alert"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" id="epSubmit" onclick="submitEditPost()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Share Post (Slide 4 Proposal) -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold text-dark" id="shareModalLabel">
+                    <i class="bi bi-share text-primary me-2"></i>Chia sẻ bài viết
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <p class="text-muted small mb-3">Chọn hình thức bạn muốn chia sẻ bài viết này:</p>
+                <div class="d-flex flex-column gap-2">
+                    <button type="button" class="btn share-opt-btn" onclick="executeShareAction('download')">
+                        <i class="bi bi-download text-primary"></i>
+                        <div class="text-start">
+                            <div class="fw-semibold text-dark">Tải về máy</div>
+                            <small class="text-muted">Lưu ảnh bài viết về thiết bị</small>
+                        </div>
+                    </button>
+                    <button type="button" class="btn share-opt-btn" onclick="executeShareAction('repost')">
+                        <i class="bi bi-arrow-repeat text-success"></i>
+                        <div class="text-start">
+                            <div class="fw-semibold text-dark">Đăng lại (Repost)</div>
+                            <small class="text-muted">Chia sẻ ngay lên trang cá nhân</small>
+                        </div>
+                    </button>
+                    <button type="button" class="btn share-opt-btn" onclick="executeShareAction('copy')">
+                        <i class="bi bi-link-45deg text-info"></i>
+                        <div class="text-start">
+                            <div class="fw-semibold text-dark">Sao chép liên kết</div>
+                            <small class="text-muted">Lấy link trực tiếp đến bài viết</small>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

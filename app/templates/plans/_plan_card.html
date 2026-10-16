@@ -1,0 +1,31 @@
+{# Thẻ 1 lịch trình dùng chung: trang Lịch trình + tab "Lịch trình" ở trang cá nhân. Cần biến `c` (xem make_plan_cards). #}
+        {% set p = c.plan %}
+        <article class="pl-card" data-plan-id="{{ p.id }}" tabindex="0" role="button" aria-label="Xem lịch trình {{ p.title }}">
+            <div class="pl-cover">
+                <img src="{{ url_for('static', filename=c.cover) }}" alt="" loading="lazy">
+                <div class="pl-react">
+                    <button type="button" data-act="like" class="{{ 'liked' if c.liked }}" aria-label="Thả tim"><i class="bi {{ 'bi-heart-fill' if c.liked else 'bi-heart' }}"></i><span>{{ c.likes }}</span></button>
+                    <button type="button" data-act="comment" aria-label="Bình luận"><i class="bi bi-chat"></i><span>{{ c.comments }}</span></button>
+                    <button type="button" data-act="share" aria-label="Chia sẻ" data-has-attach="{{ 1 if c.has_attach else 0 }}"><i class="bi bi-send"></i><span>{{ c.shares }}</span></button>
+                </div>
+            </div>
+            <div class="pl-info">
+                <div class="pl-top">
+                <div class="pl-badges">
+                    {% if c.type %}<span class="pl-badge">{{ p.trip_type or c.type }}</span>{% endif %}
+                    {% if c.private %}<span class="pl-badge priv"><i class="bi bi-lock-fill me-1"></i>Riêng tư</span>{% endif %}
+                </div>
+                <a class="pl-author" href="{{ url_for('auth.profile', username=p.author.username) }}" title="Xem trang cá nhân của {{ p.author.username }}">
+                    {% if p.author.avatar_url %}<img class="pl-av" src="{{ p.author.avatar_url }}" alt="">{% else %}<span class="pl-av pl-av-ph">{{ p.author.username[0]|upper }}</span>{% endif %}
+                    <span class="n">{{ p.author.username }}</span>
+                </a>
+                </div>
+                <h2 class="pl-title">{{ p.title }}</h2>
+                <div class="pl-meta">
+                    <span><i class="bi bi-geo-alt-fill me-1"></i>{{ c.location }}</span>
+                    <span><i class="bi bi-calendar3 me-1"></i>{{ c.days }} ngày · {{ c.stops }} điểm ghé</span>
+                </div>
+                <div class="pl-price">{% if c.budget > 0 %}{{ "{:,.0f}".format(c.budget) }} đ{% else %}<span class="text-muted fw-normal">Chưa đặt ngân sách</span>{% endif %}</div>
+                <div class="pl-time">{{ time_tag(p.created_at, c.edited, prefix="Đăng ") }}</div>
+            </div>
+        </article>

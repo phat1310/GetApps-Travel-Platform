@@ -1,0 +1,204 @@
+{# Thẻ 1 bài viết dùng chung: bảng tin + tab "Bài viết" ở trang cá nhân. Cần biến `post` (xem build_post_cards). #}
+{% from "_presence.html" import dot, label with context %}
+{% from "_maplinks.html" import map_chips %}
+                <article class="post-card" id="post-article-{{ post.id }}" data-repost-locked="{{ 1 if post.repost_locked else 0 }}">
+                    <!-- Post Header -->
+                    <div class="p-3 d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if post.author %}{% set author_href = url_for('auth.profile', username=post.author.username) %}{% else %}{% set author_href = '#' %}{% endif %}
+                            {% if post.is_repost and post.reposter %}
+                                <!-- Repost: avatar chủ gốc (lớn) + avatar người đăng lại (nhỏ, chồng lên) -->
+                                <div class="ges-repost-avs">
+                                    <a href="{{ author_href }}" class="ges-av ges-av-main" title="{{ post.author.username if post.author else '' }}">
+                                        {% if post.author and post.author.avatar_url %}<img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}" class="avatar avatar-sm">{% else %}<span class="avatar-placeholder avatar-sm">{{ post.author.username[0]|upper if post.author else 'U' }}</span>{% endif %}
+                                        {% if post.author %}{{ dot(post.author) }}{% endif %}
+                                    </a>
+                                    <a href="{{ url_for('auth.profile', username=post.reposter.username) }}" class="ges-av ges-av-mini" title="{{ post.reposter.username }} đã đăng lại">
+                                        {% if post.reposter.avatar_url %}<img src="{{ post.reposter.avatar_url }}" alt="{{ post.reposter.username }}">{% else %}<span class="ges-mini-ph">{{ post.reposter.username[0]|upper }}</span>{% endif %}
+                                    </a>
+                                </div>
+                            {% else %}
+                                <a href="{{ author_href }}" class="ges-av" title="Xem trang cá nhân">
+                                    {% if post.author and post.author.avatar_url %}
+                                        <img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}" class="avatar avatar-sm">
+                                    {% else %}
+                                        <span class="avatar-placeholder avatar-sm">{{ post.author.username[0]|upper if post.author else 'U' }}</span>
+                                    {% endif %}
+                                    {% if post.author %}{{ dot(post.author) }}{% endif %}
+                                </a>
+                            {% endif %}
+                            <div>
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    <a href="{{ author_href }}" class="fw-bold text-dark fs-6 text-decoration-none">{{ post.author.username if post.author else 'Ẩn danh' }}</a>
+                                    {% if post.author and post.author.role %}
+                                        <span class="badge badge-role badge-role-{{ post.author.role }}">{{ post.author.role }}</span>
+                                    {% endif %}
+                                    {% if post.author %}<small class="text-muted">{{ label(post.author) }}</small>{% endif %}
+                                </div>
+                                {% if post.is_repost and post.reposter %}
+                                    <div class="small text-success fw-semibold"><i class="bi bi-arrow-repeat"></i> <a href="{{ url_for('auth.profile', username=post.reposter.username) }}" class="text-success text-decoration-none">{{ post.reposter.username }}</a> đã đăng lại</div>
+                                {% endif %}
+                                <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.78rem;">
+                                    {% if post.visibility == 'private' %}
+                                        <span title="Riêng tư"><i class="bi bi-lock-fill"></i> Riêng tư</span>
+                                    {% endif %}
+                                    {% if post.location %}
+                                        <span>•</span>
+                                        <span class="text-primary fw-semibold">
+                                            <i class="bi bi-geo-alt-fill text-danger"></i> {{ post.location.name }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                {{ map_chips(post.map_links, 'mt-1') }}
+                            </div>
+                        </div>
+
+                        <!-- Giờ đăng (cạnh dấu 3 chấm) + Dropdown -->
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <small class="text-muted text-end" style="font-size: 0.78rem;">{{ time_tag(post.created_dt, post.edited_dt) }}</small>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border-0 text-muted rounded-circle" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                <li>
+                                    <a class="dropdown-item" href="javascript:void(0)" onclick="copyPostLink({{ post.id }})">
+                                        <i class="bi bi-link-45deg me-1"></i> Sao chép liên kết
+                                    </a>
+                                </li>
+                                {% if post.is_mine %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% if post.edit_data %}
+                                    <li>
+                                        <a class="dropdown-item" href="javascript:void(0)" data-edit="{{ post.edit_data|tojson|forceescape }}" onclick="openEditPost(this)">
+                                            <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa bài đăng
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="javascript:void(0)" onclick="deletePost({{ post.id }}, {{ 'true' if post.is_repost else 'false' }})">
+                                            <i class="bi bi-trash me-1"></i> {{ 'Xóa bài đăng lại' if post.is_repost else 'Xóa bài đăng' }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        </div>
+                    </div>
+
+                    {% if post.is_repost and post.repost_note %}
+                        <div class="px-3 pb-2">
+                            <div class="repost-note">{{ post.repost_note }}</div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Post Caption -->
+                    {% if post.caption %}
+                        <div class="px-3 pb-2">
+                            <p class="mb-1 text-dark" style="white-space: pre-line; font-size: 0.95rem; line-height: 1.5;">{{ post.caption }}</p>
+                        </div>
+                    {% endif %}
+
+                    <!-- Post Media (Multi-photo Carousel or Single photo/video) -->
+                    {% if post.photos %}
+                        <div class="post-media-container">
+                            {% if post.photos|length == 1 %}
+                                {% set photo = post.photos[0] %}
+                                {% if photo.media_type == 'video' %}
+                                    <video controls playsinline class="w-100">
+                                        <source src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" type="video/mp4">
+                                        Trình duyệt của bạn không hỗ trợ video.
+                                    </video>
+                                {% else %}
+                                    <img src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" alt="Post image" loading="lazy">
+                                {% endif %}
+                            {% else %}
+                                <div id="carouselPost{{ post.id }}" class="carousel slide w-100" data-bs-interval="false">
+                                    <div class="carousel-indicators">
+                                        {% for photo in post.photos %}
+                                            <button type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide-to="{{ loop.index0 }}" class="{% if loop.first %}active{% endif %}"></button>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="carousel-inner">
+                                        {% for photo in post.photos %}
+                                            <div class="carousel-item {% if loop.first %}active{% endif %} text-center">
+                                                {% if photo.media_type == 'video' %}
+                                                    <video controls playsinline class="w-100">
+                                                        <source src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" type="video/mp4">
+                                                    </video>
+                                                {% else %}
+                                                    <img src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" class="d-block w-100" alt="Photo {{ loop.index }}">
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon"></span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon"></span>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Post Action Bar -->
+                    <div class="p-3 border-top border-light">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center gap-1">
+                                <!-- Like Button -->
+                                <button type="button" class="post-action-btn {% if post.is_liked %}liked{% endif %}" id="like-btn-{{ post.id }}" onclick="toggleLike({{ post.id }})">
+                                    <i class="bi {% if post.is_liked %}bi-heart-fill{% else %}bi-heart{% endif %} fs-5" id="like-icon-{{ post.id }}"></i>
+                                    <span id="like-count-{{ post.id }}">{{ post.likes_count }}</span>
+                                </button>
+
+                                <!-- Comment Button -->
+                                <button type="button" class="post-action-btn" data-bs-toggle="collapse" data-bs-target="#comments-collapse-{{ post.id }}" aria-expanded="false">
+                                    <i class="bi bi-chat fs-5"></i>
+                                    <span id="comment-count-{{ post.id }}">{{ post.comments_count }}</span>
+                                </button>
+
+                                <!-- Share Button (mở modal 3 tùy chọn theo Slide 4) -->
+                                <button type="button" class="post-action-btn" onclick="openShareModal({{ post.id }})" title="Chia sẻ">
+                                    <i class="bi bi-send fs-5"></i>
+                                    <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
+                                </button>
+                            </div>
+                            {% if post.is_repost and post.src_edited_dt %}
+                                <small class="text-muted text-end" style="font-size: 0.74rem;"><i class="bi bi-pencil-square me-1"></i>Người đăng gốc đã cập nhật lúc {{ edited_clock(post.src_edited_dt) }}</small>
+                            {% endif %}
+                        </div>
+
+                        <!-- Collapse Comments Section -->
+                        <div class="collapse {% if post.comments_count > 0 %}show{% endif %}" id="comments-collapse-{{ post.id }}">
+                            <div class="pt-2 border-top">
+                                <!-- Comments List -->
+                                <div class="comments-list d-flex flex-col gap-2 mb-3" id="comments-list-{{ post.id }}">
+                                    {% for comment in post.comments %}
+                                        <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-{{ comment.id }}">
+                                            <div>
+                                                {% if comment.author_username %}<a href="{{ url_for('auth.profile', username=comment.author_username) }}" class="text-decoration-none"><strong class="text-dark">{{ comment.author_name }}:</strong></a>{% else %}<strong class="text-dark">{{ comment.author_name }}:</strong>{% endif %}
+                                                <span class="text-secondary ms-1">{{ comment.content | mentions }}</span>
+                                                <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">{{ comment.created_at }}</div>
+                                            </div>
+                                            {% if comment.can_delete %}
+                                                <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment({{ comment.id }}, {{ post.id }})">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Add Comment Input Box -->
+                                <form onsubmit="submitComment(event, {{ post.id }})" class="d-flex gap-2">
+                                    <input type="text" class="form-control form-control-sm rounded-pill px-3" placeholder="Viết bình luận của bạn..." id="comment-input-{{ post.id }}" required>
+                                    <button type="submit" class="btn btn-sm btn-ges-primary rounded-pill px-3">
+                                        Gửi
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </article>

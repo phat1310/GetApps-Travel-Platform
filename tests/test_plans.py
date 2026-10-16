@@ -85,7 +85,7 @@ def test_plan_create_form_post_success(client, users):
     with client.application.app_context():
         plan = Itinerary.query.filter_by(title="Chuyến đi săn mây Đà Lạt 3N2Đ").first()
         assert plan is not None
-        assert plan.destination == "Đà Lạt, Lâm Đồng"
+        assert plan.destination == "Tỉnh Lâm Đồng"   # điểm đến lưu theo nhãn danh mục hành chính
         assert plan.total_days == 3
         assert len(plan.days) == 3
 

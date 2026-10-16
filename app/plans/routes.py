@@ -9,9 +9,10 @@ from werkzeug.utils import secure_filename
 from flask import render_template, redirect, url_for, flash, request, jsonify, abort, current_app, send_file
 from flask_login import login_required, current_user
 from app.extensions import db
-from app.models import Itinerary, Plan, ItineraryDay, ItineraryStop, ItineraryLodging, User
+from app.models import Itinerary, Plan, ItineraryDay, ItineraryStop, ItineraryLodging, User, Location
 from app.plans import plans_bp
 from app.plans.forms import PlanCreateForm, PlanDayForm, PlanStopForm
+from app.locations.places import resolve_location
 from app.locations.discovery import link_destination, can_view_itinerary, viewer_follow_set, norm_text, clean_destination
 from app.locations.maplinks import (parse_map_links, attach_map_links, PLAN_LIMIT, check_map_url, check_web_url,
                                     clean_text, looks_like_link)
@@ -214,6 +215,36 @@ def _edited_at(p):
     return None
 
 
+def make_plan_cards(plans, viewer_id, loc_name):
+    """Dữ liệu thẻ lịch trình (trang Lịch trình + tab "Lịch trình" ở trang cá nhân dùng chung 1 mẫu thẻ).
+    `plans` đã được lọc quyền xem ở nơi gọi; `loc_name(plan)` trả tên địa điểm hiển thị."""
+    ids = [p.id for p in plans]
+    likes, cmts, shares, liked, saved = _social_state(ids, viewer_id)
+    cards = []
+    for p in plans:
+        cover = (p.cover_image or '').replace('static/', '', 1) or DEFAULT_COVER
+        stops = sum(len(d.stops) for d in p.days)
+        cards.append(dict(
+            plan=p, cover=cover, location=loc_name(p), type=trip_code(p), budget=plan_budget(p),
+            days=p.total_days, stops=stops, edited=_edited_at(p), is_mine=(p.id and p.user_id == viewer_id),
+            private=((p.visibility or 'public') == 'private'),
+            likes=likes.get(p.id, 0), comments=cmts.get(p.id, 0), shares=shares.get(p.id, 0),
+            liked=(p.id in liked), has_attach=bool(p.attachment_file or p.attachments),
+        ))
+    return cards
+
+
+def cards_for_profile(plans, viewer_id):
+    """Thẻ lịch trình cho trang cá nhân (tự nạp tên địa điểm)."""
+    ids = list({p.location_id for p in plans if p.location_id})
+    locs = {l.id: l for l in Location.query.filter(Location.id.in_(ids or [0])).all()}
+
+    def loc_name(p):
+        l = locs.get(p.location_id)
+        return l.name if l else clean_destination(p.destination)
+    return make_plan_cards(plans, viewer_id, loc_name)
+
+
 @plans_bp.route('', methods=['GET'])
 @plans_bp.route('/', methods=['GET'])
 def index():
@@ -222,7 +253,7 @@ def index():
     price = request.args.get('price', '').strip()
     loc_id = request.args.get('loc', '').strip()
     ttype = request.args.get('type', '').strip()
-    q = request.args.get('q', '').strip()[:60]
+    q = request.args.get('q', '').strip()[:160]
 
     viewer_id = current_user.id if current_user.is_authenticated else None
     viewer_follow = viewer_follow_set(viewer_id)
@@ -230,6 +261,14 @@ def index():
     visible = [p for p in all_plans if can_view_itinerary(p, viewer_id, viewer_follow)]
 
     locs = {l.id: l for l in Location.query.filter(Location.id.in_(list({p.location_id for p in visible if p.location_id}) or [0])).all()}
+    parent_ids = {l.parent_id for l in locs.values() if l.parent_id and l.parent_id not in locs}
+    if parent_ids:                                    # nạp thêm hàng tỉnh/thành cha để gộp số đếm theo tỉnh
+        locs.update({l.id: l for l in Location.query.filter(Location.id.in_(list(parent_ids))).all()})
+
+    def top_id(location_id):
+        """Lọc theo tỉnh/thành thì gồm cả phường/xã con: quy mọi địa điểm về tỉnh/thành cha (nếu có)."""
+        l = locs.get(location_id)
+        return (l.parent_id or l.id) if l else None
 
     def loc_name(p):
         l = locs.get(p.location_id)
@@ -238,8 +277,9 @@ def index():
     # Danh sách để chọn trong 3 ô lọc (đếm trên toàn bộ lịch trình xem được)
     loc_count, type_count = {}, {}
     for p in visible:
-        if p.location_id in locs:
-            loc_count[p.location_id] = loc_count.get(p.location_id, 0) + 1
+        t_id = top_id(p.location_id)
+        if t_id in locs:
+            loc_count[t_id] = loc_count.get(t_id, 0) + 1
         t = trip_code(p)
         if t:
             type_count[t] = type_count.get(t, 0) + 1
@@ -254,30 +294,25 @@ def index():
         lo, hi = bucket[2], bucket[3]
         plans = [p for p in plans if plan_budget(p) >= lo and (hi is None or plan_budget(p) < hi)]
     if any(str(o["id"]) == loc_id for o in loc_options):      # chỉ nhận địa điểm có thật trong danh sách
-        plans = [p for p in plans if p.location_id == int(loc_id)]
+        plans = [p for p in plans if top_id(p.location_id) == int(loc_id)]
     if ttype:
         plans = [p for p in plans if trip_code(p) == ttype]
     if q:
         qn = norm_text(q)
         if qn:
-            plans = [p for p in plans if _loc_match(qn, [norm_text(loc_name(p)), norm_text(p.destination)])]
+            from app.locations.places import find_province
+            q_prov = find_province(q)[0]               # "Đà Lạt"/"Bà Rịa"/"Sài Gòn" -> tỉnh/thành hiện nay
+            q_code = q_prov["code"] if q_prov else None
+
+            def _in_prov(p):
+                t = locs.get(top_id(p.location_id))
+                return bool(q_code and t is not None and t.code == q_code)
+            plans = [p for p in plans if _in_prov(p) or _loc_match(qn, [norm_text(loc_name(p)), norm_text(p.destination)])]
 
     if request.is_json or request.headers.get('Accept') == 'application/json':
         return jsonify({"plans": [p.to_dict() for p in plans], "count": len(plans)}), 200
 
-    ids = [p.id for p in plans]
-    likes, cmts, shares, liked, saved = _social_state(ids, viewer_id)
-    cards = []
-    for p in plans:
-        cover = (p.cover_image or '').replace('static/', '', 1) or DEFAULT_COVER
-        stops = sum(len(d.stops) for d in p.days)
-        cards.append(dict(
-            plan=p, cover=cover, location=loc_name(p), type=trip_code(p), budget=plan_budget(p),
-            days=p.total_days, stops=stops, edited=_edited_at(p), is_mine=(p.id and p.user_id == viewer_id),
-            private=((p.visibility or 'public') == 'private'),
-            likes=likes.get(p.id, 0), comments=cmts.get(p.id, 0), shares=shares.get(p.id, 0),
-            liked=(p.id in liked), has_attach=bool(p.attachment_file or p.attachments),
-        ))
+    cards = make_plan_cards(plans, viewer_id, loc_name)
 
     price_label = bucket[1] if bucket else ''
     loc_label = next((o["name"] for o in loc_options if str(o["id"]) == loc_id), '')
@@ -430,6 +465,11 @@ def create():
         if map_error:
             return jsonify({"error": map_error}), 400
 
+        dest_loc, dest_err = resolve_location(destination, data.get('destination_code'))
+        if dest_err or not dest_loc:
+            return jsonify({"error": dest_err or "Vui lòng chọn địa điểm."}), 400
+        destination = dest_loc.name
+
         start_date = None
         if data.get('start_date'):
             try:
@@ -444,7 +484,6 @@ def create():
             except ValueError:
                 pass
 
-        dest_loc = link_destination(destination)   # chuẩn hóa điểm đến -> Location để thống kê "Địa điểm nổi bật"
         plan = Itinerary(
             user_id=current_user.id,
             title=title,
@@ -460,7 +499,7 @@ def create():
         )
         db.session.add(plan)
         db.session.flush()
-        attach_map_links(map_links, itinerary=plan)
+        attach_map_links(map_links, itinerary=plan, locations=[dest_loc])
 
         # Tạo ngày 1 mặc định
         day1 = ItineraryDay(itinerary_id=plan.id, day_number=1, title="Ngày 1: Khởi hành")
@@ -501,6 +540,11 @@ def create():
                 if not stops_by_day.get(d):
                     req_err = f"Ngày {d} cần có ít nhất 1 điểm ghé."
                     break
+        dest_loc = None
+        if not req_err:
+            dest_loc, req_err = resolve_location(form.destination.data, request.form.get('destination_code'))
+            if not req_err and not dest_loc:
+                req_err = "Vui lòng chọn địa điểm."
         if req_err:
             flash(req_err, "danger")
             return render_template('plans/create.html', form=form), 400
@@ -511,11 +555,10 @@ def create():
         participants_cnt = form.participants_count.data or (int(request.form.get('participants_count')) if request.form.get('participants_count', '').isdigit() else None)
         trip_type = form.trip_type.data or request.form.get('trip_type')
 
-        dest_loc = link_destination(form.destination.data)   # chuẩn hóa điểm đến -> Location
         plan = Itinerary(
             user_id=current_user.id,
             title=form.title.data.strip(),
-            destination=form.destination.data.strip(),
+            destination=dest_loc.name,
             location_id=dest_loc.id if dest_loc else None,
             start_date=form.start_date.data,
             end_date=form.end_date.data,
@@ -529,7 +572,7 @@ def create():
         )
         db.session.add(plan)
         db.session.flush()
-        attach_map_links(map_links, itinerary=plan)
+        attach_map_links(map_links, itinerary=plan, locations=[dest_loc])
 
         # Tạo các ngày (đã bị chặn tối đa MAX_DAYS ở trên)
         day_map = {}
@@ -629,9 +672,13 @@ def edit(plan_id):
 
     if form.validate_on_submit():
         plan.title = form.title.data.strip()
-        plan.destination = form.destination.data.strip()
-        dest_loc = link_destination(plan.destination)
-        plan.location_id = dest_loc.id if dest_loc else None
+        keep = [db.session.get(Location, plan.location_id)] if plan.location_id else []
+        dest_loc, dest_err = resolve_location(form.destination.data, request.form.get('destination_code'), keep)
+        if dest_err or not dest_loc:
+            flash(dest_err or "Vui lòng chọn địa điểm.", "danger")
+            return render_template('plans/edit.html', form=form, plan=plan), 400
+        plan.destination = dest_loc.name
+        plan.location_id = dest_loc.id
         plan.start_date = form.start_date.data
         plan.end_date = form.end_date.data
         plan.estimated_budget = form.estimated_budget.data or 0.0

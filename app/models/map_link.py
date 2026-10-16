@@ -21,6 +21,12 @@ class MapLink(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Kiểm tra lệch tỉnh (app/locations/geocheck.py): toạ độ đọc từ link; mismatch=1 → chờ kiểm duyệt; NULL = chưa/không kiểm được
+    lat = db.Column(db.Float, nullable=True)
+    lon = db.Column(db.Float, nullable=True)
+    mismatch = db.Column(db.Integer, nullable=True, index=True)
+    mismatch_km = db.Column(db.Float, nullable=True)
+
     # Xóa bài viết / lịch trình thì xóa luôn các link của nó
     post = db.relationship(
         "Post",

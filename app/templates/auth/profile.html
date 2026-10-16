@@ -128,7 +128,38 @@
     .photo-grid-item:hover .photo-grid-overlay {
         opacity: 1;
     }
+    /* Dấu ⋯ trên mỗi ảnh ở Album (chỉ chủ trang) */
+    .album-menu { position: absolute; top: 8px; right: 8px; z-index: 3; }
+    .album-dots { width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(15, 23, 42, .6); color: #fff; display: grid; place-items: center; backdrop-filter: blur(2px); }
+    .album-dots:hover { background: rgba(15, 23, 42, .85); }
+    .album-menu .dropdown-menu { min-width: 120px; }
+    /* 4 ô thống kê (chủ trang có thêm ô Lượt thích): chữ nhỏ lại cho vừa hàng */
+    .stats-row.stats-4 .stats-card { padding: 0.75rem 0.35rem; }
+    .stats-row.stats-4 .stats-label { font-size: 0.62rem; letter-spacing: 0; white-space: nowrap; }
+    .stats-row .stats-card { display: flex; flex-direction: column; justify-content: center; }
+    .stats-like .stats-number { color: #dc2626; }
+    .stats-like:hover { background: #fee2e2; }
+    /* Cửa sổ nổi Lượt thích / Follower / Following */
+    #followListModal .modal-content { border: 0; border-radius: 26px; box-shadow: 0 20px 50px rgba(15, 30, 60, .35); overflow: hidden; }
+    .ges-pm-hd { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+    .ges-pm-hd h6 { margin: 0; font-weight: 800; font-size: 1.05rem; }
+    .ges-pm-x { width: 36px; height: 36px; border-radius: 50%; border: 0; background: #eef2f7; color: #475569; display: grid; place-items: center; }
+    .ges-pm-x:hover { background: #e2e8f0; }
+    .ges-pm-me { width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25);
+                 background: linear-gradient(135deg, var(--ges-primary-light), #bae6fd); color: var(--ges-primary); font-weight: 800;
+                 display: flex; align-items: center; justify-content: center; }
+    .ges-pm-me img { width: 100%; height: 100%; object-fit: cover; }
+    .ges-pm-sub { padding: 0 20px 6px; font-size: .8rem; color: #64748b; min-height: 1.3em; }
+    .ges-pm-sub b { color: #dc2626; }
+    .fl-heart { text-align: center; color: #ef4444; line-height: 1; white-space: nowrap; }
+    .fl-heart small { display: block; font-size: .64rem; color: #64748b; margin-top: 2px; }
+    [data-bs-theme="dark"] #followListModal .modal-content { background: #1e293b; }
+    [data-bs-theme="dark"] .ges-pm-x { background: #334155; color: #e2e8f0; }
+    [data-bs-theme="dark"] .ges-pm-sub, [data-bs-theme="dark"] .fl-heart small { color: #94a3b8; }
+    [data-bs-theme="dark"] .ges-pm-me { border-color: #1e293b; }
 </style>
+{% include "locations/_post_css.html" %}
+{% include "plans/_plan_css.html" %}
 {% endblock %}
 
 {% block content %}
@@ -179,11 +210,17 @@
 
             <!-- Right: Stats & Actions -->
             <div class="col-md-5">
-                <div class="d-flex gap-2 mb-3">
+                <div class="d-flex gap-2 mb-3 stats-row{% if likers_count is not none and not profile_locked %} stats-4{% endif %}">
                     <div class="stats-card">
                         {% if profile_locked %}<span class="stats-number" style="font-size:.85rem">Không hiện</span>{% else %}<span class="stats-number">{{ posts_count }}</span>{% endif %}
                         <span class="stats-label">Bài viết</span>
                     </div>
+                    {% if likers_count is not none and not profile_locked %}
+                    <button type="button" class="stats-card stats-btn stats-like" id="likers-btn" onclick="openFollowList('likes')" title="Xem những người đã thả tim bài viết của bạn">
+                        <span class="stats-number"><i class="bi bi-heart-fill me-1" style="font-size:.85rem"></i><span id="likers-count">{{ likers_count }}</span></span>
+                        <span class="stats-label">Lượt thích</span>
+                    </button>
+                    {% endif %}
                     <button type="button" class="stats-card stats-btn" onclick="openFollowList('followers')" title="Xem danh sách người theo dõi">
                         {% if profile_locked %}<span id="followers-count" class="stats-number" style="font-size:.85rem">Không hiện</span>{% else %}<span class="stats-number" id="followers-count">{{ followers_count }}</span>{% endif %}
                         <span class="stats-label">Follower</span>
@@ -243,7 +280,7 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="plans-tab" data-bs-toggle="tab" data-bs-target="#plans" type="button" role="tab">
-                <i class="bi bi-map"></i> Lịch trình ({{ plans|length }})
+                <i class="bi bi-map"></i> Lịch trình ({{ plan_cards|length }})
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -258,29 +295,13 @@
         
         <!-- Tab 1: Bài viết của user -->
         <div class="tab-pane fade show active" id="posts" role="tabpanel">
-            {% if user_posts %}
-                <div class="photo-grid">
-                    {% for p in user_posts %}
-                        <div class="photo-grid-item" onclick="window.location.href='/locations/feed#post-article-{{ p.id }}'">
-                            {% if p.photos %}
-                                {% set ph = p.photos[0] %}
-                                {% if ph.media_type == 'video' %}
-                                    <video src="{{ url_for('static', filename=ph.file_path.replace('static/', '')) }}"></video>
-                                {% else %}
-                                    <img src="{{ url_for('static', filename=ph.file_path.replace('static/', '')) }}" alt="Photo">
-                                {% endif %}
-                            {% else %}
-                                <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted bg-light">
-                                    <i class="bi bi-file-text fs-2"></i>
-                                </div>
-                            {% endif %}
-                            <div class="photo-grid-overlay">
-                                <span><i class="bi bi-heart-fill me-1"></i>{{ p.likes_count }}</span>
-                                <span><i class="bi bi-chat-fill me-1"></i>{{ p.comments_count }}</span>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
+            {% if post_cards %}
+                {% for post in post_cards %}
+                    {% include "locations/_post_card.html" %}
+                {% endfor %}
+                {% if posts_capped %}
+                    <div class="text-center text-muted small mb-3">Đang hiển thị {{ post_cards|length }} bài mới nhất trong tổng số {{ posts_count }} bài.</div>
+                {% endif %}
             {% else %}
                 <div class="card border-0 shadow-sm p-5 text-center bg-white rounded-3">
                     <i class="bi bi-camera text-muted" style="font-size: 3rem;"></i>
@@ -299,56 +320,16 @@
 
         <!-- Tab 3: Lịch trình du lịch -->
         <div class="tab-pane fade" id="plans" role="tabpanel">
-            {% if plans %}
-                <div class="row row-cols-1 row-cols-md-2 g-3">
-                    {% for p in plans %}
-                        <div class="col">
-                            <div class="card h-100 border rounded-4 overflow-hidden shadow-sm">
-                                <div style="height: 140px; background-color: #0f172a; position: relative;">
-                                    {% if p.cover_image %}
-                                        <img src="{{ url_for('static', filename=p.cover_image.replace('static/', '')) }}" alt="{{ p.title }}" style="width: 100%; height: 100%; object-fit: cover;">
-                                    {% else %}
-                                        <div class="w-100 h-100 d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, #0284c7, #38bdf8);">
-                                            <i class="bi bi-map fs-2"></i>
-                                        </div>
-                                    {% endif %}
-                                    <span class="badge bg-dark bg-opacity-75 position-absolute top-0 start-0 m-2 rounded-pill small">
-                                        <i class="bi bi-calendar3 me-1"></i>{{ p.total_days }} Ngày
-                                    </span>
-                                </div>
-                                <div class="card-body p-3 d-flex flex-column">
-                                    <small class="text-primary fw-bold text-uppercase"><i class="bi bi-geo-alt-fill me-1"></i>{{ p.destination }}</small>
-                                    <h6 class="fw-bold text-dark mt-1 mb-2">{{ p.title }}</h6>
-                                    {{ map_chips(p.map_links, 'mb-2') }}
-                                    <div class="mt-auto d-flex align-items-center justify-content-between pt-2 border-top">
-                                        <span class="small text-success fw-bold">
-                                            {% if p.estimated_budget and p.estimated_budget > 0 %}
-                                                ~{{ "{:,.0f}".format(p.estimated_budget) }} đ
-                                            {% else %}
-                                                Linh hoạt
-                                            {% endif %}
-                                        </span>
-                                        <a href="{{ url_for('plans.detail', plan_id=p.id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
-                                            Xem chi tiết
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            {% if plan_cards %}
+                <div class="pl-list">
+                    {% for c in plan_cards %}
+                        {% include "plans/_plan_card.html" %}
                     {% endfor %}
                 </div>
             {% else %}
                 <div class="card border-0 shadow-sm p-5 text-center bg-white rounded-3">
                     <i class="bi bi-map text-muted" style="font-size: 3rem;"></i>
-                    <h6 class="fw-bold mt-3 mb-1">Chưa có lịch trình nào</h6>
-                    <p class="text-muted small">Người dùng này chưa tạo lịch trình du lịch nào.</p>
-                    {% if current_user.is_authenticated and current_user.id == profile_user.id %}
-                        <div>
-                            <a href="{{ url_for('plans.create') }}" class="btn btn-ges-primary btn-sm rounded-pill px-3">
-                                <i class="bi bi-plus-circle me-1"></i> Tạo lịch trình đầu tiên
-                            </a>
-                        </div>
-                    {% endif %}
+                    <h6 class="fw-bold mt-3 mb-0">Chưa đăng lịch trình</h6>
                 </div>
             {% endif %}
         </div>
@@ -358,8 +339,16 @@
             {% if album_photos %}
                 <div class="photo-grid album-grid">
                     {% for ph in album_photos %}
-                        <div class="photo-grid-item" onclick="window.location.href='/locations/feed#post-article-{{ ph.post_id }}'">
+                        <div class="photo-grid-item" id="album-photo-{{ ph.photo_id }}" onclick="window.location.href='/locations/feed#post-article-{{ ph.post_id }}'">
                             <img src="{{ url_for('static', filename=ph.file_path.replace('static/', '')) }}" alt="Ảnh trong album" loading="lazy">
+                            {% if profile_user.id == current_user.id %}
+                            <div class="album-menu dropdown" onclick="event.stopPropagation()">
+                                <button type="button" class="album-dots" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tùy chọn ảnh"><i class="bi bi-three-dots"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                    <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="deleteAlbumPhoto({{ ph.photo_id }})"><i class="bi bi-trash me-1"></i> Xóa ảnh</a></li>
+                                </ul>
+                            </div>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>
@@ -377,24 +366,29 @@
 
 </div>
 
-<!-- Modal: Danh sách Follower / Following -->
+<!-- Cửa sổ nổi: Lượt thích (chỉ chủ trang) / Người theo dõi / Đang theo dõi -->
 <div class="modal fade" id="followListModal" tabindex="-1" aria-labelledby="followListTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-            <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold" id="followListTitle">Follower</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        <div class="modal-content">
+            <div class="ges-pm-hd">
+                <button type="button" class="ges-pm-x" data-bs-dismiss="modal" aria-label="Đóng"><i class="bi bi-x-lg"></i></button>
+                <h6 id="followListTitle">Người theo dõi</h6>
+                <span class="ges-pm-me">{% if profile_user.avatar_url %}<img src="{{ profile_user.avatar_url }}" alt="">{% else %}{{ profile_user.username[0]|upper }}{% endif %}</span>
             </div>
-            <div class="px-3 pt-2 pb-1">
+            <div class="ges-pm-sub" id="followListSub"></div>
+            <div class="px-3 pt-1 pb-1">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
-                    <input type="text" id="followListSearch" data-clearable class="form-control bg-light border-start-0" placeholder="Tìm trong danh sách..." autocomplete="off" maxlength="60">
+                    <input type="text" id="followListSearch" data-clearable class="form-control bg-light border-start-0" placeholder="Tìm người..." autocomplete="off" maxlength="60">
                 </div>
             </div>
             <div class="modal-body pt-2" id="followListBody" style="min-height: 160px;"></div>
         </div>
     </div>
 </div>
+
+{% include "locations/_post_modals.html" %}
+{% include "plans/_plan_modals.html" %}
 
 <!-- Modal: Chỉnh sửa hồ sơ cá nhân -->
 {% if current_user.is_authenticated and current_user.id == profile_user.id %}
@@ -444,6 +438,8 @@
 {% endblock %}
 
 {% block extra_js %}
+{% include "locations/_post_js.html" %}
+{% include "plans/_plan_js.html" %}
 <script>
     // AJAX: Follow / Unfollow
     const PROFILE_PRIVATE = {{ 'true' if profile_user.is_private else 'false' }};
@@ -486,9 +482,14 @@
 
     function flEscape(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+    const PROFILE_IS_OWNER = {{ 'true' if profile_user.id == current_user.id else 'false' }};
+    const FL_TITLES = { followers: 'Người theo dõi', following: 'Đang theo dõi', likes: 'Lượt thích' };
+
     function openFollowList(kind) {
+        if (!FL_TITLES[kind] || (kind === 'likes' && !PROFILE_IS_OWNER)) return;   // danh sách tim chỉ chủ trang xem (server cũng chặn 403)
         followListKind = kind;
-        document.getElementById('followListTitle').innerText = kind === 'followers' ? 'Follower' : 'Following';
+        document.getElementById('followListTitle').innerText = FL_TITLES[kind];
+        document.getElementById('followListSub').textContent = '';
         const input = document.getElementById('followListSearch');
         input.value = '';
         if (!followListModal) followListModal = new bootstrap.Modal(document.getElementById('followListModal'));
@@ -504,8 +505,10 @@
             const res = await fetch(`/profile/${encodeURIComponent(PROFILE_USERNAME)}/connections?type=${followListKind}&q=${encodeURIComponent(q)}`);
             const data = await res.json().catch(() => ({}));
             if (!res.ok) { body.innerHTML = `<div class="text-center text-muted py-4 small">${flEscape(data.error || 'Không tải được danh sách')}</div>`; return; }
+            setFollowSub(data.total);
             if (!data.users.length) {
-                const empty = q ? 'Không tìm thấy ai' : (followListKind === 'followers' ? 'Chưa có người theo dõi' : 'Chưa theo dõi ai');
+                const empty = q ? 'Không tìm thấy ai' : (followListKind === 'likes' ? 'Chưa có ai thả tim bài viết của bạn'
+                    : (followListKind === 'followers' ? 'Chưa có người theo dõi' : 'Chưa theo dõi ai'));
                 body.innerHTML = `<div class="text-center text-muted py-4"><i class="bi bi-people fs-2 d-block mb-1"></i>${empty}</div>`;
                 return;
             }
@@ -516,12 +519,31 @@
         }
     }
 
+    function setFollowSub(total) {
+        const el = document.getElementById('followListSub');
+        el.textContent = '';
+        const n = document.createElement('b'); n.textContent = total + ' người';
+        const who = PROFILE_IS_OWNER ? 'bạn' : '@' + PROFILE_USERNAME;
+        if (followListKind === 'likes') { el.append(n, ' đã thả tim bài viết của ' + who); }
+        else if (followListKind === 'followers') { el.append(n, ' đang theo dõi ' + who); }
+        else { el.append(PROFILE_IS_OWNER ? 'Bạn đang theo dõi ' : '@' + PROFILE_USERNAME + ' đang theo dõi ', n); }
+        if (followListKind !== 'likes') n.style.color = 'inherit';
+    }
+
     function renderFollowRow(u) {
         const av = u.avatar_url
             ? `<img class="fl-av" src="${flEscape(u.avatar_url)}" alt="">`
             : `<span class="fl-av">${flEscape((u.username || '?')[0].toUpperCase())}</span>`;
         const st = u.presence;
         const label = st === 'on' ? 'Online' : (st === 'off' ? 'Offline' : '');
+        if (followListKind === 'likes') {
+            return `<div class="fl-row">
+            <a class="fl-main" href="${flEscape(u.profile_url)}">
+                <span class="ges-av">${av}<span class="ges-dot ${st}" data-presence="${u.id}"></span></span>
+                <span class="min-w-0"><span class="fl-name d-block">${flEscape(u.display)}</span>
+                <span class="fl-sub">@${flEscape(u.username)}${u.last_label ? ' • ' + flEscape(u.last_label) : ''}</span></span>
+            </a><div class="fl-heart" title="Số bài của bạn mà người này đã thả tim"><i class="bi bi-heart-fill"></i><small>${Number(u.liked_posts) || 0} bài</small></div></div>`;
+        }
         const btn = u.is_me ? '' : `<button type="button" class="btn btn-sm ${u.is_following ? 'btn-light border text-muted' : 'btn-ges-primary'} py-0 px-3" style="font-size:.78rem" data-follow-uid="${u.id}" data-following="${u.is_following ? 1 : 0}" onclick="flToggle(this)">${u.is_following ? 'Đang theo dõi' : 'Theo dõi'}</button>`;
         return `<div class="fl-row">
             <a class="fl-main" href="${flEscape(u.profile_url)}">
@@ -551,6 +573,36 @@
             followListTimer = setTimeout(loadFollowList, 220);
         }
     });
+
+    // Mở thẳng tab / cửa sổ theo #hash: #posts, #plans, #album, #likes (thẻ ở bảng tin dùng #posts)
+    function applyProfileHash() {
+        const h = (location.hash || '').replace('#', '');
+        if (h === 'posts' || h === 'plans' || h === 'album') {
+            const btn = document.getElementById(h + '-tab');
+            if (btn && window.bootstrap) bootstrap.Tab.getOrCreateInstance(btn).show();
+        } else if (h === 'likes' && document.getElementById('likers-btn')) {
+            openFollowList('likes');
+        }
+    }
+    window.addEventListener('load', applyProfileHash);
+    window.addEventListener('hashchange', applyProfileHash);
+
+    // Xóa 1 ảnh ở Album (chỉ chủ trang; server kiểm quyền lại). Ảnh cuối của bài không có chữ -> bài bị xóa theo.
+    async function deleteAlbumPhoto(photoId) {
+        const ok = await geAsk({
+            title: 'Xóa ảnh này?',
+            note: 'Ảnh sẽ bị xóa vĩnh viễn khỏi bài viết và Album. Nếu đây là ảnh duy nhất của một bài không có nội dung chữ, cả bài viết cũng sẽ bị xóa. Không thể hoàn tác.',
+            fields: [], confirmText: 'Xóa ảnh', cancelText: 'Hủy'
+        });
+        if (!ok) return;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        try {
+            const res = await fetch(`/locations/photos/${photoId}/delete`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) { window.location.hash = '#album'; window.location.reload(); }
+            else { alert(data.error || 'Không xóa được ảnh.'); }
+        } catch (e) { alert('Không kết nối được máy chủ.'); }
+    }
 
     function shareProfile(username) {
         const profileUrl = window.location.href;

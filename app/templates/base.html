@@ -877,6 +877,7 @@
         .gc-icon-btn:disabled { opacity: .4; cursor: not-allowed; }
     </style>
 
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/place-picker.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body class="{% if current_user.is_authenticated %}has-pill-side{% endif %}">
@@ -1107,7 +1108,7 @@
                             <div class="mb-3">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text qc-input-group-text border-end-0"><i class="bi bi-geo-alt-fill text-danger"></i></span>
-                                    <input type="text" name="location_name" class="form-control qc-location-input border-start-0" placeholder="Địa điểm (ví dụ: Đà Lạt, Hồ Tuyền Lâm)..." style="font-size: 0.85rem;">
+                                    <input type="text" name="location_name" data-place-picker data-place-code-name="location_code" class="form-control qc-location-input border-start-0" placeholder="Bấm để chọn Tỉnh/Thành → Phường/Xã (hoặc gõ để tìm)..." maxlength="160" style="font-size: 0.85rem;">
                                 </div>
                             </div>
 
@@ -1189,7 +1190,7 @@
                                         </div>
                                         <div class="input-group input-group-sm">
                                             <span class="input-group-text qc-input-icon-box"><i class="bi bi-geo-alt-fill text-primary"></i></span>
-                                            <input type="text" name="destination" id="qcPlanDestination" class="form-control qc-input-field" placeholder="Đà Lạt, Lâm Đồng" required>
+                                            <input type="text" name="destination" id="qcPlanDestination" class="form-control qc-input-field" placeholder="Bấm để chọn Tỉnh/Thành → Phường/Xã (hoặc gõ để tìm)" maxlength="160" data-place-picker data-place-code-name="destination_code" required>
                                         </div>
                                     </div>
 
@@ -1998,11 +1999,11 @@
         }
 
         // Gợi ý điểm đến = 3 địa điểm được đăng nhiều nhất (bài viết + lịch trình). Bấm để điền tên sạch (không '#').
-        function setQcDestination(name) {
+        function setQcDestination(name, code) {
             const input = document.getElementById('qcPlanDestination');
             if (input) {
-                input.value = name;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
+                if (window.GesPlace && code) { GesPlace.set(input, name, code); }
+                else { input.value = name; input.dispatchEvent(new Event('input', { bubbles: true })); }
             }
         }
 
@@ -2021,7 +2022,7 @@
                         b.className = 'badge qc-hashtag-badge';
                         b.textContent = p.name;            // textContent: tên địa điểm do người dùng nhập, không chèn HTML
                         b.style.cursor = 'pointer';
-                        b.addEventListener('click', () => setQcDestination(p.name));
+                        b.addEventListener('click', () => setQcDestination(p.name, p.code));
                         box.appendChild(b);
                     });
                 })
@@ -2351,7 +2352,7 @@
             };
             if (!($('qcPlanCoverInput').files || []).length) return fail('Vui lòng chọn ảnh bìa cho chuyến đi.', 'qcPlanCoverBox');
             if (!$('qcPlanTitle').value.trim()) return fail('Vui lòng nhập tên chuyến đi.', 'qcPlanTitle');
-            if (!$('qcPlanDestination').value.trim()) return fail('Vui lòng nhập địa điểm.', 'qcPlanDestination');
+            if (!$('qcPlanDestination').value.trim()) return fail('Vui lòng chọn địa điểm (Tỉnh/Thành, có thể kèm Phường/Xã).', 'qcPlanDestination');
             const sd = $('qcPlanStartDate').value, ed = $('qcPlanEndDate').value;
             if (!sd || !ed) return fail('Vui lòng chọn ngày bắt đầu và ngày kết thúc.', 'qcPlanStartDate');
             if (ed < sd) return fail('Ngày kết thúc phải sau ngày bắt đầu.', 'qcPlanEndDate');
@@ -2372,7 +2373,7 @@
                 }
             }
             $('qcPlanError')?.classList.add('d-none');
-            return true;
+            return qcMapGuard(e, 'plan', '#qcPlanDestination', 'qcPlanMapJson');
         }
 
         function validateQcPostForm(e) {
@@ -2382,7 +2383,22 @@
                 document.getElementById('qcDropZone')?.scrollIntoView({ behavior: 'smooth' });
                 return false;
             }
-            return true;
+            return qcMapGuard(e, 'post', '#qcPostForm input[name=location_name]', 'qcPostMapJson');
+        }
+
+        // Cảnh báo (không chặn) khi link Google Maps nằm xa tỉnh đã chọn. Hỏi xong thì gửi form như bình thường.
+        function qcMapGuard(e, kind, nameSel, mapId) {
+            const form = e.target.closest ? e.target.closest('form') : e.target;
+            if (!form || form.dataset.mapOk === '1' || !window.GesPlace) return true;
+            let links = [];
+            try { links = JSON.parse(document.getElementById(mapId).value || '[]'); } catch (_) { links = []; }
+            const inp = document.querySelector(nameSel);
+            if (!links.length || !inp || !inp.value.trim()) return true;
+            e.preventDefault();
+            GesPlace.guard({ kind: kind, locations: [{ name: inp.value.trim(), code: GesPlace.code(inp) }], links: links }).then(function (go) {
+                if (go) { form.dataset.mapOk = '1'; form.submit(); }
+            });
+            return false;
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -3343,6 +3359,7 @@
         };
     })();
     </script>
+    <script src="{{ url_for('static', filename='js/place-picker.js') }}"></script>
     {% block extra_js %}{% endblock %}
 <script>
 /* Giờ đăng "x phút trước": tự cập nhật mỗi phút (cùng quy tắc với app/timeutil.py).

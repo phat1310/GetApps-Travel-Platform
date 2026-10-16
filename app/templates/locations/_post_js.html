@@ -1,0 +1,373 @@
+<script>
+    let currentSharePostId = null;
+    let shareModalInstance = null;
+
+    function openShareModal(postId) {
+        currentSharePostId = postId;
+        const modalEl = document.getElementById('shareModal');
+        if (!shareModalInstance) {
+            shareModalInstance = new bootstrap.Modal(modalEl);
+        }
+        shareModalInstance.show();
+    }
+
+    // ---------- Chỉnh sửa / Xóa bài đăng ----------
+    let editPostId = null, editPostModal = null, editCanAdd = 0;
+    function openEditPost(el) {
+        let d; try { d = JSON.parse(el.dataset.edit || '{}'); } catch (e) { return; }
+        editPostId = d.id; editCanAdd = d.can_add_media || 0;
+        const $ = id => document.getElementById(id);
+        $('epCaption').value = d.caption || '';
+        $('epHashtags').value = d.hashtags || '';
+        $('epVisibility').value = d.visibility === 'private' ? 'private' : 'public';
+        GesPlace.set($('epLocation'), d.location || '', '');
+        [0, 1].forEach(i => {
+            GesPlace.set($('epExtra' + i), (d.extra_locations || [])[i] || '', '');
+            const m = (d.map_links || [])[i] || {};
+            $('epMapUrl' + i).value = m.url || '';
+            $('epMapLabel' + i).value = m.label || '';
+        });
+        const f = $('epFiles'); f.value = ''; f.disabled = editCanAdd <= 0;
+        $('epMediaHint').textContent = editCanAdd > 0
+            ? `Có thể thêm tối đa ${editCanAdd} ảnh/video mới (bài đang có ${d.media_count}/10 file). Ảnh/video đã đăng không sửa được (muốn xóa ảnh: vào tab Album ở trang cá nhân).`
+            : 'Không thể thêm ảnh/video mới nữa (tối đa 2 file khi chỉnh sửa, và tổng không quá 10 file). Ảnh/video đã đăng không sửa được (muốn xóa ảnh: vào tab Album ở trang cá nhân).';
+        $('epError').classList.add('d-none');
+        if (!editPostModal) editPostModal = new bootstrap.Modal($('editPostModal'));
+        editPostModal.show();
+    }
+
+    async function submitEditPost() {
+        const $ = id => document.getElementById(id);
+        const err = $('epError'), btn = $('epSubmit');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        err.classList.add('d-none');
+        const files = Array.from($('epFiles').files || []);
+        if (files.length > editCanAdd) {
+            err.textContent = `Chỉ được thêm tối đa ${editCanAdd} ảnh/video mới.`; err.classList.remove('d-none'); return;
+        }
+        const links = [];
+        [0, 1].forEach(i => {
+            const u = $('epMapUrl' + i).value.trim();
+            if (u) links.push({ url: u, label: $('epMapLabel' + i).value.trim() });
+        });
+        const fd = new FormData();
+        fd.append('caption', $('epCaption').value);
+        fd.append('visibility', $('epVisibility').value);
+        fd.append('hashtags', $('epHashtags').value);
+        fd.append('location_name', $('epLocation').value.trim());
+        fd.append('location_code', GesPlace.code($('epLocation')));
+        [0, 1].forEach(i => { const v = $('epExtra' + i).value.trim(); if (v) { fd.append('extra_location_names', v); fd.append('extra_location_codes', GesPlace.code($('epExtra' + i))); } });
+        fd.append('map_links', JSON.stringify(links));
+        files.forEach(f => fd.append('images', f));
+        btn.disabled = true;
+        const go = await GesPlace.guard({ kind: 'post', links: links, locations: [$('epLocation'), $('epExtra0'), $('epExtra1')].filter(i => i.value.trim()).map(i => ({ name: i.value.trim(), code: GesPlace.code(i) })) });
+        if (!go) { btn.disabled = false; return; }
+        try {
+            const res = await fetch(`/locations/posts/${editPostId}/edit`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: fd });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) { editPostModal.hide(); window.location.reload(); }
+            else { err.textContent = data.error || 'Không lưu được chỉnh sửa.'; err.classList.remove('d-none'); }
+        } catch (e) {
+            err.textContent = 'Không kết nối được máy chủ.'; err.classList.remove('d-none');
+        } finally { btn.disabled = false; }
+    }
+
+    async function deletePost(postId, isRepost) {
+        const ok = await geAsk({
+            title: isRepost ? 'Xóa bài đăng lại?' : 'Xóa bài đăng?',
+            note: isRepost
+                ? 'Bản đăng lại của bạn sẽ bị xóa. Bài gốc không bị ảnh hưởng.'
+                : 'Bài đăng cùng ảnh/video, lượt thích, bình luận, thông báo và các bản đăng lại của người khác sẽ bị xóa vĩnh viễn. Không thể hoàn tác.',
+            fields: [], confirmText: 'Xóa', cancelText: 'Hủy'
+        });
+        if (!ok) return;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        try {
+            const res = await fetch(`/locations/posts/${postId}/delete`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) { window.location.reload(); } else { alert(data.error || 'Không xóa được bài viết.'); }
+        } catch (e) { alert('Không kết nối được máy chủ.'); }
+    }
+
+    async function executeShareAction(action) {
+        if (!currentSharePostId) return;
+        const postId = currentSharePostId;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        if (action === 'download') {
+            if (shareModalInstance) shareModalInstance.hide();
+            window.location.href = `/locations/posts/${postId}/share/download`;
+            const countSpan = document.getElementById(`share-count-${postId}`);
+            if (countSpan) countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
+        } else if (action === 'repost') {
+            if (shareModalInstance) shareModalInstance.hide();
+            openRepostDialog(postId);
+        } else if (action === 'copy') {
+            try {
+                const res = await fetch(`/locations/posts/${postId}/share`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                });
+                const data = await res.json();
+                if (shareModalInstance) shareModalInstance.hide();
+                const postUrl = data.link || `${window.location.origin}/locations/feed#post-article-${postId}`;
+                navigator.clipboard.writeText(postUrl).then(() => {
+                    alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+                }).catch(() => {
+                    prompt("Sao chép liên kết bên dưới:", postUrl);
+                });
+                const countSpan = document.getElementById(`share-count-${postId}`);
+                if (countSpan) countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
+            } catch (err) {
+                console.error("Lỗi chia sẻ:", err);
+                copyPostLink(postId);
+                if (shareModalInstance) shareModalInstance.hide();
+            }
+        }
+    }
+
+    // ---------- Đăng lại (Repost) có xác nhận ----------
+    let repostModalInstance = null, repostPostId = null, repostVis = 'public', repostLocked = false;
+
+    function setRepostVis(v) {
+        if (repostLocked) v = 'private';
+        repostVis = v;
+        document.getElementById('repostVisPublic').classList.toggle('active', v === 'public');
+        document.getElementById('repostVisPrivate').classList.toggle('active', v === 'private');
+    }
+
+    function openRepostDialog(postId) {
+        repostPostId = postId;
+        const art = document.getElementById(`post-article-${postId}`);
+        repostLocked = !!art && art.dataset.repostLocked === '1';
+        document.getElementById('repostNote').value = '';
+        document.getElementById('repostNoteCount').innerText = '0';
+        document.getElementById('repostError').classList.add('d-none');
+        document.getElementById('repostLockHint').classList.toggle('d-none', !repostLocked);
+        document.getElementById('repostVisPublic').disabled = repostLocked;
+        setRepostVis(repostLocked ? 'private' : 'public');
+        if (!repostModalInstance) repostModalInstance = new bootstrap.Modal(document.getElementById('repostModal'));
+        repostModalInstance.show();
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'repostNote') document.getElementById('repostNoteCount').innerText = e.target.value.length;
+    });
+
+    async function submitRepost() {
+        const btn = document.getElementById('repostSubmitBtn');
+        const errBox = document.getElementById('repostError');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        errBox.classList.add('d-none');
+        btn.disabled = true;
+        try {
+            const res = await fetch(`/locations/posts/${repostPostId}/repost`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ visibility: repostVis, note: document.getElementById('repostNote').value })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                repostModalInstance.hide();
+                window.location.reload();
+            } else {
+                errBox.innerText = data.error || 'Không thể đăng lại bài viết!';
+                errBox.classList.remove('d-none');
+            }
+        } catch (err) {
+            errBox.innerText = 'Đã xảy ra lỗi khi đăng lại!';
+            errBox.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function copyPostLink(postId) {
+        const postUrl = `${window.location.origin}/locations/feed#post-article-${postId}`;
+        navigator.clipboard.writeText(postUrl).then(() => {
+            alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+        }).catch(() => {
+            prompt("Sao chép liên kết bên dưới:", postUrl);
+        });
+    }
+
+    // AJAX: Thả tim / Bỏ tim (Like/Unlike)
+    async function toggleLike(postId) {
+        try {
+            const res = await fetch(`/locations/posts/${postId}/like`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const btn = document.getElementById(`like-btn-${postId}`);
+                const icon = document.getElementById(`like-icon-${postId}`);
+                const countSpan = document.getElementById(`like-count-${postId}`);
+                let currentCount = parseInt(countSpan.innerText) || 0;
+
+                if (data.liked) {
+                    btn.classList.add('liked');
+                    icon.classList.remove('bi-heart');
+                    icon.classList.add('bi-heart-fill');
+                    countSpan.innerText = currentCount + 1;
+                } else {
+                    btn.classList.remove('liked');
+                    icon.classList.remove('bi-heart-fill');
+                    icon.classList.add('bi-heart');
+                    countSpan.innerText = Math.max(0, currentCount - 1);
+                }
+            }
+        } catch (err) {
+            console.error("Lỗi thả tim:", err);
+        }
+    }
+
+    // AJAX: Thêm bình luận (Comment)
+    async function submitComment(event, postId) {
+        event.preventDefault();
+        const input = document.getElementById(`comment-input-${postId}`);
+        const content = input.value.trim();
+        if (!content) return;
+
+        try {
+            const res = await fetch(`/locations/posts/${postId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                input.value = '';
+                // Cập nhật số lượng bình luận
+                const countSpan = document.getElementById(`comment-count-${postId}`);
+                countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
+
+                // Thêm comment vào danh sách
+                const list = document.getElementById(`comments-list-${postId}`);
+                const c = data.comment;
+                const newCommentHtml = `
+                    <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-${c.id}">
+                        <div>
+                            <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${escapeHtml(c.author_username || '{{ current_user.username }}')}:</strong></a>
+                            <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
+                            <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">Vừa xong</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                list.insertAdjacentHTML('beforeend', newCommentHtml);
+            } else {
+                alert(data.error || "Không thể gửi bình luận");
+            }
+        } catch (err) {
+            console.error("Lỗi gửi bình luận:", err);
+        }
+    }
+
+    // AJAX: Xóa bình luận
+    async function deleteComment(commentId, postId) {
+        if (!confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+
+        try {
+            const res = await fetch(`/locations/comments/${commentId}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const item = document.getElementById(`comment-item-${commentId}`);
+                if (item) item.remove();
+                const countSpan = document.getElementById(`comment-count-${postId}`);
+                let count = parseInt(countSpan.innerText) || 1;
+                countSpan.innerText = Math.max(0, count - 1);
+            } else {
+                alert(data.error || "Không thể xóa bình luận");
+            }
+        } catch (err) {
+            console.error("Lỗi xóa bình luận:", err);
+        }
+    }
+
+    // ===== Gắn thẻ @ trong bình luận: gõ @ -> gợi ý người, chọn -> chèn @username =====
+    (function () {
+        var box = null, users = [], active = -1, input = null, timer = null, seq = 0;
+        function ensureBox() {
+            if (box) return box;
+            box = document.createElement('div'); box.className = 'mention-box'; box.setAttribute('role', 'listbox');
+            box.addEventListener('mousedown', function (e) { e.preventDefault(); });     // không làm ô nhập mất focus
+            document.body.appendChild(box); return box;
+        }
+        function closeBox() { if (box) box.style.display = 'none'; users = []; active = -1; }
+        function token(el) {
+            var pos = el.selectionStart, before = el.value.slice(0, pos);
+            var m = /(^|\s)@([^\s@]{0,64})$/.exec(before);
+            return m ? { start: pos - m[2].length - 1, end: pos, query: m[2] } : null;
+        }
+        function place() {
+            if (!input || !box) return;
+            var r = input.getBoundingClientRect();
+            box.style.display = 'block'; box.style.left = r.left + 'px'; box.style.width = Math.max(r.width, 240) + 'px';
+            var h = box.offsetHeight;
+            box.style.top = (r.bottom + h + 8 > window.innerHeight && r.top > h + 8 ? r.top - h - 4 : r.bottom + 4) + 'px';
+        }
+        function render() {
+            var b = ensureBox(); b.textContent = '';
+            if (!users.length) { var e = document.createElement('div'); e.className = 'mention-empty'; e.textContent = 'Không tìm thấy người dùng'; b.appendChild(e); place(); return; }
+            users.forEach(function (u, i) {
+                var row = document.createElement('div'); row.className = 'mention-item' + (i === active ? ' active' : ''); row.setAttribute('role', 'option');
+                var av;
+                if (u.avatar) { av = document.createElement('img'); av.className = 'mention-av'; av.alt = ''; av.src = u.avatar; av.onerror = function () { var d = document.createElement('div'); d.className = 'mention-av'; d.textContent = (u.display || u.username).charAt(0).toUpperCase(); av.replaceWith(d); }; }
+                else { av = document.createElement('div'); av.className = 'mention-av'; av.textContent = (u.display || u.username).charAt(0).toUpperCase(); }
+                var t = document.createElement('div');
+                var n = document.createElement('div'); n.className = 'mention-name'; n.textContent = u.display;
+                var s = document.createElement('div'); s.className = 'mention-user'; s.textContent = '@' + u.username;
+                t.appendChild(n); t.appendChild(s); row.appendChild(av); row.appendChild(t);
+                row.addEventListener('click', function () { pick(u); });
+                b.appendChild(row);
+            });
+            place();
+        }
+        function pick(u) {
+            var t = input && token(input); if (!t) return closeBox();
+            var v = input.value, ins = '@' + u.username + ' ';
+            input.value = v.slice(0, t.start) + ins + v.slice(t.end);
+            var caret = t.start + ins.length; input.setSelectionRange(caret, caret);
+            closeBox(); input.focus();
+        }
+        function fetchUsers(q, postId) {
+            var my = ++seq;
+            fetch('/locations/mentions/suggest?q=' + encodeURIComponent(q) + (postId ? '&post_id=' + postId : ''), { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : { users: [] }; })
+                .then(function (d) { if (my !== seq || !input) return; users = d.users || []; active = users.length ? 0 : -1; render(); })
+                .catch(function () {});
+        }
+        function isCommentInput(el) { return el && el.tagName === 'INPUT' && /^comment-input-\d+$/.test(el.id || ''); }
+        document.addEventListener('input', function (e) {
+            if (!isCommentInput(e.target)) return;
+            input = e.target; var t = token(input);
+            if (!t) return closeBox();
+            clearTimeout(timer);
+            timer = setTimeout(function () { fetchUsers(t.query, input.id.replace('comment-input-', '')); }, 150);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (!box || box.style.display !== 'block' || !isCommentInput(e.target)) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!users.length) return; e.preventDefault();
+                active = (active + (e.key === 'ArrowDown' ? 1 : -1) + users.length) % users.length; render();
+            } else if ((e.key === 'Enter' || e.key === 'Tab') && users.length && active >= 0) {
+                e.preventDefault(); e.stopPropagation(); pick(users[active]);
+            } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
+        }, true);
+        document.addEventListener('focusout', function (e) { if (isCommentInput(e.target)) setTimeout(closeBox, 120); });
+        window.addEventListener('resize', closeBox);
+        window.addEventListener('scroll', closeBox, true);
+    })();
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+</script>

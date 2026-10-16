@@ -226,11 +226,10 @@
                     <span class="input-group-text bg-light border-end-0" style="border-radius: 12px 0 0 12px;">
                         <i class="bi bi-search text-muted"></i>
                     </span>
-                    <input type="text" class="form-control border-start-0" id="location-input" name="location_name" placeholder="Gõ tên địa điểm (ví dụ: Đà Lạt, Fansipan, Hồ Tây...)" autocomplete="off" style="border-radius: 0 12px 12px 0;">
+                    <input type="text" class="form-control border-start-0" id="location-input" name="location_name" data-place-picker data-place-code-name="location_code" maxlength="160" placeholder="Bấm để chọn Tỉnh/Thành → Phường/Xã (hoặc gõ để tìm)" autocomplete="off" style="border-radius: 0 12px 12px 0;">
                 </div>
                 
                 <!-- Autocomplete Dropdown List -->
-                <div class="autocomplete-list d-none" id="location-suggestions"></div>
             </div>
 
             <!-- NÚT ĐĂNG BÀI -->
@@ -348,51 +347,6 @@
         }
     }
 
-    // Autocomplete Địa điểm
-    const locInput = document.getElementById('location-input');
-    const suggestionsBox = document.getElementById('location-suggestions');
-    let debounceTimer = null;
-
-    locInput.addEventListener('input', (e) => {
-        clearTimeout(debounceTimer);
-        const query = e.target.value.trim();
-        if (query.length < 1) {
-            suggestionsBox.classList.add('d-none');
-            return;
-        }
-
-        debounceTimer = setTimeout(async () => {
-            try {
-                // Gọi API autocomplete từ Tuấn
-                const res = await fetch(`/locations/locations/search?q=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                if (data.locations && data.locations.length > 0) {
-                    suggestionsBox.innerHTML = '';
-                    data.locations.forEach(loc => {
-                        const item = document.createElement('div');
-                        item.className = 'autocomplete-item';
-                        item.innerHTML = `<i class="bi bi-geo-alt-fill text-danger"></i> <strong>${loc.name}</strong>`;
-                        item.onclick = () => {
-                            locInput.value = loc.name;
-                            suggestionsBox.classList.add('d-none');
-                        };
-                        suggestionsBox.appendChild(item);
-                    });
-                    suggestionsBox.classList.remove('d-none');
-                } else {
-                    suggestionsBox.classList.add('d-none');
-                }
-            } catch (err) {
-                console.error("Autocomplete error:", err);
-            }
-        }, 250);
-    });
-
-    // Đóng dropdown khi click ra ngoài
-    document.addEventListener('click', (e) => {
-        if (!locInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
-            suggestionsBox.classList.add('d-none');
-        }
-    });
+    // Địa điểm: dùng ô chọn chung GesPlace (static/js/place-picker.js) — chọn theo danh mục hành chính
 </script>
 {% endblock %}

@@ -1,0 +1,28 @@
+<!-- Cửa sổ chi tiết (căn giữa, nền mờ, cuộn được) -->
+<div class="modal fade" id="planPanel" tabindex="-1" aria-label="Chi tiết lịch trình" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <button type="button" class="btn-close btn-close-white pp-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            <div class="modal-body p-0" id="planPanelBody"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Cửa sổ chia sẻ -->
+<div class="modal fade" id="planShare" tabindex="-1" aria-label="Chia sẻ lịch trình" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Chia sẻ lịch trình</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <button type="button" class="sh-opt" id="shDownload"><i class="bi bi-paperclip"></i><span><b>Tải tệp đính kèm</b><small id="shDownloadSub"></small></span></button>
+                <button type="button" class="sh-opt" id="shRepost"><i class="bi bi-arrow-repeat"></i><span><b>Đăng lại (Repost)</b><small>Ghi nhận lượt đăng lại và báo cho người đăng</small></span></button>
+                <button type="button" class="sh-opt" id="shCopy"><i class="bi bi-link-45deg"></i><span><b>Sao chép liên kết</b><small>Dán để gửi cho bạn bè</small></span></button>
+                <div class="small text-muted mt-1" id="shNote"><i class="bi bi-shield-exclamation me-1"></i>Chỉ mở tệp từ người bạn tin tưởng.</div>
+                <div class="small mt-2" id="shMsg" role="status"></div>
+            </div>
+        </div>
+    </div>
+</div>

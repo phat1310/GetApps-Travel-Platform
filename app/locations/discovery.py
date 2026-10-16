@@ -77,13 +77,23 @@ def popular_locations(limit=10):
     if not ids:
         return []
     locs = {l.id: l for l in Location.query.filter(Location.id.in_(ids)).all()}
+    # Gộp phường/xã về tỉnh/thành cha (chỉ cộng số liệu công khai đã lọc ở trên nên không lộ nội dung riêng tư)
+    top = {lid: (locs[lid].parent_id or lid) for lid in ids if lid in locs}
+    need = {t for t in top.values() if t not in locs}
+    if need:
+        locs.update({l.id: l for l in Location.query.filter(Location.id.in_(list(need))).all()})
+    agg_p, agg_i = {}, {}
+    for lid, t in top.items():
+        agg_p[t] = agg_p.get(t, 0) + posts.get(lid, 0)
+        agg_i[t] = agg_i.get(t, 0) + plans.get(lid, 0)
+    posts, plans, ids = agg_p, agg_i, set(agg_p)
     rows = []
     for lid in ids:
         loc = locs.get(lid)
         if not loc:
             continue
         p, i = posts.get(lid, 0), plans.get(lid, 0)
-        rows.append({"id": loc.id, "name": loc.name, "address": loc.address, "posts": p, "plans": i, "score": p + i})
+        rows.append({"id": loc.id, "code": loc.code, "name": loc.name, "address": loc.address, "posts": p, "plans": i, "score": p + i})
     rows.sort(key=lambda r: (-r["score"], r["name"].lower()))
     return rows[:limit]
 
@@ -203,3 +213,75 @@ def norm_text(text):
     s = unicodedata.normalize("NFD", text or "").replace("đ", "d").replace("Đ", "D")
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
     return re.sub(r"\s+", "", s).lower()
+
+
+# ------------------------------------------------------------------
+# 6. NGƯỜI ĐÃ THẢ TIM + THẺ HỒ SƠ Ở BẢNG TIN
+# ------------------------------------------------------------------
+
+def likers_of(user_id):
+    """Những người đã thả tim BẤT KỲ bài viết nào của `user_id` — mỗi người đúng 1 dòng (không tính chính chủ).
+
+    Trả [(liker_id, số_bài_đã_tim, lần_tim_gần_nhất)], người tim gần đây nhất ở đầu.
+    GROUP BY người tim nên 1 người tim 10 bài vẫn chỉ là 1 dòng; DISTINCT post_id đề phòng dữ liệu trùng."""
+    from app.models import Like, Post
+    last = func.max(Like.created_at)
+    return (db.session.query(Like.user_id, func.count(func.distinct(Like.post_id)), last)
+            .join(Post, Post.id == Like.post_id)
+            .filter(Post.user_id == user_id, Like.user_id != user_id)
+            .group_by(Like.user_id)
+            .order_by(last.desc(), Like.user_id.desc())
+            .all())
+
+
+def liker_count(user_id):
+    """Số NGƯỜI (không phải số lượt) đã thả tim bài viết của `user_id`."""
+    from app.models import Like, Post
+    return (db.session.query(func.count(func.distinct(Like.user_id)))
+            .join(Post, Post.id == Like.post_id)
+            .filter(Post.user_id == user_id, Like.user_id != user_id)
+            .scalar()) or 0
+
+
+def _title_and_desc(caption):
+    """Tách nội dung bài thành tiêu đề (dòng đầu, gọn) + mô tả (phần còn lại)."""
+    lines = [l.strip() for l in (caption or "").splitlines() if l.strip()]
+    if not lines:
+        return "", ""
+    first, rest = lines[0], lines[1:]
+    if len(first) > 70:
+        cut = first[:70].rsplit(" ", 1)[0] or first[:70]
+        rest = [first[len(cut):].strip()] + rest
+        first = cut.rstrip(",.;: ") + "…"
+    return first, " ".join(x for x in rest if x)[:220]
+
+
+def profile_card(user):
+    """Dữ liệu cho thẻ hồ sơ của CHÍNH MÌNH ở bảng tin: số liệu + bài viết gốc mới nhất (kể cả bài riêng tư — thẻ chỉ chủ thấy)."""
+    from app.models import Follow, Location, Photo, Post
+    from app.timeutil import relative_label
+    latest = (Post.query.filter_by(user_id=user.id, original_post_id=None)
+              .order_by(Post.created_at.desc(), Post.id.desc()).first())
+    last = None
+    if latest is not None:
+        title, desc = _title_and_desc(latest.caption)
+        loc = db.session.get(Location, latest.location_id) if latest.location_id else None
+        photo = (Photo.query.filter_by(post_id=latest.id).filter(Photo.media_type != "video")
+                 .order_by(Photo.id.asc()).first())
+        if not title:
+            title = "Bài viết có ảnh/video" if Photo.query.filter_by(post_id=latest.id).first() else "Bài viết"
+        if not desc and loc:
+            desc = loc.name
+        last = {
+            "id": latest.id, "title": title, "desc": desc,
+            "thumb": (photo.file_path or "").replace("static/", "", 1) if photo else None,
+            "when": relative_label(latest.created_at) if latest.created_at else "",
+            "private": latest.visibility == "private",
+        }
+    return {
+        "posts": Post.query.filter_by(user_id=user.id).count(),
+        "likers": liker_count(user.id),
+        "following": Follow.query.filter_by(follower_id=user.id).count(),
+        "followers": Follow.query.filter_by(followed_id=user.id).count(),
+        "latest": last,
+    }

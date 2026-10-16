@@ -12,6 +12,10 @@ class Location(db.Model):
     address = db.Column(db.String(255), nullable=True)
     map_link = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Danh mục hành chính: kind = 'province' | 'ward' (None = địa điểm cũ gõ tay); code = mã trong vn_places.json
+    kind = db.Column(db.String(12), nullable=True)
+    code = db.Column(db.String(12), nullable=True, index=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=True, index=True)
 
     def __repr__(self):
-        return f'<Location {self.name}>'
+        return f'<Location {self.name}>'

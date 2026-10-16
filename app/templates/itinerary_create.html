@@ -37,7 +37,7 @@
     <textarea id="description" class="form-control mb-3" rows="3" placeholder="Lịch trình săn mây đổi chè, thư giãn ngắm hoàng hôn..."></textarea>
 
     <label class="form-label small text-muted">Nhãn địa điểm chính (Destination)</label>
-    <input type="text" id="locationName" class="form-control mb-3" placeholder="Vd: Đà Lạt, Lâm Đồng">
+    <input type="text" id="locationName" class="form-control mb-3" placeholder="Bấm để chọn Tỉnh/Thành → Phường/Xã (hoặc gõ để tìm)" maxlength="160" data-place-picker data-place-code-name="location_code">
 
     <div class="row g-2 mb-3">
       <div class="col-6">
@@ -263,6 +263,7 @@
       title,
       description: document.getElementById("description").value.trim() || null,
       location_name: document.getElementById("locationName").value.trim() || null,
+      location_code: GesPlace.code(document.getElementById("locationName")) || null,
       start_date: document.getElementById("startDate").value || null,
       end_date: document.getElementById("endDate").value || null,
       trip_type: document.getElementById("tripType").value || null,
@@ -325,4 +326,4 @@
   addDay(); // mặc định có sẵn Ngày 1
 })();
 </script>
-{% endblock %}
+{% endblock %}

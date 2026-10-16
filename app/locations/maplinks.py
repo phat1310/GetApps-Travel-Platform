@@ -112,18 +112,32 @@ def parse_map_links(raw, limit):
     return out, None
 
 
-def attach_map_links(links, *, post=None, itinerary=None):
-    """Tạo các dòng MapLink cho 1 bài viết HOẶC 1 lịch trình (gọi sau db.session.flush() để có id)."""
+def attach_map_links(links, *, post=None, itinerary=None, locations=None):
+    """Tạo các dòng MapLink cho 1 bài viết HOẶC 1 lịch trình (gọi sau db.session.flush() để có id).
+    `locations`: các Location đã chọn (chính + phụ) để so toạ độ với tỉnh; lệch xa → lưu cờ mismatch cho kiểm duyệt
+    (KHÔNG chặn đăng). Lỗi khi kiểm tra không bao giờ làm hỏng việc lưu."""
     from app.extensions import db
     from app.models.map_link import MapLink
     assert (post is None) != (itinerary is None)
+    checked = {}
+    if locations and links:
+        try:
+            from app.locations import geocheck
+            for r in geocheck.check_links(links, locations, "post" if post is not None else "plan"):
+                checked[r["url"]] = r
+        except Exception:
+            checked = {}
     for i, item in enumerate(links):
+        r = checked.get(item["url"]) or {}
         db.session.add(MapLink(
             url=item["url"],
             label=item["label"],
             position=i,
             post_id=post.id if post is not None else None,
             itinerary_id=itinerary.id if itinerary is not None else None,
+            lat=r.get("lat"), lon=r.get("lon"),
+            mismatch=(1 if r.get("status") == "far" else (0 if r.get("status") == "ok" else None)),
+            mismatch_km=r.get("km"),
         ))
 
 

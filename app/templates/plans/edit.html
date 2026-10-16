@@ -33,7 +33,7 @@
                     <label for="destination" class="form-label fw-bold text-dark small">Điểm đến chính <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted"><i class="bi bi-geo-alt"></i></span>
-                        {{ form.destination(class="form-control", id="destination") }}
+                        {{ form.destination(class="form-control", id="destination", placeholder="Bấm để chọn Tỉnh/Thành → Phường/Xã", maxlength="160", **{"data-place-picker": "1", "data-place-code-name": "destination_code"}) }}
                     </div>
                 </div>
 

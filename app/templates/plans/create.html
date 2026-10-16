@@ -77,7 +77,7 @@
                     <label for="destination" class="form-label fw-bold text-dark small">Điểm đến chính <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted"><i class="bi bi-geo-alt"></i></span>
-                        {{ form.destination(class="form-control" + (" is-invalid" if form.destination.errors else ""), placeholder="Đà Lạt, Phú Quốc, Hà Giang...", id="destination") }}
+                        {{ form.destination(class="form-control" + (" is-invalid" if form.destination.errors else ""), placeholder="Bấm để chọn Tỉnh/Thành → Phường/Xã (hoặc gõ để tìm)", id="destination", maxlength="160", **{"data-place-picker": "1", "data-place-code-name": "destination_code"}) }}
                     </div>
                     {% for error in form.destination.errors %}
                         <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
