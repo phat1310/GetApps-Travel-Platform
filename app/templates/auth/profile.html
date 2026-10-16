@@ -244,8 +244,8 @@
                 <div class="d-flex gap-2 flex-wrap">
                     {% if current_user.is_authenticated and current_user.id == profile_user.id %}
                         <!-- Nút chỉnh sửa & Cài đặt của chính chủ -->
-                        <a href="{{ url_for('auth.settings_page') }}" class="btn btn-ges-primary btn-sm flex-grow-1" title="Cài đặt tài khoản">
-                            <i class="bi bi-gear-fill me-1"></i> Cài đặt
+                        <a href="{{ url_for('auth.settings_page') }}" class="btn btn-ges-primary btn-sm flex-grow-1" title="Chỉnh sửa hồ sơ">
+                            <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa hồ sơ
                         </a>
                     {% elif current_user.is_authenticated %}
                         <!-- Nút Follow cho user khác -->
