@@ -11,7 +11,8 @@
     .st-section-label { font-size: .8rem; letter-spacing: .08em; font-weight: 700; color: #6b7a86; margin: 0 0 .6rem .5rem; text-transform: uppercase; }
 
     .st-profile { display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 0; border-bottom: 1px solid var(--st-line); }
-    .st-avatar { position: relative; width: 88px; height: 88px; flex: none; }
+    .st-avatar { position: relative; width: 88px; height: 88px; flex: none; cursor: pointer; }
+    .st-avatar:focus-visible { outline: 3px solid rgba(14,165,233,.5); outline-offset: 3px; border-radius: 50%; }
     .st-avatar img, .st-avatar .ph { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .st-avatar .ph { display: flex; align-items: center; justify-content: center; background: #d8eef8; color: #17688f; font-size: 2.2rem; font-weight: 700; }
     .st-cam { position: absolute; right: -2px; bottom: -2px; width: 30px; height: 30px; border-radius: 50%; background: var(--st-accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .85rem; border: 2px solid #fff; }
@@ -102,6 +103,14 @@
         background: #334155;
         color: #e2e8f0;
     }
+    /* Ảnh nền trang cá nhân */
+    .st-bgprev { cursor: pointer; height: 120px; border-radius: 14px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #1e293b; border: 1px solid #334155; color: #fff; background-size: cover; background-position: center; position: relative; overflow: hidden; }
+    .st-bgprev.has-img { border-color: transparent; box-shadow: inset 0 0 0 999px rgba(15,23,42,.42); }
+    .st-bgprev-av { width: 56px; height: 56px; border-radius: 50%; border: 3px solid #fff; object-fit: cover; flex: none; background: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.4rem; position: relative; }
+    .st-bgprev > div { position: relative; }
+    .st-bgprev-name { font-weight: 800; font-size: 1.05rem; }
+    .st-bgprev-name small { font-weight: 500; opacity: .8; font-size: .8rem; }
+    .st-bgprev-sub { font-size: .78rem; opacity: .85; }
 </style>
 {% endblock %}
 
@@ -114,13 +123,14 @@
     <!-- ============ THÔNG TIN CÁ NHÂN ============ -->
     <section class="st-card">
         <div class="st-profile">
-            <div class="st-avatar">
+            <div class="st-avatar" role="button" tabindex="0" title="Đổi ảnh đại diện" aria-label="Đổi ảnh đại diện">
                 {% if av %}
                     <img src="{% if av.startswith('http') or av.startswith('/') %}{{ av }}{% else %}/{{ av }}{% endif %}" alt="{{ current_user.username }}">
                 {% else %}
                     <span class="ph">{{ current_user.username[0]|upper }}</span>
                 {% endif %}
                 <span class="st-cam" aria-hidden="true"><i class="bi bi-camera-fill"></i></span>
+                <input type="file" id="st-avatar-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
             </div>
             <div>
                 <div class="st-name">{{ current_user.username }}<span class="st-badge">Tài khoản cá nhân</span></div>
@@ -162,6 +172,13 @@
                 <div class="st-label">Ghi chú / Tiểu sử</div>
                 <div class="st-sub" id="bio-text">{{ current_user.bio or "Chưa có tiểu sử." }}</div>
             </span>
+            <i class="bi bi-chevron-right st-chev"></i>
+        </button>
+
+        <button type="button" class="st-row" data-bs-toggle="modal" data-bs-target="#m-bg" id="row-bg">
+            <span class="st-ico"><i class="bi bi-image"></i></span>
+            <span class="st-label st-grow">Ảnh nền trang cá nhân</span>
+            <span class="st-value" id="bg-value">{{ "Đã đổi" if current_user.profile_bg_safe else "Mặc định" }}</span>
             <i class="bi bi-chevron-right st-chev"></i>
         </button>
 
@@ -209,6 +226,34 @@
     <div id="tags-added-wrap" class="mt-4" hidden>
         <div class="st-section-label">Nhãn đã thêm</div>
         <div id="tags-added" class="d-flex flex-wrap gap-2"></div>
+    </div>
+</div>
+
+<!-- ============ MODAL: ẢNH NỀN TRANG CÁ NHÂN ============ -->
+<div class="modal fade" id="m-bg" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content st-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Ảnh nền trang cá nhân</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert"></div>
+                <div class="st-bgprev{% if current_user.profile_bg_safe %} has-img{% endif %}" id="bg-preview"{% if current_user.profile_bg_safe %} style="background-image: url('{{ current_user.profile_bg_safe }}')"{% endif %}>
+                    {% if current_user.avatar_url %}<img src="{{ current_user.avatar_url }}" alt="" class="st-bgprev-av">{% else %}<span class="st-bgprev-av st-bgprev-ph">{{ (current_user.nickname or current_user.username)[0]|upper }}</span>{% endif %}
+                    <div class="min-w-0">
+                        <div class="st-bgprev-name">{{ current_user.nickname or current_user.username }} <small>@{{ current_user.username }}</small></div>
+                        <div class="st-bgprev-sub">Bấm vào ảnh này để căn chỉnh khung</div>
+                    </div>
+                </div>
+                <p class="text-muted small mt-3 mb-3"><i class="bi bi-info-circle me-1"></i>Ảnh chỉ hiện ở <b>khung thông tin trang cá nhân</b> và <b>thẻ hồ sơ ở bảng tin</b>. JPG, PNG hoặc WebP. Sau khi chọn ảnh, bạn kéo và phóng to / thu nhỏ để chọn đúng phần muốn hiển thị.</p>
+                <input type="file" id="bg-file" accept="image/jpeg,image/png,image/webp" hidden>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn st-btn-ok" id="bg-pick"><i class="bi {{ 'bi-arrow-repeat' if current_user.profile_bg_safe else 'bi-upload' }} me-2" id="bg-pick-ico"></i><span id="bg-pick-text">{{ 'Đổi ảnh nền khác' if current_user.profile_bg_safe else 'Tải ảnh nền lên' }}</span></button>
+                    <button type="button" class="btn st-btn-cancel" id="bg-reset"{% if not current_user.profile_bg_safe %} hidden{% endif %}><i class="bi bi-arrow-counterclockwise me-2"></i>Quay về nền mặc định</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -712,6 +757,121 @@
     });
 
     renderTags();
+
+    // ---- Ảnh nền trang cá nhân ----
+    const BG_PREFIX = "/static/uploads/backgrounds/";
+    const BG_MAX = 5 * 1024 * 1024;
+    const bgState = {url: {{ (current_user.profile_bg_safe or "")|tojson }}, orig: {{ (current_user.profile_bg_original or "")|tojson }}};
+    function renderBg() {
+        const has = !!bgState.url && bgState.url.indexOf(BG_PREFIX) === 0;
+        const prev = $("bg-preview");
+        prev.classList.toggle("has-img", has);
+        prev.style.backgroundImage = has ? 'url("' + bgState.url + '")' : "";
+        $("bg-pick-text").textContent = has ? "Đổi ảnh nền khác" : "Tải ảnh nền lên";
+        $("bg-pick-ico").className = "bi me-2 " + (has ? "bi-arrow-repeat" : "bi-upload");
+        $("bg-reset").hidden = !has;
+        $("bg-value").textContent = has ? "Đã đổi" : "Mặc định";
+    }
+    function bgBusy(on) { $("bg-pick").disabled = on; $("bg-reset").disabled = on; }
+    function bgBox() { return $("m-bg").querySelector(".modal-alert"); }
+    $("bg-pick").addEventListener("click", function () { $("bg-file").click(); });
+    const BG_CROP = {aspect: 2, outW: 1600, title: "Căn chỉnh ảnh nền trang cá nhân", minW: 400, minH: 200,
+                     guides: [{ratio: 4.6, label: "Phần hiện ở trang cá nhân (máy tính)"},
+                              {ratio: 1.45, label: "Phần hiện ở bảng tin"}]};
+    // Thu nhỏ ảnh gốc (<= 2400px, JPEG) trước khi gửi kèm, để lần sau còn căn chỉnh lại được từ ảnh đầy đủ
+    async function shrinkOriginal(file) {
+        try {
+            const bmp = await createImageBitmap(file);
+            const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+            const cv = document.createElement("canvas");
+            cv.width = Math.max(1, Math.round(bmp.width * k)); cv.height = Math.max(1, Math.round(bmp.height * k));
+            const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(bmp, 0, 0, cv.width, cv.height);
+            const blob = await new Promise(function (ok) { cv.toBlob(ok, "image/jpeg", 0.88); });
+            return blob && blob.size <= BG_MAX ? blob : null;
+        } catch (e) { return null; }
+    }
+    async function sendBg(file, original) {
+        const box = bgBox();
+        if (file.size > BG_MAX) { alertIn(box, "danger", "Ảnh sau khi cắt vẫn vượt quá 5MB, hãy phóng to hơn hoặc chọn ảnh nhẹ hơn."); return; }
+        bgBusy(true);
+        try {
+            const fd = new FormData();
+            fd.append("bg_file", file, file.name || "background.jpg");
+            if (original) { const ob = await shrinkOriginal(original); if (ob) fd.append("bg_original", ob, "original.jpg"); }
+            const res = await fetch("/api/profile/background", {method: "POST", headers: {"X-CSRFToken": CSRF_TOKEN}, body: fd, credentials: "same-origin"});
+            const data = await res.json().catch(function () { return {}; });
+            if (res.ok) { bgState.url = data.profile_bg_url; bgState.orig = data.profile_bg_original_url || ""; renderBg(); alertIn(box, "success", "Đã đổi ảnh nền. Xem ở trang cá nhân và bảng tin."); }
+            else alertIn(box, "danger", errText({status: res.status, data: data}));
+        } catch (e) { alertIn(box, "danger", "Không kết nối được máy chủ."); }
+        finally { bgBusy(false); }
+    }
+    // Chọn ảnh -> hộp thoại căn chỉnh (kéo, phóng to / thu nhỏ) -> tải lên bản đã cắt
+    $("bg-file").addEventListener("change", async function () {
+        const f = $("bg-file").files[0];
+        $("bg-file").value = "";
+        if (!f) return;
+        const box = bgBox();
+        if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { alertIn(box, "danger", "Chỉ nhận ảnh JPG, PNG hoặc WebP."); return; }
+        if (f.size > 20 * 1024 * 1024) { alertIn(box, "danger", "Ảnh gốc quá lớn (tối đa 20MB)."); return; }
+        const r = await GesCrop.open(Object.assign({file: f, fileName: f.name}, BG_CROP));
+        if (r) await sendBg(r.file, r.original || f);
+    });
+    // Bấm vào ảnh xem trước: chỉnh lại ảnh nền hiện tại (nếu chưa có thì mở chọn ảnh)
+    $("bg-preview").addEventListener("click", async function () {
+        if (!(bgState.url && bgState.url.indexOf(BG_PREFIX) === 0)) { $("bg-file").click(); return; }
+        // Có ảnh gốc -> căn chỉnh lại từ ảnh gốc (kéo / phóng to / thu nhỏ thoải mái); ảnh cũ chưa lưu gốc -> dùng bản đã cắt
+        const r = await GesCrop.open(Object.assign({url: bgState.orig || bgState.url, fileName: "background.jpg"}, BG_CROP));
+        if (r) await sendBg(r.file, null);
+    });
+    $("bg-reset").addEventListener("click", async function () {
+        const box = bgBox();
+        const ok = await geAsk({title: "Quay về nền mặc định?", note: "Ảnh nền hiện tại sẽ bị xóa khỏi trang cá nhân và bảng tin.", fields: [], confirmText: "Quay về mặc định", cancelText: "Hủy"});
+        if (!ok) return;
+        bgBusy(true);
+        try {
+            const res = await fetch("/api/profile/background/reset", {method: "POST", headers: {"X-CSRFToken": CSRF_TOKEN}, credentials: "same-origin"});
+            const data = await res.json().catch(function () { return {}; });
+            if (res.ok) { bgState.url = ""; bgState.orig = ""; renderBg(); alertIn(box, "success", "Đã quay về nền mặc định."); }
+            else alertIn(box, "danger", errText({status: res.status, data: data}));
+        } catch (e) { alertIn(box, "danger", "Không kết nối được máy chủ."); }
+        finally { bgBusy(false); }
+    });
+    renderBg();
+
+    // ---- Ảnh đại diện: bấm vào avatar -> chọn ảnh -> căn chỉnh khung tròn -> tải lên ----
+    const avBox = document.querySelector(".st-avatar"), avFile = $("st-avatar-file");
+    function setAvatarEverywhere(url) {
+        state.avatar_url = url;
+        const wrap = document.querySelector(".st-avatar");
+        let img = wrap.querySelector("img");
+        if (!img) { const ph = wrap.querySelector(".ph"); img = document.createElement("img"); img.alt = ""; if (ph) ph.replaceWith(img); else wrap.prepend(img); }
+        img.src = url + (url.indexOf("?") < 0 ? "?v=" + Date.now() : "");
+        const pv = document.querySelector(".st-bgprev-av");
+        if (pv) { if (pv.tagName === "IMG") pv.src = img.src; else { const n = document.createElement("img"); n.className = "st-bgprev-av"; n.alt = ""; n.src = img.src; pv.replaceWith(n); } }
+    }
+    async function sendAvatar(file) {
+        const box = $("page-alert");
+        try {
+            const fd = new FormData();
+            fd.append("avatar_file", file, file.name || "avatar.jpg");
+            const res = await fetch("/api/profile/avatar", {method: "POST", headers: {"X-CSRFToken": CSRF_TOKEN}, body: fd, credentials: "same-origin"});
+            const data = await res.json().catch(function () { return {}; });
+            if (res.ok && data.avatar_url) { setAvatarEverywhere(data.avatar_url); alertIn(box, "success", "Đã cập nhật ảnh đại diện."); }
+            else alertIn(box, "danger", errText({status: res.status, data: data}));
+        } catch (e) { alertIn(box, "danger", "Không kết nối được máy chủ."); }
+    }
+    avFile.addEventListener("click", function (e) { e.stopPropagation(); });         // không cho nổi bọt lên khung avatar (tránh lặp)
+    avBox.addEventListener("click", function () { avFile.value = ""; avFile.click(); });
+    avBox.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); avFile.click(); } });
+    avFile.addEventListener("change", async function () {
+        const f = avFile.files[0];
+        avFile.value = "";
+        if (!f) return;
+        if (!/^image\/(jpeg|png|webp|gif)$/.test(f.type)) { alertIn($("page-alert"), "danger", "Chỉ nhận ảnh JPG, PNG, WebP hoặc GIF."); return; }
+        if (f.size > 20 * 1024 * 1024) { alertIn($("page-alert"), "danger", "Ảnh gốc quá lớn (tối đa 20MB)."); return; }
+        const r = await GesCrop.open({file: f, fileName: f.name, round: true, outW: 512, title: "Căn chỉnh ảnh đại diện", minW: 120, minH: 120});
+        if (r) await sendAvatar(r.file);
+    });
 })();
 </script>
 {% endblock %}

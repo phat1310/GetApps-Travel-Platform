@@ -39,6 +39,7 @@ from app.auth.forms import (
     SettingsForm,
 )
 from app.auth.utils import validate_password
+from app.profile_bg import save_background, save_original, original_url_for, remove_background_file, BgError, MAX_BG_BYTES
 from app.locations.discovery import (following_ids, can_view_post, can_view_itinerary, viewer_follow_set, norm_text,
                                      likers_of, liker_count)
 from app.presence import presence_state
@@ -606,6 +607,62 @@ def update_profile_tag():
     current_user.profile_tag = tag
     db.session.commit()
     return jsonify({"message": "Cập nhật nhãn thành công", "tag": current_user.profile_tag})
+
+
+@auth_bp.route('/api/profile/background', methods=['POST'])
+@login_required
+def update_profile_background():
+    """Đổi ảnh nền khung thông tin ở trang cá nhân (CSRF bật). Chỉ nhận JPG/PNG/WebP thật, tối đa 5MB."""
+    if request.content_length and request.content_length > 2 * MAX_BG_BYTES + 1024 * 1024:
+        return jsonify({"error": "Ảnh vượt quá 5MB."}), 413
+    f = request.files.get('bg_file')
+    if f is None or not f.filename:
+        return jsonify({"error": "Bạn chưa chọn ảnh."}), 400
+    try:
+        url = save_background(f, current_user.id)
+    except BgError as e:
+        return jsonify({"error": str(e)}), 400
+    old = current_user.profile_bg
+    # Ảnh gốc (nếu client gửi kèm) -> để lần sau bấm vào ảnh nền vẫn căn chỉnh lại được từ ảnh đầy đủ, không phải từ bản đã cắt.
+    # Nếu client KHÔNG gửi (căn chỉnh lại từ ảnh cũ) thì giữ ảnh gốc cũ bằng cách sao sang mã mới.
+    orig_file = request.files.get('bg_original')
+    if orig_file is not None and orig_file.filename:
+        save_original(orig_file, url)
+    else:
+        prev_orig = original_url_for(old)
+        if prev_orig:
+            try:
+                import shutil
+                from app.profile_bg import URL_PREFIX, _folder
+                stem = url[len(URL_PREFIX):].rsplit(".", 1)[0][len("bg_"):]
+                ext = prev_orig.rsplit(".", 1)[1]
+                shutil.copyfile(os.path.join(_folder(), prev_orig[len(URL_PREFIX):]), os.path.join(_folder(), f"bgo_{stem}.{ext}"))
+            except Exception:
+                pass
+    current_user.profile_bg = url
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        remove_background_file(url)
+        return jsonify({"error": "Không lưu được ảnh nền, vui lòng thử lại."}), 500
+    remove_background_file(old)           # chỉ xóa file cũ SAU khi DB đã trỏ sang ảnh mới (lỗi giữa chừng không để mất ảnh)
+    return jsonify({"message": "Đã đổi ảnh nền", "profile_bg_url": url, "profile_bg_original_url": original_url_for(url)})
+
+
+@auth_bp.route('/api/profile/background/reset', methods=['POST'])
+@login_required
+def reset_profile_background():
+    """Quay về nền mặc định: bỏ ảnh nền riêng và xóa file."""
+    old = current_user.profile_bg
+    current_user.profile_bg = None
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Không thể đặt lại, vui lòng thử lại."}), 500
+    remove_background_file(old)
+    return jsonify({"message": "Đã quay về nền mặc định", "profile_bg_url": None})
 
 
 @auth_bp.route('/api/profile/avatar', methods=['POST'])

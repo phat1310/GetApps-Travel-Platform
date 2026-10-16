@@ -22,6 +22,19 @@ class User(UserMixin, db.Model):
 
     role = db.Column(db.String(20), default="user")
     avatar_url = db.Column(db.String(255), nullable=True)
+    profile_bg = db.Column(db.String(255), nullable=True)   # ảnh nền khung trang cá nhân (/static/uploads/backgrounds/...); NULL = nền mặc định
+
+    @property
+    def profile_bg_safe(self):
+        """Ảnh nền để in ra trang: chỉ trả về khi đúng khuôn mẫu an toàn (DB có thể bị sửa tay); ngược lại None = nền mặc định."""
+        from app.profile_bg import is_safe_bg_url
+        return self.profile_bg if is_safe_bg_url(self.profile_bg) else None
+
+    @property
+    def profile_bg_original(self):
+        """URL ảnh gốc (chưa cắt) đi kèm ảnh nền để căn chỉnh lại; None nếu không có."""
+        from app.profile_bg import original_url_for
+        return original_url_for(self.profile_bg)
     bio = db.Column(db.String(255), nullable=True)
     phone_number = db.Column(db.String(20), nullable=True)
     nickname = db.Column(db.String(64), nullable=True)
@@ -46,4 +59,4 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def __repr__(self):
-        return f'<User {self.username}>'
+        return f'<User {self.username}>'
