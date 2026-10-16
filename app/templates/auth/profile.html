@@ -14,6 +14,15 @@
         padding: 2rem;
         margin-bottom: 2rem;
     }
+    /* Ảnh nền riêng do chủ trang chọn (Cài đặt → Ảnh nền trang cá nhân): phủ kín khung, lớp tối nhẹ để chữ dễ đọc */
+    .profile-header-card.has-bg { background: linear-gradient(90deg, rgba(15,23,42,.78) 0%, rgba(15,23,42,.46) 55%, rgba(15,23,42,.28) 100%), var(--pbg) center / cover no-repeat; border-color: rgba(255,255,255,.18); color: #fff; }
+    .profile-header-card.has-bg :is(h4, p, small, .text-dark, .text-muted, .text-secondary) { color: #f1f5f9 !important; }
+    .profile-header-card.has-bg .stats-card { background-color: rgba(15,23,42,.5) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.14); }
+    .profile-header-card.has-bg .stats-btn:hover { background-color: rgba(15,23,42,.68) !important; }
+    .profile-header-card.has-bg .stats-number, .profile-header-card.has-bg .stats-label { color: #fff; }
+    .profile-header-card.has-bg .stats-like .bi-heart-fill { color: #f87171; }
+    .profile-header-card.has-bg .btn-outline-secondary { background: rgba(15,23,42,.45); color: #f1f5f9; border-color: rgba(255,255,255,.35); }
+    .profile-header-card.has-bg .btn-outline-secondary:hover { background: rgba(15,23,42,.7); color: #fff; }
     .profile-avatar-wrapper {
         position: relative;
         display: inline-block;
@@ -166,7 +175,8 @@
 <div class="container py-2" style="max-width: 900px;">
     
     <!-- Profile Header Card -->
-    <div class="profile-header-card">
+    {% set pbg = profile_user.profile_bg_safe %}
+    <div class="profile-header-card{% if pbg %} has-bg{% endif %}"{% if pbg %} style="--pbg: url('{{ pbg }}');"{% endif %}>
         <div class="row align-items-center gy-4">
             
             <!-- Left: Avatar & Meta -->
@@ -234,14 +244,8 @@
                 <div class="d-flex gap-2 flex-wrap">
                     {% if current_user.is_authenticated and current_user.id == profile_user.id %}
                         <!-- Nút chỉnh sửa & Cài đặt của chính chủ -->
-                        <a href="{{ url_for('auth.settings') }}" class="btn btn-ges-primary btn-sm flex-grow-1" title="Cài đặt tài khoản">
+                        <a href="{{ url_for('auth.settings_page') }}" class="btn btn-ges-primary btn-sm flex-grow-1" title="Cài đặt tài khoản">
                             <i class="bi bi-gear-fill me-1"></i> Cài đặt
-                        </a>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editProfileModal" title="Sửa nhanh">
-                            <i class="bi bi-pencil-square me-1"></i> Sửa nhanh
-                        </button>
-                        <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm" title="Đổi mật khẩu">
-                            <i class="bi bi-shield-lock-fill text-warning"></i>
                         </a>
                     {% elif current_user.is_authenticated %}
                         <!-- Nút Follow cho user khác -->
@@ -389,51 +393,6 @@
 
 {% include "locations/_post_modals.html" %}
 {% include "plans/_plan_modals.html" %}
-
-<!-- Modal: Chỉnh sửa hồ sơ cá nhân -->
-{% if current_user.is_authenticated and current_user.id == profile_user.id %}
-<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold" id="editProfileModalLabel">Chỉnh sửa hồ sơ cá nhân</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ url_for('auth.edit_profile') }}" method="POST">
-                {{ edit_form.hidden_tag() if edit_form else '' }}
-                <div class="modal-body">
-                    
-                    <div class="mb-3">
-                        <label for="bio" class="form-label fw-semibold small">Tiểu sử giới thiệu (Bio)</label>
-                        <textarea class="form-control" id="bio" name="bio" rows="3" maxlength="255" placeholder="Viết vài dòng giới thiệu về đam mê du lịch của bạn...">{{ profile_user.bio or '' }}</textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="phone_number" class="form-label fw-semibold small">Số điện thoại liên hệ</label>
-                        <input type="text" class="form-control" id="phone_number" name="phone_number" value="{{ profile_user.phone_number or '' }}" placeholder="Ví dụ: 0987654321">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="role" class="form-label fw-semibold small">Vai trò hiển thị</label>
-                        <select class="form-select" id="role" name="role">
-                            <option value="traveler" {% if profile_user.role == 'traveler' %}selected{% endif %}>Traveler Enthusiast • Người đam mê du lịch</option>
-                            <option value="local" {% if profile_user.role == 'local' %}selected{% endif %}>Local Guides • Hướng dẫn viên địa phương</option>
-                            <option value="creator" {% if profile_user.role == 'creator' %}selected{% endif %}>Travel content creator • Người sáng tạo nội dung du lịch</option>
-                            <option value="owner" {% if profile_user.role == 'owner' %}selected{% endif %}>Owner • Chủ địa điểm / Quán xá</option>
-                            <option value="user" {% if profile_user.role == 'user' %}selected{% endif %}>User • Thành viên cộng đồng</option>
-                        </select>
-                    </div>
-
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-ges-primary rounded-pill px-4">Lưu thay đổi</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 {% endblock %}
 
@@ -607,7 +566,7 @@
     function shareProfile(username) {
         const profileUrl = window.location.href;
         navigator.clipboard.writeText(profileUrl).then(() => {
-            alert(`Đã sao chép liên kết trang cá nhân của @${username}!`);
+            gesToast(`Đã sao chép liên kết trang cá nhân của @${username}!`);
         }).catch(() => {
             prompt("Sao chép liên kết hồ sơ:", profileUrl);
         });

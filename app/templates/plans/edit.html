@@ -95,3 +95,13 @@
 
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+    // Ảnh bìa mới: hộp thoại căn chỉnh 16:9 trước khi lưu
+    document.addEventListener('DOMContentLoaded', function () {
+        const input = document.getElementById('cover_image');
+        if (window.GesCrop && input) GesCrop.attach(input, {aspect: 16 / 9, outW: 1600, title: 'Căn chỉnh ảnh bìa (tỉ lệ 16:9)', minW: 480, minH: 270});
+    });
+</script>
+{% endblock %}

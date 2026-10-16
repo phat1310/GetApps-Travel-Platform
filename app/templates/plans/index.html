@@ -49,12 +49,14 @@
             {% if price %}<input type="hidden" name="price" value="{{ price }}">{% endif %}
             {% if loc %}<input type="hidden" name="loc" value="{{ loc }}">{% endif %}
             {% if ttype %}<input type="hidden" name="type" value="{{ ttype }}">{% endif %}
+            {% if kw %}<input type="hidden" name="kw" value="{{ kw }}">{% endif %}
             <i class="bi bi-search"></i>
             <input type="search" name="q" id="plSearch" value="{{ q }}" maxlength="160" placeholder="Tìm địa điểm (Tỉnh/Thành, Phường/Xã)..." aria-label="Tìm theo địa điểm" data-place-picker data-place-lenient data-place-code-name="qc">
         </form>
         {% if any_filter %}<a class="pl-clear" href="{{ url_for('plans.index') }}" title="Xóa tất cả bộ lọc" aria-label="Xóa bộ lọc"><i class="bi bi-x-lg"></i></a>{% endif %}
     </div>
 
+    {% if kw %}<div class="small text-muted mb-2"><i class="bi bi-search me-1"></i>Kết quả cho “<b>{{ kw }}</b>” — {{ cards|length }} hành trình · <a href="{{ href(kw='') }}">Bỏ từ khóa</a></div>{% endif %}
     {% if cards %}
     <div class="pl-list">
         {% for c in cards %}
@@ -62,7 +64,7 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="pl-empty"><i class="bi bi-map"></i>Hiện chưa có lịch trình nào</div>
+    <div class="pl-empty"><i class="bi bi-map"></i>{{ 'Không tìm thấy hành trình phù hợp' if kw else 'Hiện chưa có lịch trình nào' }}</div>
     {% endif %}
 </div>
 

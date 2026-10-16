@@ -112,7 +112,7 @@
             <!-- Cover Image Upload -->
             <div class="mb-3">
                 <label class="form-label fw-bold text-dark small">Ảnh bìa lịch trình (Cover Image)</label>
-                <div class="cover-preview-box" onclick="document.getElementById('cover_image_input').click()">
+                <div class="cover-preview-box" onclick="coverBoxClick()" title="Bấm để chọn ảnh bìa; chọn rồi thì bấm lại để căn chỉnh khung, phóng to / thu nhỏ">
                     <div id="cover_placeholder_text" class="text-center p-3">
                         <i class="bi bi-card-image text-muted fs-1 mb-1"></i>
                         <p class="small text-muted mb-0">Bấm để tải ảnh bìa chuyến đi (JPG, PNG, WEBP)</p>
@@ -160,6 +160,16 @@
 
 {% block extra_js %}
 <script>
+    // Ảnh bìa: chọn ảnh -> hộp thoại căn chỉnh 16:9. Đã chọn rồi thì bấm vào ảnh để chỉnh lại.
+    function coverBoxClick() {
+        const input = document.getElementById('cover_image_input');
+        if (window.GesCrop && input._gesCrop) GesCrop.readjust(input); else input.click();
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const input = document.getElementById('cover_image_input');
+        if (window.GesCrop && input) GesCrop.attach(input, {aspect: 16 / 9, outW: 1600, title: 'Căn chỉnh ảnh bìa (tỉ lệ 16:9)', minW: 480, minH: 270});
+    });
+
     function previewCoverImage(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();

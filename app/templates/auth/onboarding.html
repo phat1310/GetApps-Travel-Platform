@@ -277,6 +277,12 @@
 
 {% block extra_js %}
 <script>
+    // Ảnh đại diện: chọn ảnh -> hộp thoại căn chỉnh khung tròn (kéo, phóng to / thu nhỏ)
+    document.addEventListener('DOMContentLoaded', function () {
+        const input = document.getElementById('avatarFileInput');
+        if (window.GesCrop && input) GesCrop.attach(input, {round: true, outW: 512, title: 'Căn chỉnh ảnh đại diện', minW: 120, minH: 120});
+    });
+
     function previewAvatar(event) {
         const file = event.target.files[0];
         if (file) {

@@ -127,6 +127,7 @@
   });
 
   // ---- Preview ảnh bìa ----
+  document.addEventListener("DOMContentLoaded", () => { if (window.GesCrop) GesCrop.attach(document.getElementById("coverInput"), {aspect: 16 / 9, outW: 1600, title: "Căn chỉnh ảnh bìa (tỉ lệ 16:9)", minW: 480, minH: 270}); });   // căn chỉnh ảnh bìa 16:9 trước khi dùng
   document.getElementById("coverInput").addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (file) document.getElementById("coverPreview").src = URL.createObjectURL(file);

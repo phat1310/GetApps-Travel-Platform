@@ -748,6 +748,15 @@
 
         if (!file) return;
 
+        // Chọn / kéo thả ảnh -> hộp thoại căn chỉnh khung tròn (kéo, phóng to / thu nhỏ), rồi mới xử lý ảnh đã cắt
+        if (!file._gesCropped && window.GesCrop && /^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
+            GesCrop.open({file: file, round: true, outW: 512, fileName: file.name, title: 'Căn chỉnh ảnh đại diện', minW: 120, minH: 120}).then(function (res) {
+                if (res) { res.file._gesCropped = true; processAvatarFile(res.file); }
+                const inp = document.getElementById('avatar-file-input'); if (inp) inp.value = '';
+            });
+            return;
+        }
+
         // 1. Kiểm tra loại file (chỉ cho phép định dạng ảnh)
         const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
         const isImage = file.type.startsWith('image/') || validTypes.includes(file.type);

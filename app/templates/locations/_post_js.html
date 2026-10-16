@@ -115,7 +115,7 @@
                 if (shareModalInstance) shareModalInstance.hide();
                 const postUrl = data.link || `${window.location.origin}/locations/feed#post-article-${postId}`;
                 navigator.clipboard.writeText(postUrl).then(() => {
-                    alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+                    gesToast("Đã sao chép liên kết bài viết!");
                 }).catch(() => {
                     prompt("Sao chép liên kết bên dưới:", postUrl);
                 });
@@ -188,7 +188,7 @@
     function copyPostLink(postId) {
         const postUrl = `${window.location.origin}/locations/feed#post-article-${postId}`;
         navigator.clipboard.writeText(postUrl).then(() => {
-            alert("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+            gesToast("Đã sao chép liên kết bài viết!");
         }).catch(() => {
             prompt("Sao chép liên kết bên dưới:", postUrl);
         });

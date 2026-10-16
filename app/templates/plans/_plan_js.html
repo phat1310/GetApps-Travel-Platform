@@ -118,7 +118,7 @@
     $('#shDownload').addEventListener('click', function () { if (shareAttach) location.href = '/plans/' + shareId + '/attachment'; });
     $('#shCopy').addEventListener('click', async function () {
         const url = location.origin + '/plans/' + shareId;
-        try { await navigator.clipboard.writeText(url); $('#shMsg').textContent = 'Đã sao chép liên kết.'; }
+        try { await navigator.clipboard.writeText(url); $('#shMsg').textContent = 'Đã sao chép liên kết.'; if (window.gesToast) gesToast('Đã sao chép liên kết lịch trình!'); }
         catch (e) { $('#shMsg').textContent = url; }
     });
     $('#shRepost').addEventListener('click', async function () {

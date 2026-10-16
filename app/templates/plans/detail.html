@@ -374,7 +374,7 @@
 
                 <!-- Social Actions -->
                 <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill btn-sm" onclick="navigator.clipboard.writeText(window.location.href); alert('Đã sao chép link lịch trình vào clipboard!');">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill btn-sm" onclick="navigator.clipboard.writeText(window.location.href).then(function(){ gesToast('Đã sao chép liên kết lịch trình!'); });">
                         <i class="bi bi-share me-1"></i> Chia sẻ lịch trình này
                     </button>
                     <a href="{{ url_for('plans.index') }}" class="btn btn-light rounded-pill btn-sm text-muted">

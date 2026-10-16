@@ -41,7 +41,7 @@
         .me-stats > div { flex-direction: row; justify-content: center; gap: 5px; padding: 0; }
         .me-stats .me-txt { align-items: flex-start; }
         .me-ic { margin-bottom: 0; width: 28px; height: 28px; font-size: .8rem; }
-        .me-latest { width: 62%; }
+        .me-latest { width: 62%; min-width: min(100%, 15.6rem); }
     }
     [data-bs-theme="dark"] .me-card { background: #1e293b !important; }
     [data-bs-theme="dark"] .me-bg { opacity: .55; }
@@ -85,7 +85,8 @@
         
         <!-- Thẻ hồ sơ của mình: bấm cả thẻ -> trang cá nhân; "Xem tất cả" -> tab Bài viết ở trang cá nhân -->
         <div class="sidebar-card me-card" id="meCard">
-            <div class="me-bg" style="background-image: url('{{ url_for('static', filename='images/anh-chill-15.jpg') }}');"></div>
+            {% set mybg = current_user.profile_bg_safe %}
+            {% if mybg %}<div class="me-bg" style="background-image: url('{{ mybg }}');"></div>{% endif %}
             <div class="me-head d-flex align-items-center gap-3">
                 {% if current_user.avatar_url %}
                     <img src="{{ current_user.avatar_url }}" alt="{{ current_user.username }}" class="avatar avatar-md" onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=0ea5e9&color=fff'">

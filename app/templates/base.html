@@ -105,6 +105,18 @@
             align-items: center;
             gap: 0.5rem;
         }
+        /* Thanh "Tìm kiếm hành trình" nhỏ gọn cạnh nút đổi giao diện */
+        .st-search { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 5px 0 11px; margin: 0 .35rem 0 0; border-radius: 999px;
+                     background: #f8fbff; border: 1px solid #dbe7f5; color: #3b6aa0; transition: border-color .15s, box-shadow .15s; }
+        .st-search:focus-within { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,.22); }
+        .st-search i { font-size: .9rem; flex: none; }
+        .st-search input { width: 9.6rem; height: 24px; border: 0; outline: 0; border-radius: 999px; background: #f0f0f0; color: #1e293b; font-size: .78rem; padding: 0 10px; min-width: 0; }
+        .st-search input::placeholder { color: #6b7280; }
+        .st-search input::-webkit-search-cancel-button { display: none; }
+        [data-bs-theme="dark"] .st-search { background: #232b3b; border-color: #334155; color: #94a3b8; }
+        [data-bs-theme="dark"] .st-search input { background: #2d3748; color: #e2e8f0; }
+        [data-bs-theme="dark"] .st-search input::placeholder { color: #94a3b8; }
+        @media (max-width: 575.98px) { .st-search { padding-left: 9px; } .st-search input { width: 3.6rem; text-overflow: ellipsis; transition: width .15s; } .st-search:focus-within input { width: 6.5rem; } }
         .st-top-btn {
             width: 42px;
             height: 42px;
@@ -890,7 +902,10 @@
                 <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs" class="brand-logo-img" style="height: 30px; width: auto;">
             </a>
             <div class="st-top-actions">
-                <a href="/explore" class="st-top-btn {% if request.endpoint == 'auth.explore' %}active{% endif %}" title="Tìm kiếm & Khám phá" aria-label="Tìm kiếm"><i class="bi bi-search"></i></a>
+                <form class="st-search" method="get" action="{{ url_for('plans.index') }}" role="search">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input type="search" name="kw" maxlength="100" placeholder="Tìm kiếm hành trình" aria-label="Tìm kiếm hành trình" autocomplete="off" value="{{ request.args.get('kw', '') if request.endpoint == 'plans.index' else '' }}">
+                </form>
                 <button type="button" class="st-top-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Chuyển chế độ Nền sáng / Nền tối">
                     <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
                 </button>
@@ -1158,7 +1173,7 @@
                                     <!-- 1. Ảnh bìa chuyến đi (Tỉ lệ 16:9) -->
                                     <div class="mb-3">
                                         <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Ảnh bìa chuyến đi (Tỉ lệ 16:9) <span class="text-danger">*</span></label>
-                                        <div class="qc-plan-cover-box" id="qcPlanCoverBox" onclick="document.getElementById('qcPlanCoverInput').click()" title="Bấm để chọn hoặc đổi ảnh bìa">
+                                        <div class="qc-plan-cover-box" id="qcPlanCoverBox" onclick="qcPlanCoverClick()" title="Bấm để chọn ảnh bìa; chọn rồi thì bấm lại để căn chỉnh khung, phóng to / thu nhỏ">
                                             <img src="{{ url_for('static', filename='images/halong-cover.jpg') }}" alt="Ảnh bìa chuyến đi" id="qcPlanCoverPreview" class="qc-plan-cover-img">
                                             <button type="button" class="btn btn-sm qc-change-cover-btn">
                                                 <i class="bi bi-camera me-1"></i> Đổi ảnh bìa
@@ -1986,6 +2001,16 @@
             updateQcCharCounter();
             caption.focus();
         }
+
+        // Ảnh bìa lịch trình: chọn ảnh -> hộp thoại căn chỉnh 16:9 (kéo, phóng to / thu nhỏ). Đã chọn rồi thì bấm vào ảnh để chỉnh lại.
+        function qcPlanCoverClick() {
+            const input = document.getElementById('qcPlanCoverInput');
+            if (window.GesCrop && input._gesCrop) GesCrop.readjust(input); else input.click();
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            const input = document.getElementById('qcPlanCoverInput');
+            if (window.GesCrop && input) GesCrop.attach(input, {aspect: 16 / 9, outW: 1600, title: 'Căn chỉnh ảnh bìa (tỉ lệ 16:9)', minW: 480, minH: 270});
+        });
 
         function previewQcPlanCover(input) {
             if (input.files && input.files[0]) {
@@ -3360,6 +3385,23 @@
     })();
     </script>
     <script src="{{ url_for('static', filename='js/place-picker.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/image-cropper.js') }}"></script>
+    <script>
+    /* Thông báo nhỏ giữa màn hình (thay alert() của trình duyệt) */
+    window.gesToast = function (msg, ms) {
+        var old = document.getElementById('ges-toast'); if (old) old.remove();
+        var el = document.createElement('div');
+        el.id = 'ges-toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+        el.textContent = msg;   /* textContent: không chèn HTML, tránh XSS */
+        el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.92);z-index:2000;'
+            + 'max-width:min(90vw,26rem);padding:.85rem 1.4rem;border-radius:1rem;background:rgba(17,24,39,.92);color:#fff;'
+            + 'font-weight:600;font-size:.95rem;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);'
+            + 'opacity:0;transition:opacity .18s ease,transform .18s ease;pointer-events:none;';
+        document.body.appendChild(el);
+        requestAnimationFrame(function () { el.style.opacity = '1'; el.style.transform = 'translate(-50%,-50%) scale(1)'; });
+        setTimeout(function () { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 220); }, ms || 1600);
+    };
+    </script>
     {% block extra_js %}{% endblock %}
 <script>
 /* Giờ đăng "x phút trước": tự cập nhật mỗi phút (cùng quy tắc với app/timeutil.py).
