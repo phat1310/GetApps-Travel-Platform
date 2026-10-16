@@ -36,11 +36,18 @@
     .me-ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; color: var(--c); background: color-mix(in srgb, var(--c) 16%, #fff); margin-bottom: 2px; flex: none; }
     .me-stats b { font-size: 1rem; line-height: 1.1; font-weight: 800; }
     .me-stats small { font-size: .62rem; color: #64748b; line-height: 1.15; white-space: nowrap; }
+    /* Nhãn dài hơn ô thì cắt bằng dấu … (không tràn / đè sang ô bên cạnh) */
+    .me-stats > div { min-width: 0; }
+    .me-stats .me-txt { min-width: 0; max-width: 100%; }
+    .me-stats small, .me-stats b { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .me-latest-h { min-width: 0; flex: 0 1 auto; }
+    .me-all { white-space: nowrap; flex: none; }
+    .me-ptime, .me-latest-h { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     /* Thẻ đủ rộng (>= 340px): icon bên trái, số + nhãn bên phải như mẫu */
     @container (min-width: 340px) {
-        .me-stats > div { flex-direction: row; justify-content: center; gap: 5px; padding: 0; }
+        .me-stats > div { flex-direction: row; justify-content: center; gap: 4px; padding: 0 1px; }
         .me-stats .me-txt { align-items: flex-start; }
-        .me-ic { margin-bottom: 0; width: 28px; height: 28px; font-size: .8rem; }
+        .me-ic { margin-bottom: 0; width: 24px; height: 24px; font-size: .72rem; }
         .me-latest { width: 62%; min-width: min(100%, 15.6rem); }
     }
     [data-bs-theme="dark"] .me-card { background: #1e293b !important; }
@@ -132,10 +139,10 @@
             </div>
 
             <div class="me-stats">
-                <div><span class="me-ic" style="--c:#f59e0b"><i class="bi bi-pencil-square"></i></span><span class="me-txt"><b>{{ me_card.posts }}</b><small>Bài viết</small></span></div>
-                <div><span class="me-ic" style="--c:#ef4444"><i class="bi bi-heart-fill"></i></span><span class="me-txt"><b>{{ me_card.likers }}</b><small>Lượt thích</small></span></div>
-                <div><span class="me-ic" style="--c:#2563eb"><i class="bi bi-people-fill"></i></span><span class="me-txt"><b>{{ me_card.following }}</b><small>Đang theo dõi</small></span></div>
-                <div><span class="me-ic" style="--c:#7c3aed"><i class="bi bi-person-plus-fill"></i></span><span class="me-txt"><b>{{ me_card.followers }}</b><small>Người theo dõi</small></span></div>
+                <div><span class="me-ic" style="--c:#f59e0b"><i class="bi bi-pencil-square"></i></span><span class="me-txt"><b>{{ me_card.posts }}</b><small title="Bài viết">Bài viết</small></span></div>
+                <div><span class="me-ic" style="--c:#ef4444"><i class="bi bi-heart-fill"></i></span><span class="me-txt"><b>{{ me_card.likers }}</b><small title="Lượt thích">Lượt thích</small></span></div>
+                <div><span class="me-ic" style="--c:#2563eb"><i class="bi bi-people-fill"></i></span><span class="me-txt"><b>{{ me_card.following }}</b><small title="Đang theo dõi">Đang theo dõi</small></span></div>
+                <div><span class="me-ic" style="--c:#7c3aed"><i class="bi bi-person-plus-fill"></i></span><span class="me-txt"><b>{{ me_card.followers }}</b><small title="Người theo dõi">Người theo dõi</small></span></div>
             </div>
             <a href="{{ url_for('auth.profile') }}" class="stretched-link" aria-label="Xem trang cá nhân của bạn"></a>
         </div>
