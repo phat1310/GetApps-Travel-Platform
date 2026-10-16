@@ -26,8 +26,12 @@ def serialize_posts(posts, viewer_id):
         if location_ids else {}
     )
 
+    # Bản đăng lại luôn lấy NỘI DUNG (chữ + ảnh/video) từ bài gốc
+    root_of = {p.id: p.original_post_id for p in posts if p.original_post_id}
+    roots = {r.id: r for r in Post.query.filter(Post.id.in_(set(root_of.values()) or {0})).all()}
+
     media = defaultdict(list)
-    for ph in Photo.query.filter(Photo.post_id.in_(post_ids)).order_by(Photo.id).all():
+    for ph in Photo.query.filter(Photo.post_id.in_(post_ids + list(roots))).order_by(Photo.id).all():
         media[ph.post_id].append({"file_path": ph.file_path, "media_type": ph.media_type})
 
     extra = defaultdict(list)
@@ -87,17 +91,19 @@ def serialize_posts(posts, viewer_id):
                 "nickname": author.nickname,
                 "avatar_url": author.avatar_url,
             } if author else None,
-            "caption": p.caption,
+            "caption": (roots.get(root_of.get(p.id)) or p).caption,
             "visibility": p.visibility,
             "created_at": p.created_at.isoformat(),
+            "edited_at": ((roots.get(root_of.get(p.id)) or p).edited_at.isoformat() + "Z")
+                          if (roots.get(root_of.get(p.id)) or p).edited_at else None,
             "location": {"id": loc.id, "name": loc.name} if loc else None,
             "extra_locations": extra.get(p.id, []),
             "map_links": maps.get(p.id, []),
             "hashtags": sorted(tags.get(p.id, [])),
-            "media": media.get(p.id, []),
+            "media": media.get(root_of.get(p.id) or p.id, []),
             "like_count": like_counts.get(p.id, 0),
             "comment_count": comment_counts.get(p.id, 0),
             "liked_by_me": p.id in liked,
             "saved_by_me": p.id in saved,
         })
-    return result
+    return result

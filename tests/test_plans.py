@@ -6,10 +6,19 @@ Bao gồm kiểm thử:
 - Phân quyền riêng tư (Public / Private)
 - Chỉnh sửa & Xóa lịch trình
 """
+import io
 import pytest
 from datetime import date
 from app.models import User, Itinerary, ItineraryDay, ItineraryStop
 from app.extensions import db
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+
+def cover():
+    """Ảnh bìa giả (bắt buộc khi đăng lịch trình)."""
+    return (io.BytesIO(PNG), "cover.png")
 
 
 def login_user(client, username="testuser1", password="123456"):
@@ -27,9 +36,8 @@ def test_plans_index_get(client):
     res = client.get("/plans")
     assert res.status_code == 200
     html = res.data.decode("utf-8")
-    assert "Lên kế hoạch cho chuyến đi" in html
-    assert "Khám phá cộng đồng" in html
-    assert "Lịch trình của tôi" in html
+    assert "Hiện chưa có lịch trình nào" in html     # chưa có lịch trình nào
+    assert "Giá cả" in html and "Địa điểm" in html and "Loại chuyến đi" in html
 
 
 def test_plans_index_json_api(client, users):
@@ -61,9 +69,16 @@ def test_plan_create_form_post_success(client, users):
             "end_date": "2026-11-12",
             "estimated_budget": 3500000.0,
             "visibility": "public",
+            "trip_type": "3N2Đ - Đi phượt",
+            "participants_count": "2",
+            "cover_image": cover(),
+            "stop_name_1[]": ["Đồi chè Cầu Đất"],
+            "stop_name_2[]": ["Thác Datanla"],
+            "stop_name_3[]": ["Chợ Đà Lạt"],
             "description": "Lịch trình phượt khám phá Đà Lạt mùa đông."
         },
-        headers={"Accept": "text/html"}
+        headers={"Accept": "text/html"},
+        content_type="multipart/form-data"
     )
     assert res.status_code == 302
 
@@ -88,6 +103,8 @@ def test_plan_create_json_api(client, users):
             "end_date": "2026-12-04",
             "estimated_budget": 6000000.0,
             "visibility": "public",
+            "trip_type": "3N2Đ",
+            "participants_count": 4,
             "description": "Nghỉ dưỡng và lặn biển ngắm san hô."
         }
     )
@@ -203,13 +220,12 @@ def test_plan_private_visibility_protection(client, users):
 
     # Khách vãng lai chưa login truy cập
     res_guest = client.get(f"/plans/{plan_id}")
-    assert res_guest.status_code == 302
-    assert "/plans" in res_guest.headers["Location"]
+    assert res_guest.status_code == 404   # riêng tư: không lộ là có tồn tại
 
     # Đăng nhập user2 truy cập
     login_user(client, "testuser2")
     res_user2 = client.get(f"/plans/{plan_id}")
-    assert res_user2.status_code == 302
+    assert res_user2.status_code == 404
 
     # Đăng nhập chính chủ user1 truy cập -> thành công 200
     login_user(client, "testuser1")
@@ -243,18 +259,17 @@ def test_plan_delete_success(client, users):
 
 
 def test_my_plans_redirect_anonymous(client):
-    """Khách chưa đăng nhập truy cập /plans/my-plans bị chuyển hướng sang /login."""
+    """/plans/my-plans đã gộp vào danh sách chung: luôn chuyển về /plans."""
     res = client.get("/plans/my-plans")
     assert res.status_code == 302
-    assert "/login" in res.headers["Location"]
+    assert "/plans" in res.headers["Location"] and "my-plans" not in res.headers["Location"]
 
 
 def test_my_plans_redirect_authenticated(client, users):
-    """Người dùng đã đăng nhập truy cập /plans/my-plans được chuyển hướng về /plans?tab=my_plans."""
     login_user(client, "testuser1")
     res = client.get("/plans/my-plans")
     assert res.status_code == 302
-    assert "tab=my_plans" in res.headers["Location"]
+    assert "/plans" in res.headers["Location"] and "my-plans" not in res.headers["Location"]
 
 
 def test_plan_create_multi_day_stops_and_lodgings(client, users):
@@ -271,6 +286,9 @@ def test_plan_create_multi_day_stops_and_lodgings(client, users):
             "estimated_budget": 2500000.0,
             "visibility": "public",
             "submitted_days_count": "2",
+            "trip_type": "2N1Đ - Nghỉ dưỡng",
+            "participants_count": "2",
+            "cover_image": cover(),
             # Chặng ngày 1: 1 du lịch, 1 ăn uống
             "stop_type_1[]": ["travel", "food"],
             "stop_name_1[]": ["Đồi chè Cầu Đất", "Lẩu gà lá é Tao Ngộ"],
@@ -293,7 +311,8 @@ def test_plan_create_multi_day_stops_and_lodgings(client, users):
             "lodging_note[]": ["View thung lũng", "Gần chợ đêm"],
             "lodging_day[]": ["1", "2"]
         },
-        headers={"Accept": "text/html"}
+        headers={"Accept": "text/html"},
+        content_type="multipart/form-data"
     )
     assert res.status_code == 302
 

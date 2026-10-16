@@ -560,7 +560,9 @@ def poll():
             "awaiting": perms["awaiting"],
             "status": perms["status"],
         })
-    return jsonify({"unread_people": people, "requests": requests, "conversations": items})
+    from app.notifications import unread_count
+    return jsonify({"unread_people": people, "requests": requests, "conversations": items,
+                    "notif_unread": unread_count(current_user.id)})
 
 
 # =========================================================

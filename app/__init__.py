@@ -69,6 +69,10 @@ def create_app(config_override=None):
                         conn.execute(text("ALTER TABLE posts ADD COLUMN visibility VARCHAR(10) DEFAULT 'public'"))
                     if 'repost_note' not in post_cols:
                         conn.execute(text("ALTER TABLE posts ADD COLUMN repost_note TEXT"))
+                    if 'edited_at' not in post_cols:
+                        conn.execute(text("ALTER TABLE posts ADD COLUMN edited_at DATETIME"))
+                    if 'edit_media_added' not in post_cols:
+                        conn.execute(text("ALTER TABLE posts ADD COLUMN edit_media_added INTEGER NOT NULL DEFAULT 0"))
 
                 if 'shares' in tables:
                     share_cols = [col['name'] for col in inspector.get_columns('shares')]
@@ -128,8 +132,37 @@ def create_app(config_override=None):
                         conn.execute(text("ALTER TABLE itinerary_lodgings ADD COLUMN note TEXT"))
                     if 'booking_link' not in lodg_cols:
                         conn.execute(text("ALTER TABLE itinerary_lodgings ADD COLUMN booking_link VARCHAR(500)"))
+                    if 'map_link' not in lodg_cols:
+                        conn.execute(text("ALTER TABLE itinerary_lodgings ADD COLUMN map_link VARCHAR(500)"))
+
+                if 'notifications' in tables:
+                    notif_cols = [col['name'] for col in inspector.get_columns('notifications')]
+                    if 'itinerary_id' not in notif_cols:
+                        conn.execute(text("ALTER TABLE notifications ADD COLUMN itinerary_id INTEGER REFERENCES itineraries(id)"))
 
                 conn.commit()
+        except Exception:
+            pass
+
+        # Lưới an toàn: DB SQLite cũ thiếu BẤT KỲ cột nào (cho phép NULL) mà model đang có -> tự thêm.
+        # Mỗi cột thử riêng, lỗi 1 cột không làm hỏng các cột còn lại (khối ALTER thủ công ở trên dừng ở lỗi đầu tiên).
+        try:
+            from sqlalchemy import inspect as _inspect, text as _text
+            _insp = _inspect(db.engine)
+            _existing = set(_insp.get_table_names())
+            for _table in db.metadata.sorted_tables:
+                if _table.name not in _existing:
+                    continue
+                _have = {c['name'] for c in _insp.get_columns(_table.name)}
+                for _col in _table.columns:
+                    if _col.name in _have or _col.primary_key or not _col.nullable:
+                        continue
+                    try:
+                        _ctype = _col.type.compile(dialect=db.engine.dialect)
+                        with db.engine.begin() as _c:
+                            _c.execute(_text(f'ALTER TABLE "{_table.name}" ADD COLUMN "{_col.name}" {_ctype}'))
+                    except Exception:
+                        pass
         except Exception:
             pass
 
@@ -140,6 +173,23 @@ def create_app(config_override=None):
     from app.chat import chat_bp
     from app.presence import init_presence
     init_presence(app)
+    from app.mentions import render_mentions
+    app.jinja_env.filters['mentions'] = render_mentions      # {{ comment.content | mentions }}
+    from app import timeutil
+    app.jinja_env.globals['time_tag'] = timeutil.time_tag      # {{ time_tag(created_at, edited_at) }}
+    app.jinja_env.globals['edited_clock'] = timeutil.edited_clock
+
+    @app.context_processor
+    def inject_notification_badge():
+        """Số thông báo CHƯA ĐỌC cho chấm đỏ ở quả chuông (hiển thị ngay khi tải trang)."""
+        from flask_login import current_user
+        try:
+            if current_user.is_authenticated:
+                from app.notifications import unread_count
+                return {"notif_unread": unread_count(current_user.id)}
+        except Exception:
+            db.session.rollback()
+        return {"notif_unread": 0}
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(locations_bp, url_prefix="/locations")
@@ -149,4 +199,4 @@ def create_app(config_override=None):
 
     csrf.exempt(api_bp)
 
-    return app
+    return app

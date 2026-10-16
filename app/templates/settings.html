@@ -170,7 +170,7 @@
             <span class="st-ico"><i class="bi bi-lock"></i></span>
             <span class="st-grow">
                 <div class="st-label">Chế độ riêng tư</div>
-                <div class="st-sub">Ẩn hồ sơ khỏi người lạ</div>
+                <div class="st-sub">Chỉ người theo dõi mới xem được bài viết, lịch trình và danh sách theo dõi của bạn</div>
             </span>
             <div class="form-check form-switch m-0">
                 <input class="form-check-input st-switch" type="checkbox" role="switch" id="private-switch" aria-label="Chế độ riêng tư" {% if current_user.is_private %}checked{% endif %}>
@@ -369,7 +369,7 @@
     const LOGIN_URL = "{{ url_for('auth.login') }}";
     const API = {                    // endpoint do Trúc làm. Điền URL là hoạt động, null = chưa có
         bio: null,                   // ví dụ "/profile/update", nhận JSON {"bio": "..."}
-        privacy: null                // ví dụ "/profile/privacy", nhận JSON {"is_private": true}
+        privacy: "/profile/privacy"  // nhận JSON {"is_private": true}
     };
     const MAX_TAGS = 3;
     const TAGS = [                   // [mã lưu trong database, tên hiển thị]. Mã phải nằm trong FIXED_TAGS ở auth/routes.py
@@ -632,7 +632,7 @@
         });
     });
 
-    // ---- Chế độ riêng tư (chờ API của Trúc) ----
+    // ---- Chế độ riêng tư ----
     $("private-switch").addEventListener("change", async function (e) {
         const sw = e.target, want = sw.checked, box = $("page-alert");
         if (!API.privacy) {
@@ -714,4 +714,4 @@
     renderTags();
 })();
 </script>
-{% endblock %}
+{% endblock %}

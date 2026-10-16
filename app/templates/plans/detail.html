@@ -1,5 +1,24 @@
 {% extends "base.html" %}
 {% from "_maplinks.html" import map_chips %}
+{% macro lodging_card(l) %}
+<div class="stop-card mb-2">
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+        <div>
+            <h6 class="fw-bold text-dark mb-1"><i class="bi bi-house-door-fill text-primary me-1"></i>{{ l.hotel_name or l.name }}</h6>
+            {% if l.address_text %}<p class="text-muted small mb-1"><i class="bi bi-geo-alt me-1"></i>{{ l.address_text }}</p>{% endif %}
+        </div>
+        {% if l.price_per_night and l.price_per_night > 0 %}
+            <span class="small fw-semibold text-success"><i class="bi bi-cash-coin me-1"></i>{{ "{:,.0f}".format(l.price_per_night) }} đ / đêm</span>
+        {% endif %}
+    </div>
+    <div class="d-flex flex-wrap gap-3 mt-1 small">
+        {% if l.safe_map_url %}<a href="{{ l.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow" class="text-decoration-none"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Xem trên Google Maps</a>{% endif %}
+        {% if l.safe_booking_url %}<a href="{{ l.safe_booking_url }}" target="_blank" rel="noopener noreferrer nofollow" class="text-decoration-none"><i class="bi bi-link-45deg me-1"></i>Link đặt phòng</a>
+        {% elif l.booking_text %}<span class="text-muted"><i class="bi bi-link-45deg me-1"></i>{{ l.booking_text }}</span>{% endif %}
+    </div>
+    {% if l.note %}<div class="mt-2 text-secondary small bg-light p-2 rounded"><i class="bi bi-lightbulb me-1 text-warning"></i>{{ l.note }}</div>{% endif %}
+</div>
+{% endmacro %}
 
 {% block title %}{{ plan.title }} — Lịch trình GetApps{% endblock %}
 
@@ -248,8 +267,11 @@
                                         <div class="d-flex align-items-start justify-content-between">
                                             <div>
                                                 <h6 class="fw-bold text-dark mb-1">{{ stop.location_name }}</h6>
-                                                {% if stop.address %}
+                                                {% if stop.address and not stop.safe_map_url %}
                                                     <p class="text-muted small mb-1"><i class="bi bi-geo-alt me-1"></i>{{ stop.address }}</p>
+                                                {% endif %}
+                                                {% if stop.safe_map_url %}
+                                                    <p class="small mb-1"><a href="{{ stop.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow" class="text-decoration-none"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Xem trên Google Maps</a></p>
                                                 {% endif %}
                                             </div>
 
@@ -294,9 +316,23 @@
                                 {% endif %}
                             </div>
                         {% endif %}
+                        {% for l in day.lodgings %}
+                            {% if loop.first %}<div class="px-3 pt-2 small fw-bold text-muted"><i class="bi bi-building me-1"></i>Nơi lưu trú đêm Ngày {{ day.day_number }}</div>{% endif %}
+                            <div class="px-3">{{ lodging_card(l) }}</div>
+                        {% endfor %}
                     </div>
                 </div>
             {% endfor %}
+
+            {% set whole_trip = plan.lodgings|selectattr('day_id', 'none')|list %}
+            {% if whole_trip %}
+                <div class="day-card">
+                    <div class="day-header"><span class="fw-bold text-dark"><i class="bi bi-building me-1 text-primary"></i>Nơi lưu trú (toàn bộ chuyến đi)</span></div>
+                    <div class="p-3">
+                        {% for l in whole_trip %}{{ lodging_card(l) }}{% endfor %}
+                    </div>
+                </div>
+            {% endif %}
 
         </div>
 

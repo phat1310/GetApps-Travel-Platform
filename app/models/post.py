@@ -74,3 +74,9 @@ class Post(db.Model):
         db.DateTime,
         default=datetime.utcnow
     )
+
+    # Thời điểm chủ bài chỉnh sửa nội dung lần gần nhất (None = chưa từng sửa)
+    edited_at = db.Column(db.DateTime, nullable=True)
+
+    # Số ảnh/video đã thêm bằng chức năng Chỉnh sửa (tối đa 2 trong cả vòng đời bài)
+    edit_media_added = db.Column(db.Integer, nullable=False, default=0, server_default="0")

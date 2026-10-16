@@ -3,12 +3,15 @@ chi tiết bài viết, like, comment, share, save, địa điểm, lịch trìn
 """
 
 import os
+from datetime import datetime
 import uuid
 from flask import request, jsonify, current_app, render_template, redirect, url_for, flash, send_from_directory
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from app.locations import locations_bp
+from app.notifications import notify
+from app.mentions import notify_mentions, render_mentions, suggest as suggest_mentions
 from app.extensions import db
 from app.models import (
     Post, Photo, Like, Comment, Share, SavedPost, Location, User,
@@ -21,6 +24,7 @@ from app.locations.serializers import serialize_posts
 from app.locations.maplinks import parse_map_links, attach_map_links, visible_links, POST_LIMIT
 from app.locations.discovery import (
     popular_locations, suggest_users, following_ids, root_post, can_view_post,
+    can_view_itinerary,
 )
 
 
@@ -45,17 +49,25 @@ def get_media_type(filename):
 
 def user_can_access_post(post):
     """
-    Post public -> ai cũng xem/tương tác được.
-    Post private -> chỉ chủ post hoặc người đang follow chủ post.
+    Quyền xem/tương tác 1 bài:
+    - Bài riêng tư -> chỉ chủ bài (follower cũng không).
+    - Tác giả để tài khoản riêng tư -> chỉ người đang follow (và chính chủ).
+    - Repost: còn phải xem được cả bài gốc thật sự.
     """
-    if post.visibility != "private" and not post.original_post_id:
-        return True
+    viewer_id = current_user.id if current_user.is_authenticated else None
+    follow_set = following_ids(viewer_id) if viewer_id else set()
+    return can_view_post(post, viewer_id, follow_set)
 
-    if not current_user.is_authenticated:
-        return False
 
-    # Chủ bài / người đang follow chủ bài; repost còn phải xem được cả bài gốc thật sự
-    return can_view_post(post, current_user.id, following_ids(current_user.id))
+def visible_itinerary_or_404(itinerary_id):
+    """Lịch trình mà người xem được phép thấy; không được phép -> 404 (không lộ là có tồn tại)."""
+    from flask import abort
+    it = db.session.get(Itinerary, itinerary_id)
+    if it is None:
+        abort(404)
+    if not can_view_itinerary(it, current_user.id, following_ids(current_user.id)):
+        abort(404)
+    return it
 
 
 # =========================================================
@@ -231,6 +243,180 @@ def create_post():
     return jsonify(response), 201
 
 
+
+# =========================================================
+# POST - CHỈNH SỬA / XÓA (chỉ chủ bài)
+# =========================================================
+
+MAX_EDIT_NEW_MEDIA = 2          # chỉ được THÊM tối đa 2 ảnh/video bằng chức năng sửa (cả vòng đời bài)
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
+MAX_VIDEO_BYTES = 200 * 1024 * 1024
+MAX_CAPTION_LEN = 1500
+
+
+def sniff_media(file_storage, media_type):
+    """Kiểm tra NỘI DUNG thật của file (magic bytes), không chỉ tin vào đuôi file. Trả về True nếu khớp loại."""
+    stream = file_storage.stream
+    stream.seek(0)
+    head = stream.read(16)
+    stream.seek(0, 2)
+    size = stream.tell()
+    stream.seek(0)
+    if media_type == "image":
+        if size > MAX_IMAGE_BYTES:
+            return False
+        return (head.startswith(b"\xff\xd8\xff") or head.startswith(b"\x89PNG\r\n\x1a\n")
+                or head[:6] in (b"GIF87a", b"GIF89a"))
+    if media_type == "video":
+        if size > MAX_VIDEO_BYTES:
+            return False
+        return head[4:8] == b"ftyp" or head.startswith(b"\x1a\x45\xdf\xa3")    # mp4/mov | webm
+    return False
+
+
+def _post_snapshot(post):
+    return (
+        post.caption or "",
+        post.visibility,
+        post.location_id,
+        tuple(sorted(l.id for l in post.extra_locations)),
+        tuple(sorted(h.name for h in post.hashtags)),
+        tuple((m.url, m.label or "") for m in post.map_links),
+    )
+
+
+def edit_data_for(post):
+    """Dữ liệu điền sẵn vào form Chỉnh sửa (chỉ gửi cho chủ bài)."""
+    n_media = Photo.query.filter_by(post_id=post.id).count()
+    loc = db.session.get(Location, post.location_id) if post.location_id else None
+    can_add = max(0, min(MAX_EDIT_NEW_MEDIA - (post.edit_media_added or 0), MAX_FILES_PER_POST - n_media))
+    return {
+        "id": post.id,
+        "caption": post.caption or "",
+        "hashtags": " ".join(sorted(h.name for h in post.hashtags)),
+        "location": loc.name if loc else "",
+        "extra_locations": [l.name for l in post.extra_locations],
+        "map_links": [{"url": m.url, "label": m.label or ""} for m in post.map_links if m.safe_url],   # URL xấu trong DB không đưa ra form
+        "visibility": post.visibility,
+        "media_count": n_media,
+        "can_add_media": can_add,
+    }
+
+
+@locations_bp.route("/posts/<int:post_id>/edit", methods=["POST"])
+@login_required
+def edit_post(post_id):
+    """Chủ bài sửa mọi thông tin (chữ, hashtag, địa điểm, địa chỉ Maps, chế độ) + thêm tối đa 2 ảnh/video mới.
+    Không sửa/xóa ảnh/video đã đăng. Bản đăng lại không tự sửa được (luôn theo bài gốc)."""
+    post = db.session.get(Post, post_id)
+    if post is None or not user_can_access_post(post):
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if post.user_id != current_user.id:
+        return jsonify({"error": "Chỉ chủ bài mới được chỉnh sửa"}), 403
+    if post.original_post_id:
+        return jsonify({"error": "Bài đăng lại không chỉnh sửa được, nó luôn hiển thị theo bài gốc"}), 403
+
+    # ---- đọc + kiểm tra TOÀN BỘ dữ liệu trước khi thay đổi bất cứ thứ gì ----
+    caption = (request.form.get("caption", "") or "")
+    if len(caption) > MAX_CAPTION_LEN:
+        return jsonify({"error": f"Nội dung tối đa {MAX_CAPTION_LEN} ký tự"}), 400
+    caption = caption.replace("\x00", "").strip()
+
+    visibility = request.form.get("visibility", post.visibility)
+    if visibility not in ("public", "private"):
+        return jsonify({"error": "visibility phải là 'public' hoặc 'private'"}), 400
+
+    hashtag_names, hashtag_error = parse_hashtags(request.form.getlist("hashtags"))
+    if hashtag_error:
+        return jsonify({"error": hashtag_error}), 400
+
+    map_links, map_error = parse_map_links(request.form.get("map_links"), POST_LIMIT)
+    if map_error:
+        return jsonify({"error": map_error}), 400
+
+    files = [f for f in request.files.getlist("images") if f and f.filename]
+    n_media = Photo.query.filter_by(post_id=post.id).count()
+    if len(files) > MAX_EDIT_NEW_MEDIA:
+        return jsonify({"error": f"Chỉ được thêm tối đa {MAX_EDIT_NEW_MEDIA} ảnh/video khi chỉnh sửa"}), 400
+    if (post.edit_media_added or 0) + len(files) > MAX_EDIT_NEW_MEDIA:
+        return jsonify({"error": f"Bài này chỉ được thêm tối đa {MAX_EDIT_NEW_MEDIA} ảnh/video bằng chỉnh sửa "
+                                 f"(đã thêm {post.edit_media_added or 0})"}), 400
+    if n_media + len(files) > MAX_FILES_PER_POST:
+        return jsonify({"error": f"Tối đa {MAX_FILES_PER_POST} file mỗi bài viết (hiện có {n_media})"}), 400
+    prepared = []
+    for f in files:
+        mtype = get_media_type(f.filename)
+        if mtype is None or not sniff_media(f, mtype):
+            return jsonify({"error": f"File '{secure_filename(f.filename) or 'không tên'}' sai định dạng hoặc quá lớn"}), 400
+        prepared.append((f, mtype))
+
+    before = _post_snapshot(post)
+
+    # ---- áp dụng ----
+    location = get_or_create_location(request.form.get("location_name", ""))
+    extra_locations = []
+    for name in request.form.getlist("extra_location_names")[:2]:
+        loc = get_or_create_location(name)
+        if loc and loc not in extra_locations and (not location or loc.id != location.id):
+            extra_locations.append(loc)
+
+    post = db.session.get(Post, post_id)       # get_or_create_location có thể commit
+    post.caption = caption
+    post.visibility = visibility
+    post.location_id = location.id if location else None
+    post.extra_locations[:] = extra_locations
+    post.hashtags[:] = [get_or_create_hashtag(n) for n in hashtag_names]
+    for m in list(post.map_links):
+        db.session.delete(m)
+    db.session.flush()
+    attach_map_links(map_links, post=post)
+
+    saved_paths = []
+    upload_folder = os.path.join(current_app.root_path, "static", "uploads")
+    os.makedirs(upload_folder, exist_ok=True)
+    try:
+        for f, mtype in prepared:
+            ext = secure_filename(f.filename).rsplit(".", 1)[1].lower()
+            unique = f"{uuid.uuid4().hex}.{ext}"
+            full = os.path.join(upload_folder, unique)
+            f.save(full)
+            saved_paths.append(full)
+            db.session.add(Photo(post_id=post.id, file_path=f"static/uploads/{unique}", media_type=mtype))
+        post.edit_media_added = (post.edit_media_added or 0) + len(prepared)
+        db.session.flush()
+        db.session.refresh(post)
+        changed = bool(prepared) or _post_snapshot(post) != before
+        if changed:
+            post.edited_at = datetime.utcnow()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        for path in saved_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        return jsonify({"error": "Có lỗi xảy ra khi lưu chỉnh sửa, vui lòng thử lại"}), 500
+
+    return jsonify({
+        "message": "Đã cập nhật bài viết" if changed else "Không có thay đổi nào",
+        "changed": changed,
+        "edited_at": post.edited_at.isoformat() + "Z" if post.edited_at else None,
+    })
+
+
+@locations_bp.route("/posts/<int:post_id>/delete", methods=["POST", "DELETE"])
+@login_required
+def delete_post(post_id):
+    """Chủ bài xóa bài của mình (kèm tim/bình luận/thông báo...). Xóa bài gốc => các bản đăng lại bị xóa theo.
+    Người đăng lại chỉ xóa được bản đăng lại của chính mình."""
+    post = db.session.get(Post, post_id)
+    if post is None or not user_can_access_post(post):
+        return jsonify({"error": "Bài viết không tồn tại"}), 404
+    if post.user_id != current_user.id:
+        return jsonify({"error": "Chỉ chủ bài mới được xóa"}), 403
+    from app.deletion import delete_post_cascade
+    ids = delete_post_cascade(post)
+    return jsonify({"message": "Đã xóa bài viết", "deleted_ids": ids})
+
 # =========================================================
 # FEED
 # =========================================================
@@ -248,13 +434,15 @@ def feed():
     if request.args.get("format") == "json" or (
         request.headers.get("Accept") == "application/json" and not request.accept_mimetypes.accept_html
     ):
-        posts = (
+        json_follow = following_ids(current_user.id)
+        cand = (
             Post.query.filter(Post.visibility == "public")
             .order_by(Post.created_at.desc(), Post.id.desc())
-            .limit(per_page + 1)
-            .offset((page - 1) * per_page)
             .all()
         )
+        cand = [p for p in cand if can_view_post(p, current_user.id, json_follow)]
+        start = (page - 1) * per_page
+        posts = cand[start:start + per_page + 1]
         has_next = len(posts) > per_page
         posts = posts[:per_page]
 
@@ -289,8 +477,9 @@ def feed():
         reposter = db.session.get(User, p.user_id)
         src = root_post(p) if p.original_post_id else None
         author = db.session.get(User, src.user_id) if src else reposter
-        photos = Photo.query.filter_by(post_id=p.id).order_by(Photo.id.asc()).all()
-        loc = db.session.get(Location, p.location_id) if p.location_id else None
+        content = src or p        # bản đăng lại luôn hiển thị NỘI DUNG của bài gốc (gốc sửa thì đăng lại đổi theo)
+        photos = Photo.query.filter_by(post_id=content.id).order_by(Photo.id.asc()).all()
+        loc = db.session.get(Location, content.location_id) if content.location_id else None
         likes_count = Like.query.filter_by(post_id=p.id).count()
         is_liked = bool(Like.query.filter_by(user_id=current_user.id, post_id=p.id).first())
         comments = Comment.query.filter_by(post_id=p.id).order_by(Comment.created_at.asc()).all()
@@ -320,10 +509,15 @@ def feed():
             "visibility": p.visibility,
             # Bài sắp được repost (gốc thật sự) là riêng tư => bản repost bị khóa ở chế độ riêng tư
             "repost_locked": ((src or p).visibility == "private"),
-            "caption": p.caption,
+            "caption": content.caption,
             "location": loc,
+            "is_mine": p.user_id == current_user.id,
+            "edit_data": edit_data_for(p) if (p.user_id == current_user.id and not p.original_post_id) else None,
             "map_links": visible_links(src or p),   # bài repost hiển thị địa chỉ của bài gốc
             "created_at": p.created_at.strftime("%d/%m/%Y %H:%M") if p.created_at else "",
+            "created_dt": p.created_at,                                  # giờ đăng (UTC) -> time_tag
+            "edited_dt": None if p.original_post_id else p.edited_at,   # bài đăng lại không tự sửa được
+            "src_edited_dt": src.edited_at if src else None,            # lần cập nhật gần nhất của bài gốc
             "photos": photos,
             "likes_count": likes_count,
             "is_liked": is_liked,
@@ -339,6 +533,21 @@ def feed():
         popular_places=popular_locations(10),
         suggested_users=suggest_users(current_user.id, 5),
     )
+
+
+@locations_bp.route("/mentions/suggest", methods=["GET"])
+@login_required
+def mention_suggest():
+    """Gợi ý người để @ trong bình luận. q rỗng: người đã theo dõi / theo dõi mình / vừa bình luận ở bài này."""
+    q = (request.args.get("q") or "").strip()[:64]
+    extra = []
+    pid = request.args.get("post_id", type=int)
+    if pid:
+        post = db.session.get(Post, pid)
+        if post and user_can_access_post(post):
+            extra = [r[0] for r in db.session.query(Comment.user_id).filter_by(post_id=pid).distinct().limit(20).all()]
+            extra.append(post.user_id)
+    return jsonify({"users": suggest_mentions(current_user.id, q, extra_ids=extra)})
 
 
 @locations_bp.route("/popular", methods=["GET"])
@@ -407,15 +616,7 @@ def like_post(post_id):
 
     # Tạo thông báo Like cho chủ bài viết
     # Không gửi thông báo nếu tự like bài của mình
-    if current_user.id != post.user_id:
-        notification = Notification(
-            user_id=post.user_id,
-            actor_id=current_user.id,
-            notification_type="like",
-            post_id=post.id
-        )
-
-        db.session.add(notification)
+    notify(post.user_id, current_user.id, "like", post_id=post.id)
 
     # Lưu Like + Notification cùng transaction
     db.session.commit()
@@ -463,6 +664,10 @@ def create_comment(post_id):
     )
 
     db.session.add(comment)
+    # @username trong bình luận -> thông báo "nhắc đến bạn"; chủ bài được tag thì chỉ nhận 1 thông báo (mention)
+    tagged = notify_mentions(content, current_user.id, post.user_id, post=post)
+    if post.user_id not in tagged:
+        notify(post.user_id, current_user.id, "comment", post_id=post.id)
     db.session.commit()
 
     return jsonify({
@@ -473,6 +678,7 @@ def create_comment(post_id):
             "post_id": comment.post_id,
             "author_username": current_user.username,
             "content": comment.content,
+            "content_html": str(render_mentions(comment.content)),
             "created_at": comment.created_at.isoformat()
         }
     }), 201
@@ -514,6 +720,7 @@ def get_comments(post_id):
                 "id": comment.id,
                 "user_id": comment.user_id,
                 "content": comment.content,
+                "content_html": str(render_mentions(comment.content)),
                 "created_at": comment.created_at.isoformat()
             }
             for comment in comments
@@ -620,15 +827,7 @@ def download_post(post_id):
 
         # Tạo thông báo Share cho chủ bài viết
         # Không gửi thông báo nếu tự download bài của mình
-        if current_user.id != post.user_id:
-            notification = Notification(
-                user_id=post.user_id,
-                actor_id=current_user.id,
-                notification_type="share",
-                post_id=post.id
-            )
-
-            db.session.add(notification)
+        notify(post.user_id, current_user.id, "share", post_id=post.id)
 
         # Lưu Share + Notification cùng transaction
         db.session.commit()
@@ -697,15 +896,7 @@ def share_post(post_id):
 
     # Tạo thông báo Share cho chủ bài viết
     # Không gửi thông báo nếu tự share bài của mình
-    if current_user.id != post.user_id:
-        notification = Notification(
-            user_id=post.user_id,
-            actor_id=current_user.id,
-            notification_type="share",
-            post_id=post.id
-        )
-
-        db.session.add(notification)
+    notify(post.user_id, current_user.id, "share", post_id=post.id)
 
     # Lưu Share + Notification cùng transaction
     db.session.commit()
@@ -865,15 +1056,7 @@ def repost_post(post_id):
 
     # Tạo thông báo Share cho chủ bài viết gốc
     # Không gửi thông báo nếu tự repost bài của mình
-    if current_user.id != original_post.user_id:
-        notification = Notification(
-            user_id=original_post.user_id,
-            actor_id=current_user.id,
-            notification_type="share",
-            post_id=original_post.id
-        )
-
-        db.session.add(notification)
+    notify(original_post.user_id, current_user.id, "share", post_id=original_post.id)
 
     # Lưu Repost + Share + Notification cùng transaction
     db.session.commit()
@@ -1016,7 +1199,7 @@ def search_locations():
 
 # ============================================================
 # LỊCH TRÌNH (ITINERARY) — Pack 3, phụ trách: Khánh
-# Itinerary luôn công khai (theo File 1) -> không cần user_can_access_post
+# Quyền xem lịch trình: visible_itinerary_or_404 (private chỉ chủ; tài khoản kín cần follow)
 # ============================================================
 
 @locations_bp.route("/itineraries", methods=["POST"])
@@ -1080,7 +1263,9 @@ def create_itinerary():
 @locations_bp.route("/itineraries/feed", methods=["GET"])
 @login_required
 def itinerary_feed():
-    itineraries = Itinerary.query.order_by(Itinerary.created_at.desc()).all()
+    feed_follow = following_ids(current_user.id)
+    itineraries = [it for it in Itinerary.query.order_by(Itinerary.created_at.desc()).all()
+                   if can_view_itinerary(it, current_user.id, feed_follow)]
     return jsonify({"feed": [
         {
             "id": it.id,
@@ -1134,18 +1319,18 @@ def serialize_itinerary(it):
 @locations_bp.route("/itineraries/<int:itinerary_id>", methods=["GET"])
 @login_required
 def get_itinerary(itinerary_id):
-    it = db.get_or_404(Itinerary, itinerary_id)
+    it = visible_itinerary_or_404(itinerary_id)
     return jsonify(serialize_itinerary(it))
 
 
 @locations_bp.route("/itineraries/<int:itinerary_id>", methods=["DELETE"])
 @login_required
 def delete_itinerary(itinerary_id):
-    it = db.get_or_404(Itinerary, itinerary_id)
+    it = visible_itinerary_or_404(itinerary_id)
     if it.user_id != current_user.id:
         return jsonify({"error": "Bạn không có quyền xóa lịch trình này"}), 403
-    db.session.delete(it)
-    db.session.commit()
+    from app.deletion import delete_itinerary_cascade
+    delete_itinerary_cascade(it)          # xóa kèm tim, bình luận, chia sẻ, đã lưu, thông báo, tệp
     return jsonify({"message": "Xóa lịch trình thành công"})
 
 
@@ -1186,13 +1371,14 @@ def upload_itinerary_attachment(itinerary_id):
 @locations_bp.route("/itineraries/<int:itinerary_id>/like", methods=["POST"])
 @login_required
 def like_itinerary(itinerary_id):
-    db.get_or_404(Itinerary, itinerary_id)
+    plan = visible_itinerary_or_404(itinerary_id)
     existing = Like.query.filter_by(user_id=current_user.id, itinerary_id=itinerary_id).first()
     if existing:
         db.session.delete(existing)
         db.session.commit()
         return jsonify({"message": "Đã bỏ tim", "liked": False})
     db.session.add(Like(user_id=current_user.id, itinerary_id=itinerary_id))
+    notify(plan.user_id, current_user.id, "like", itinerary_id=plan.id)
     db.session.commit()
     return jsonify({"message": "Đã thả tim", "liked": True})
 
@@ -1200,37 +1386,42 @@ def like_itinerary(itinerary_id):
 @locations_bp.route("/itineraries/<int:itinerary_id>/comments", methods=["POST"])
 @login_required
 def create_itinerary_comment(itinerary_id):
-    db.get_or_404(Itinerary, itinerary_id)
+    plan = visible_itinerary_or_404(itinerary_id)
     data = request.get_json()
     content = data.get("content", "").strip() if data else ""
     if not content:
         return jsonify({"error": "Nội dung bình luận không được rỗng"}), 400
     comment = Comment(user_id=current_user.id, itinerary_id=itinerary_id, content=content)
     db.session.add(comment)
+    tagged = notify_mentions(content, current_user.id, plan.user_id, itinerary=plan)
+    if plan.user_id not in tagged:
+        notify(plan.user_id, current_user.id, "comment", itinerary_id=plan.id)
     db.session.commit()
-    return jsonify({"message": "Đã bình luận", "comment_id": comment.id}), 201
+    return jsonify({"message": "Đã bình luận", "comment_id": comment.id,
+                    "content_html": str(render_mentions(content))}), 201
 
 
 @locations_bp.route("/itineraries/<int:itinerary_id>/comments", methods=["GET"])
 @login_required
 def get_itinerary_comments(itinerary_id):
-    db.get_or_404(Itinerary, itinerary_id)
+    visible_itinerary_or_404(itinerary_id)
     comments = Comment.query.filter_by(itinerary_id=itinerary_id).order_by(Comment.created_at.asc()).all()
     return jsonify({"comments": [
-        {"id": c.id, "user_id": c.user_id, "content": c.content} for c in comments
+        {"id": c.id, "user_id": c.user_id, "content": c.content, "content_html": str(render_mentions(c.content))} for c in comments
     ]})
 
 
 @locations_bp.route("/itineraries/<int:itinerary_id>/share", methods=["POST"])
 @login_required
 def share_itinerary(itinerary_id):
-    db.get_or_404(Itinerary, itinerary_id)
+    plan = visible_itinerary_or_404(itinerary_id)
     existing = Share.query.filter_by(user_id=current_user.id, itinerary_id=itinerary_id).first()
     if existing:
         db.session.delete(existing)
         db.session.commit()
         return jsonify({"message": "Đã hủy chia sẻ", "shared": False})
     db.session.add(Share(user_id=current_user.id, itinerary_id=itinerary_id, share_type="copy_link"))
+    notify(plan.user_id, current_user.id, "share", itinerary_id=plan.id)
     db.session.commit()
     return jsonify({"message": "Đã chia sẻ", "shared": True})
 
@@ -1238,7 +1429,7 @@ def share_itinerary(itinerary_id):
 @locations_bp.route("/itineraries/<int:itinerary_id>/save", methods=["POST"])
 @login_required
 def save_itinerary(itinerary_id):
-    db.get_or_404(Itinerary, itinerary_id)
+    visible_itinerary_or_404(itinerary_id)
     existing = SavedPost.query.filter_by(user_id=current_user.id, itinerary_id=itinerary_id).first()
     if existing:
         db.session.delete(existing)
@@ -1362,4 +1553,4 @@ def upload_stop_image(stop_id):
 @locations_bp.route("/itineraries/new", methods=["GET"])
 @login_required
 def new_itinerary_page():
-    return render_template("itinerary_create.html")
+    return render_template("itinerary_create.html")

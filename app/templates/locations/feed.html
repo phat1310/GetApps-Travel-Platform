@@ -6,6 +6,24 @@
 
 {% block extra_css %}
 <style>
+    /* ----- Gắn thẻ @ trong bình luận ----- */
+    a.mention { color: #0284c7; font-weight: 600; text-decoration: none; }
+    a.mention:hover { text-decoration: underline; }
+    [data-bs-theme="dark"] a.mention { color: #38bdf8; }
+    .mention-box {
+        position: fixed; z-index: 2000; display: none; max-height: 260px; overflow-y: auto;
+        background: #fff; border: 1px solid #dbe4ee; border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18); padding: 4px;
+    }
+    [data-bs-theme="dark"] .mention-box { background: #1e2733; border-color: #2d3a4b; }
+    .mention-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; cursor: pointer; }
+    .mention-item.active, .mention-item:hover { background: #e0f2fe; }
+    [data-bs-theme="dark"] .mention-item.active, [data-bs-theme="dark"] .mention-item:hover { background: #26435a; }
+    .mention-av { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: none; background: #0ea5e9; color: #fff;
+        display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; }
+    .mention-name { font-weight: 600; font-size: .85rem; line-height: 1.1; color: #0f172a; }
+    [data-bs-theme="dark"] .mention-name { color: #e2e8f0; }
+    .mention-user { font-size: .72rem; color: #64748b; }
+    .mention-empty { padding: 8px 12px; font-size: .8rem; color: #64748b; }
     .share-opt-btn {
         transition: all 0.2s ease;
         background: #f8fafc;
@@ -204,7 +222,6 @@
                                     <div class="small text-success fw-semibold"><i class="bi bi-arrow-repeat"></i> <a href="{{ url_for('auth.profile', username=post.reposter.username) }}" class="text-success text-decoration-none">{{ post.reposter.username }}</a> đã đăng lại</div>
                                 {% endif %}
                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.78rem;">
-                                    <span>{{ post.created_at }}</span>
                                     {% if post.visibility == 'private' %}
                                         <span title="Riêng tư"><i class="bi bi-lock-fill"></i> Riêng tư</span>
                                     {% endif %}
@@ -219,7 +236,9 @@
                             </div>
                         </div>
 
-                        <!-- Dropdown Options -->
+                        <!-- Giờ đăng (cạnh dấu 3 chấm) + Dropdown -->
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <small class="text-muted text-end" style="font-size: 0.78rem;">{{ time_tag(post.created_dt, post.edited_dt) }}</small>
                         <div class="dropdown">
                             <button class="btn btn-sm btn-light border-0 text-muted rounded-circle" type="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-three-dots"></i>
@@ -237,7 +256,23 @@
                                         </a>
                                     </li>
                                 {% endif %}
+                                {% if post.is_mine %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% if post.edit_data %}
+                                    <li>
+                                        <a class="dropdown-item" href="javascript:void(0)" data-edit="{{ post.edit_data|tojson|forceescape }}" onclick="openEditPost(this)">
+                                            <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa bài đăng
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="javascript:void(0)" onclick="deletePost({{ post.id }}, {{ 'true' if post.is_repost else 'false' }})">
+                                            <i class="bi bi-trash me-1"></i> {{ 'Xóa bài đăng lại' if post.is_repost else 'Xóa bài đăng' }}
+                                        </a>
+                                    </li>
+                                {% endif %}
                             </ul>
+                        </div>
                         </div>
                     </div>
 
@@ -320,6 +355,9 @@
                                     <span id="share-count-{{ post.id }}">{{ post.shares_count }}</span>
                                 </button>
                             </div>
+                            {% if post.is_repost and post.src_edited_dt %}
+                                <small class="text-muted text-end" style="font-size: 0.74rem;"><i class="bi bi-pencil-square me-1"></i>Người đăng gốc đã cập nhật lúc {{ edited_clock(post.src_edited_dt) }}</small>
+                            {% endif %}
                         </div>
 
                         <!-- Collapse Comments Section -->
@@ -331,7 +369,7 @@
                                         <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-{{ comment.id }}">
                                             <div>
                                                 {% if comment.author_username %}<a href="{{ url_for('auth.profile', username=comment.author_username) }}" class="text-decoration-none"><strong class="text-dark">{{ comment.author_name }}:</strong></a>{% else %}<strong class="text-dark">{{ comment.author_name }}:</strong>{% endif %}
-                                                <span class="text-secondary ms-1">{{ comment.content }}</span>
+                                                <span class="text-secondary ms-1">{{ comment.content | mentions }}</span>
                                                 <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">{{ comment.created_at }}</div>
                                             </div>
                                             {% if comment.can_delete %}
@@ -517,6 +555,66 @@
     </div>
 </div>
 
+<!-- Modal Chỉnh sửa bài đăng (chỉ chủ bài; không sửa/xóa ảnh-video đã đăng) -->
+<div class="modal fade" id="editPostModal" tabindex="-1" aria-labelledby="editPostTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold" id="editPostTitle"><i class="bi bi-pencil-square text-primary me-2"></i>Chỉnh sửa bài đăng</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold" for="epCaption">Nội dung</label>
+                    <textarea class="form-control" id="epCaption" rows="4" maxlength="1500"></textarea>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label small fw-semibold" for="epHashtags">Hashtag <span class="text-muted fw-normal">(tối đa 3)</span></label>
+                        <input type="text" class="form-control" id="epHashtags" maxlength="120" placeholder="dalat phuot">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small fw-semibold" for="epVisibility">Chế độ</label>
+                        <select class="form-select" id="epVisibility">
+                            <option value="public">Công khai</option>
+                            <option value="private">Riêng tư (chỉ mình tôi)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold" for="epLocation">Địa điểm</label>
+                    <input type="text" class="form-control mb-2" id="epLocation" maxlength="120" placeholder="Ví dụ: Đà Lạt">
+                    <div class="row g-2">
+                        <div class="col-6"><input type="text" class="form-control form-control-sm" id="epExtra0" maxlength="120" placeholder="Địa điểm phụ 1 (không bắt buộc)"></div>
+                        <div class="col-6"><input type="text" class="form-control form-control-sm" id="epExtra1" maxlength="120" placeholder="Địa điểm phụ 2 (không bắt buộc)"></div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Địa chỉ Google Maps <span class="text-muted fw-normal">(tối đa 2)</span></label>
+                    <div class="row g-2 mb-2">
+                        <div class="col-7"><input type="text" class="form-control form-control-sm" id="epMapUrl0" maxlength="500" placeholder="https://maps.app.goo.gl/..."></div>
+                        <div class="col-5"><input type="text" class="form-control form-control-sm" id="epMapLabel0" maxlength="60" placeholder="Tên hiển thị"></div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-7"><input type="text" class="form-control form-control-sm" id="epMapUrl1" maxlength="500" placeholder="https://maps.app.goo.gl/..."></div>
+                        <div class="col-5"><input type="text" class="form-control form-control-sm" id="epMapLabel1" maxlength="60" placeholder="Tên hiển thị"></div>
+                    </div>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label small fw-semibold" for="epFiles">Thêm ảnh/video mới</label>
+                    <input type="file" class="form-control form-control-sm" id="epFiles" accept=".png,.jpg,.jpeg,.gif,.mp4,.mov,.webm" multiple>
+                    <div class="form-text" id="epMediaHint"></div>
+                </div>
+                <div class="alert alert-danger py-2 small mt-3 mb-0 d-none" id="epError" role="alert"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" id="epSubmit" onclick="submitEditPost()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Share Post (Slide 4 Proposal) -->
 <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -570,6 +668,81 @@
             shareModalInstance = new bootstrap.Modal(modalEl);
         }
         shareModalInstance.show();
+    }
+
+    // ---------- Chỉnh sửa / Xóa bài đăng ----------
+    let editPostId = null, editPostModal = null, editCanAdd = 0;
+    function openEditPost(el) {
+        let d; try { d = JSON.parse(el.dataset.edit || '{}'); } catch (e) { return; }
+        editPostId = d.id; editCanAdd = d.can_add_media || 0;
+        const $ = id => document.getElementById(id);
+        $('epCaption').value = d.caption || '';
+        $('epHashtags').value = d.hashtags || '';
+        $('epVisibility').value = d.visibility === 'private' ? 'private' : 'public';
+        $('epLocation').value = d.location || '';
+        [0, 1].forEach(i => {
+            $('epExtra' + i).value = (d.extra_locations || [])[i] || '';
+            const m = (d.map_links || [])[i] || {};
+            $('epMapUrl' + i).value = m.url || '';
+            $('epMapLabel' + i).value = m.label || '';
+        });
+        const f = $('epFiles'); f.value = ''; f.disabled = editCanAdd <= 0;
+        $('epMediaHint').textContent = editCanAdd > 0
+            ? `Có thể thêm tối đa ${editCanAdd} ảnh/video mới (bài đang có ${d.media_count}/10 file). Ảnh/video đã đăng không sửa hoặc xóa được.`
+            : 'Không thể thêm ảnh/video mới nữa (tối đa 2 file khi chỉnh sửa, và tổng không quá 10 file). Ảnh/video đã đăng không sửa được.';
+        $('epError').classList.add('d-none');
+        if (!editPostModal) editPostModal = new bootstrap.Modal($('editPostModal'));
+        editPostModal.show();
+    }
+
+    async function submitEditPost() {
+        const $ = id => document.getElementById(id);
+        const err = $('epError'), btn = $('epSubmit');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        err.classList.add('d-none');
+        const files = Array.from($('epFiles').files || []);
+        if (files.length > editCanAdd) {
+            err.textContent = `Chỉ được thêm tối đa ${editCanAdd} ảnh/video mới.`; err.classList.remove('d-none'); return;
+        }
+        const links = [];
+        [0, 1].forEach(i => {
+            const u = $('epMapUrl' + i).value.trim();
+            if (u) links.push({ url: u, label: $('epMapLabel' + i).value.trim() });
+        });
+        const fd = new FormData();
+        fd.append('caption', $('epCaption').value);
+        fd.append('visibility', $('epVisibility').value);
+        fd.append('hashtags', $('epHashtags').value);
+        fd.append('location_name', $('epLocation').value.trim());
+        [0, 1].forEach(i => { const v = $('epExtra' + i).value.trim(); if (v) fd.append('extra_location_names', v); });
+        fd.append('map_links', JSON.stringify(links));
+        files.forEach(f => fd.append('images', f));
+        btn.disabled = true;
+        try {
+            const res = await fetch(`/locations/posts/${editPostId}/edit`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: fd });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) { editPostModal.hide(); window.location.reload(); }
+            else { err.textContent = data.error || 'Không lưu được chỉnh sửa.'; err.classList.remove('d-none'); }
+        } catch (e) {
+            err.textContent = 'Không kết nối được máy chủ.'; err.classList.remove('d-none');
+        } finally { btn.disabled = false; }
+    }
+
+    async function deletePost(postId, isRepost) {
+        const ok = await geAsk({
+            title: isRepost ? 'Xóa bài đăng lại?' : 'Xóa bài đăng?',
+            note: isRepost
+                ? 'Bản đăng lại của bạn sẽ bị xóa. Bài gốc không bị ảnh hưởng.'
+                : 'Bài đăng cùng ảnh/video, lượt thích, bình luận, thông báo và các bản đăng lại của người khác sẽ bị xóa vĩnh viễn. Không thể hoàn tác.',
+            fields: [], confirmText: 'Xóa', cancelText: 'Hủy'
+        });
+        if (!ok) return;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        try {
+            const res = await fetch(`/locations/posts/${postId}/delete`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) { window.location.reload(); } else { alert(data.error || 'Không xóa được bài viết.'); }
+        } catch (e) { alert('Không kết nối được máy chủ.'); }
     }
 
     async function executeShareAction(action) {
@@ -747,7 +920,7 @@
                     <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-${c.id}">
                         <div>
                             <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${escapeHtml(c.author_username || '{{ current_user.username }}')}:</strong></a>
-                            <span class="text-secondary ms-1">${escapeHtml(c.content)}</span>
+                            <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
                             <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">Vừa xong</div>
                         </div>
                         <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
@@ -801,6 +974,81 @@
             console.error("Lỗi follow:", err);
         }
     }
+
+    // ===== Gắn thẻ @ trong bình luận: gõ @ -> gợi ý người, chọn -> chèn @username =====
+    (function () {
+        var box = null, users = [], active = -1, input = null, timer = null, seq = 0;
+        function ensureBox() {
+            if (box) return box;
+            box = document.createElement('div'); box.className = 'mention-box'; box.setAttribute('role', 'listbox');
+            box.addEventListener('mousedown', function (e) { e.preventDefault(); });     // không làm ô nhập mất focus
+            document.body.appendChild(box); return box;
+        }
+        function closeBox() { if (box) box.style.display = 'none'; users = []; active = -1; }
+        function token(el) {
+            var pos = el.selectionStart, before = el.value.slice(0, pos);
+            var m = /(^|\s)@([^\s@]{0,64})$/.exec(before);
+            return m ? { start: pos - m[2].length - 1, end: pos, query: m[2] } : null;
+        }
+        function place() {
+            if (!input || !box) return;
+            var r = input.getBoundingClientRect();
+            box.style.display = 'block'; box.style.left = r.left + 'px'; box.style.width = Math.max(r.width, 240) + 'px';
+            var h = box.offsetHeight;
+            box.style.top = (r.bottom + h + 8 > window.innerHeight && r.top > h + 8 ? r.top - h - 4 : r.bottom + 4) + 'px';
+        }
+        function render() {
+            var b = ensureBox(); b.textContent = '';
+            if (!users.length) { var e = document.createElement('div'); e.className = 'mention-empty'; e.textContent = 'Không tìm thấy người dùng'; b.appendChild(e); place(); return; }
+            users.forEach(function (u, i) {
+                var row = document.createElement('div'); row.className = 'mention-item' + (i === active ? ' active' : ''); row.setAttribute('role', 'option');
+                var av;
+                if (u.avatar) { av = document.createElement('img'); av.className = 'mention-av'; av.alt = ''; av.src = u.avatar; av.onerror = function () { var d = document.createElement('div'); d.className = 'mention-av'; d.textContent = (u.display || u.username).charAt(0).toUpperCase(); av.replaceWith(d); }; }
+                else { av = document.createElement('div'); av.className = 'mention-av'; av.textContent = (u.display || u.username).charAt(0).toUpperCase(); }
+                var t = document.createElement('div');
+                var n = document.createElement('div'); n.className = 'mention-name'; n.textContent = u.display;
+                var s = document.createElement('div'); s.className = 'mention-user'; s.textContent = '@' + u.username;
+                t.appendChild(n); t.appendChild(s); row.appendChild(av); row.appendChild(t);
+                row.addEventListener('click', function () { pick(u); });
+                b.appendChild(row);
+            });
+            place();
+        }
+        function pick(u) {
+            var t = input && token(input); if (!t) return closeBox();
+            var v = input.value, ins = '@' + u.username + ' ';
+            input.value = v.slice(0, t.start) + ins + v.slice(t.end);
+            var caret = t.start + ins.length; input.setSelectionRange(caret, caret);
+            closeBox(); input.focus();
+        }
+        function fetchUsers(q, postId) {
+            var my = ++seq;
+            fetch('/locations/mentions/suggest?q=' + encodeURIComponent(q) + (postId ? '&post_id=' + postId : ''), { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : { users: [] }; })
+                .then(function (d) { if (my !== seq || !input) return; users = d.users || []; active = users.length ? 0 : -1; render(); })
+                .catch(function () {});
+        }
+        function isCommentInput(el) { return el && el.tagName === 'INPUT' && /^comment-input-\d+$/.test(el.id || ''); }
+        document.addEventListener('input', function (e) {
+            if (!isCommentInput(e.target)) return;
+            input = e.target; var t = token(input);
+            if (!t) return closeBox();
+            clearTimeout(timer);
+            timer = setTimeout(function () { fetchUsers(t.query, input.id.replace('comment-input-', '')); }, 150);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (!box || box.style.display !== 'block' || !isCommentInput(e.target)) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!users.length) return; e.preventDefault();
+                active = (active + (e.key === 'ArrowDown' ? 1 : -1) + users.length) % users.length; render();
+            } else if ((e.key === 'Enter' || e.key === 'Tab') && users.length && active >= 0) {
+                e.preventDefault(); e.stopPropagation(); pick(users[active]);
+            } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
+        }, true);
+        document.addEventListener('focusout', function (e) { if (isCommentInput(e.target)) setTimeout(closeBox, 120); });
+        window.addEventListener('resize', closeBox);
+        window.addEventListener('scroll', closeBox, true);
+    })();
 
     function escapeHtml(str) {
         return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

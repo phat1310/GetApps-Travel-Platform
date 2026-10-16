@@ -721,6 +721,7 @@
             border-radius: 10px; background: #e41e3f; color: #fff; font-size: 0.72rem; font-weight: 800;
             display: flex; align-items: center; justify-content: center; border: 2px solid #ECF4FC; line-height: 1;
         }
+        .st-bell { position: relative; }
         .st-msg-badge[hidden] { display: none; }
         [data-bs-theme="dark"] .st-msg-badge { border-color: #181f2a; }
 
@@ -917,9 +918,10 @@
             <button class="st-create" type="button" data-bs-toggle="modal" data-bs-target="#quickCreateModal" aria-label="Tạo mới bài viết hoặc lịch trình" title="Tạo mới bài viết hoặc Lịch trình">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24" aria-hidden="true"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 1.82 3.16.77 1.33 1.6-.43 5.31-1.42 4.35-1.16L21 11.49c.81-.23 1.28-1.05 1.07-1.85z"/></svg>
             </button>
-            <a class="st-nav {% if request.endpoint == 'auth.notifications_page' %}active{% endif %}" href="/notifications">
+            <a class="st-nav st-bell {% if request.endpoint == 'auth.notifications_page' %}active{% endif %}" href="/notifications" id="stNotifBtn" title="{{ 'Thông báo (' ~ notif_unread ~ ' chưa đọc)' if notif_unread else 'Thông báo' }}">
                 <i class="bi bi-bell"></i>
                 <span>Thông báo</span>
+                <span class="st-msg-badge st-notif-badge" id="stNotifBadge" {% if not notif_unread %}hidden{% endif %}>{{ '99+' if notif_unread > 99 else notif_unread }}</span>
             </a>
             <button type="button" class="st-nav st-nav-btn" id="stMsgBtn" aria-label="Tin nhắn" title="Tin nhắn">
                 <span class="st-msg-icon" aria-hidden="true"></span>
@@ -1130,7 +1132,7 @@
 
                     <!-- ==================== TAB 2: ĐĂNG LỊCH TRÌNH ==================== -->
                     <div id="qcTabPlanContent" style="display: none;">
-                        <form action="/plans/create" method="POST" enctype="multipart/form-data" id="qcPlanForm">
+                        <form action="/plans/create" method="POST" enctype="multipart/form-data" id="qcPlanForm" novalidate onsubmit="return validateQcPlanForm(event)">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="visibility" id="qcPlanVisibility" value="public">
                             <input type="hidden" name="trip_type" id="qcTripTypeInput" value="">
@@ -1154,7 +1156,7 @@
 
                                     <!-- 1. Ảnh bìa chuyến đi (Tỉ lệ 16:9) -->
                                     <div class="mb-3">
-                                        <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Ảnh bìa chuyến đi (Tỉ lệ 16:9)</label>
+                                        <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Ảnh bìa chuyến đi (Tỉ lệ 16:9) <span class="text-danger">*</span></label>
                                         <div class="qc-plan-cover-box" id="qcPlanCoverBox" onclick="document.getElementById('qcPlanCoverInput').click()" title="Bấm để chọn hoặc đổi ảnh bìa">
                                             <img src="{{ url_for('static', filename='images/halong-cover.jpg') }}" alt="Ảnh bìa chuyến đi" id="qcPlanCoverPreview" class="qc-plan-cover-img">
                                             <button type="button" class="btn btn-sm qc-change-cover-btn">
@@ -1166,7 +1168,7 @@
 
                                     <!-- 2. Tên chuyến đi -->
                                     <div class="mb-3">
-                                        <label class="form-label text-dark small fw-bold mb-1">Tên chuyến đi</label>
+                                        <label class="form-label text-dark small fw-bold mb-1">Tên chuyến đi <span class="text-danger">*</span></label>
                                         <input type="text" name="title" id="qcPlanTitle" class="form-control qc-input-field" placeholder="Đà Lạt 3N2Đ - Chuyến đi săn mây & thư..." required>
                                     </div>
 
@@ -1182,7 +1184,7 @@
                                     <!-- 1. Nhãn địa điểm chính -->
                                     <div class="mb-3">
                                         <div class="d-flex align-items-center justify-content-between mb-1">
-                                            <label class="form-label text-dark small fw-bold mb-0">Địa điểm</label>
+                                            <label class="form-label text-dark small fw-bold mb-0">Địa điểm <span class="text-danger">*</span></label>
                                             <span class="d-flex gap-1 flex-wrap justify-content-end" id="qcDestChips" title="Địa điểm được đăng nhiều nhất"></span>
                                         </div>
                                         <div class="input-group input-group-sm">
@@ -1206,7 +1208,7 @@
                                     <!-- 2. Khoảng thời gian (Từ ngày - Đến ngày) -->
                                     <div class="mb-3">
                                         <div class="d-flex align-items-center justify-content-between mb-1">
-                                            <label class="form-label text-muted small fw-semibold mb-0" style="font-size: 0.78rem;">Khoảng thời gian (Từ ngày - Đến ngày)</label>
+                                            <label class="form-label text-muted small fw-semibold mb-0" style="font-size: 0.78rem;">Khoảng thời gian (Từ ngày - Đến ngày) <span class="text-danger">*</span></label>
                                             <button type="button" class="btn btn-link p-0 text-primary small text-decoration-none fw-semibold" style="font-size: 0.78rem;" onclick="toggleQcDateInputs()">Đổi ngày</button>
                                         </div>
                                         <div class="qc-date-display-box d-flex align-items-center justify-content-between p-2 rounded-3" id="qcDateDisplayBox">
@@ -1227,7 +1229,7 @@
 
                                     <!-- 3. Dạng chuyến đi (Trip Style) -->
                                     <div class="mb-3">
-                                        <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Dạng chuyến đi (Trip Style)</label>
+                                        <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.78rem;">Dạng chuyến đi (Trip Style) <span class="text-danger">*</span> <span class="fw-normal">— chọn thời lượng</span></label>
                                         <!-- Duration pills -->
                                         <div class="d-flex flex-wrap gap-1 mb-2" id="qcDurationPills">
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '2N1Đ')">2N1Đ</span>
@@ -1250,7 +1252,7 @@
                                         <div class="col-6">
                                             <div class="qc-stat-card p-2 rounded-3">
                                                 <div class="text-muted small fw-semibold d-flex align-items-center gap-1" style="font-size: 0.72rem;">
-                                                    <i class="bi bi-people text-primary"></i> Số người tham gia
+                                                    <i class="bi bi-people text-primary"></i> Số người tham gia <span class="text-danger">*</span>
                                                 </div>
                                                 <div class="mt-1 d-flex align-items-baseline gap-1">
                                                     <input type="number" name="participants_count" id="qcParticipantsInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input" value="" placeholder="0" min="1" max="100">
@@ -1261,7 +1263,7 @@
                                         <div class="col-6">
                                             <div class="qc-stat-card p-2 rounded-3">
                                                 <div class="text-muted small fw-semibold d-flex align-items-center gap-1" style="font-size: 0.72rem;">
-                                                    <i class="bi bi-wallet2 text-primary"></i> Dự toán ngân sách
+                                                    <i class="bi bi-wallet2 text-primary"></i> Dự toán ngân sách <span class="text-danger">*</span>
                                                 </div>
                                                 <div class="mt-1 d-flex align-items-baseline gap-1">
                                                     <input type="text" name="estimated_budget" id="qcBudgetInput" class="form-control form-control-sm border-0 p-0 fw-bold qc-stat-input text-primary" value="" placeholder="0" oninput="formatQcBudgetDisplay(this)">
@@ -1307,7 +1309,7 @@
                                         <span class="fw-bold text-dark small d-flex align-items-center gap-1">
                                             <i class="bi bi-calendar-check text-primary"></i> Lịch trình chi tiết từng ngày
                                         </span>
-                                        <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.72rem;" id="qcDaysBadge">1 / 2 ngày</span>
+                                        <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.72rem;" id="qcDaysBadge">1 / 30 ngày</span>
                                     </div>
 
                                     <!-- Hidden input: số ngày thực tế gửi lên server -->
@@ -1331,8 +1333,8 @@
                                         <div id="qcDayContent_1" class="qc-day-content">
                                             <div class="p-2 rounded-3 qc-activity-box mb-2">
                                                 <div class="text-muted small fw-semibold mb-2 d-flex align-items-center justify-content-between" style="font-size: 0.72rem;">
-                                                    <span><i class="bi bi-geo-alt me-1"></i> Các chặng hoạt động trong Ngày 1</span>
-                                                    <div class="dropdown">
+                                                    <span class="qc-day-heading"><i class="bi bi-geo-alt me-1"></i> Các chặng hoạt động trong Ngày 1</span>
+                                                    <div class="d-flex align-items-center gap-2"><div class="dropdown">
                                                         <button type="button" class="btn btn-sm btn-link text-primary fw-bold text-decoration-none p-0 dropdown-toggle" data-bs-toggle="dropdown" style="font-size: 0.75rem;">
                                                             <i class="bi bi-plus-circle me-1"></i> Thêm chặng
                                                         </button>
@@ -1340,7 +1342,7 @@
                                                             <li><button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2" onclick="addQcStop(1, 'travel')"><i class="bi bi-geo-alt-fill text-primary"></i> 🏞️ Chặng Du lịch / Tham quan</button></li>
                                                             <li><button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2" onclick="addQcStop(1, 'food')"><i class="bi bi-cup-hot-fill text-success"></i> 🍜 Chặng Ăn uống</button></li>
                                                         </ul>
-                                                    </div>
+                                                    </div></div>
                                                 </div>
 
                                                 <!-- Danh sách chặng trong Ngày 1 -->
@@ -1354,14 +1356,16 @@
                                                             <button type="button" class="btn btn-sm text-danger p-0" onclick="removeQcStop(1, 1)" title="Xóa chặng này"><i class="bi bi-trash"></i></button>
                                                         </div>
                                                         <input type="hidden" name="stop_type_1[]" value="travel">
+                                                        <input type="hidden" name="stop_food_1[]" value="">
+                                                        <input type="hidden" name="stop_open_hours_1[]" value="">
                                                         <div class="row g-2 mb-2">
                                                             <div class="col-8">
                                                                 <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Tên chặng / Điểm đến <span class="text-danger">*</span></label>
-                                                                <input type="text" name="stop_name_1[]" class="form-control form-control-sm qc-input-field" placeholder="Vd: Đồi chè Cầu Đất, Thác Datanla..." value="Đón xe lên đồi chè Cầu Đất săn mây">
+                                                                <input type="text" name="stop_name_1[]" class="form-control form-control-sm qc-input-field" placeholder="Vd: Đồi chè Cầu Đất, Thác Datanla...">
                                                             </div>
                                                             <div class="col-4">
                                                                 <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giờ ghé</label>
-                                                                <input type="time" name="stop_time_1[]" class="form-control form-control-sm qc-input-field" value="08:00">
+                                                                <input type="time" name="stop_time_1[]" class="form-control form-control-sm qc-input-field">
                                                             </div>
                                                         </div>
                                                         <div class="mb-2">
@@ -1429,7 +1433,7 @@
                                                 <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Tên khách sạn / homestay</label>
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text qc-input-icon-box"><i class="bi bi-house-door text-primary"></i></span>
-                                                    <input type="text" name="hotel_name[]" class="form-control qc-input-field" placeholder="Vd: Làng Boho Homestay Đà Lạt" value="Làng Boho Homestay Đà Lạt">
+                                                    <input type="text" name="hotel_name[]" class="form-control qc-input-field" placeholder="Vd: Làng Boho Homestay Đà Lạt">
                                                 </div>
                                             </div>
                                             <div class="row g-2 mb-2">
@@ -1437,14 +1441,14 @@
                                                     <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Giá phòng / đêm</label>
                                                     <div class="input-group input-group-sm">
                                                         <span class="input-group-text qc-input-icon-box">$</span>
-                                                        <input type="text" name="lodging_price[]" class="form-control qc-input-field" placeholder="650.000 đ / đêm" value="650000">
+                                                        <input type="text" name="lodging_price[]" class="form-control qc-input-field" placeholder="650.000 đ / đêm">
                                                     </div>
                                                 </div>
                                                 <div class="col-6">
                                                     <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Cách đặt / Link</label>
                                                     <div class="input-group input-group-sm">
                                                         <span class="input-group-text qc-input-icon-box"><i class="bi bi-link-45deg"></i></span>
-                                                        <input type="text" name="booking_link[]" class="form-control qc-input-field" placeholder="Agoda / Booking..." value="Đặt qua Agoda / Booking">
+                                                        <input type="text" name="booking_link[]" class="form-control qc-input-field" placeholder="Agoda / Booking...">
                                                     </div>
                                                 </div>
                                             </div>
@@ -1457,7 +1461,7 @@
                                             </div>
                                             <div class="mb-1">
                                                 <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Ghi chú khách sạn (Mẹo nhận phòng, view phòng...)</label>
-                                                <textarea name="lodging_note[]" class="form-control qc-textarea-field" rows="2" placeholder="Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng...">Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng để ngắm mây sớm. Đường dốc hơi khó đi một chút.</textarea>
+                                                <textarea name="lodging_note[]" class="form-control qc-textarea-field" rows="2" placeholder="Check-in sau 14h, nên yêu cầu phòng tầng 2 hướng thung lũng..."></textarea>
                                             </div>
                                         </div>
                                     </div>
@@ -1470,6 +1474,7 @@
 
                                 <!-- PHẦN 6: NÚT ĐĂNG LỊCH TRÌNH NGAY -->
                                 <div class="pt-1 pb-1">
+                                    <div class="alert alert-danger py-2 small d-none" id="qcPlanError" role="alert"></div>
                                     <button type="submit" class="btn btn-primary w-100 py-3 rounded-3 fw-bold qc-submit-btn text-white d-flex align-items-center justify-content-center gap-2 fs-6">
                                         <i class="bi bi-send-fill"></i> Đăng lịch trình ngay
                                     </button>
@@ -1490,8 +1495,8 @@
         let qcDataTransfer = new DataTransfer();
         let currentQcDay = 1;
         let qcDaysCount = 1;
-        let qcMaxDays = 2; // Giới hạn tối đa ngày (mặc định 2 cho 2N1Đ)
-        let qcDurationLabel = '2N1Đ';
+        let qcMaxDays = 30; // Chưa chọn thời lượng: tối đa 30 ngày (khớp giới hạn server); chọn pill/ngày sẽ thu hẹp lại
+        let qcDurationLabel = 'này';
         let qcStopCounts = { 1: 1 };
         let qcLodgingCount = 1;
 
@@ -1537,13 +1542,107 @@
             if (activeContent) activeContent.style.display = 'block';
         }
 
+        // Thông báo nhỏ ngay dưới hàng tab ngày (thay cho alert() gốc của trình duyệt); dùng textContent nên không chèn HTML
+        function qcDayNotice(msg) {
+            let box = document.getElementById('qcDayNotice');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'qcDayNotice';
+                box.className = 'small text-danger fw-semibold mb-2';
+                box.setAttribute('role', 'alert');
+                const tabs = document.getElementById('qcDayTabsList');
+                const row = tabs ? tabs.parentElement : null;
+                if (row && row.parentElement) row.parentElement.insertBefore(box, row.nextSibling);
+            }
+            box.textContent = msg;
+            box.style.display = '';
+            clearTimeout(box._t);
+            box._t = setTimeout(function () { box.style.display = 'none'; }, 5000);
+        }
+
+        // ===== Xóa ngày (nút thùng rác ở tiêu đề của ngày, không có ở Ngày 1) =====
+        function qcDayHasData(day) {
+            const box = document.getElementById(`qcDayContent_${day}`);
+            if (!box) return false;
+            return Array.from(box.querySelectorAll('input[type=text], input[type=time], textarea')).some(el => el.value.trim() !== '');
+        }
+
+        // Đổi số ngày của 1 khối: id, name, onclick/oninput, chữ hiển thị.
+        function qcRenumberDay(oldN, newN) {
+            const content = document.getElementById(`qcDayContent_${oldN}`);
+            const tab = document.getElementById(`qcDayTab_${oldN}`);
+            if (!content) return;
+            const fixId = (id) => id.replace(new RegExp(`^(qcDayContent_|qcDayTab_|qcStopsContainer_|qcStopCard_|qcStopDescCounter_)${oldN}(?=_|$)`), `$1${newN}`);
+            const fixCode = (c) => c
+                .replace(new RegExp(`\\b(removeQcStop|addQcStop|removeQcDay|switchQcDay)\\(${oldN}\\b`, 'g'), `$1(${newN}`)
+                .replace(new RegExp(`qcStopDescCounter_${oldN}_`, 'g'), `qcStopDescCounter_${newN}_`);
+            const nodes = [content].concat(Array.from(content.querySelectorAll('*')));
+            if (tab) nodes.push(tab);
+            nodes.forEach(el => {
+                if (el.id) el.id = fixId(el.id);
+                const nm = el.getAttribute && el.getAttribute('name');
+                if (nm) el.setAttribute('name', nm.replace(new RegExp(`^(stop_[a-z_]+_)${oldN}(\\[\\])$`), `$1${newN}$2`));
+                ['onclick', 'oninput'].forEach(a => { const v = el.getAttribute && el.getAttribute(a); if (v) el.setAttribute(a, fixCode(v)); });
+            });
+            const heading = content.querySelector('.qc-day-heading');
+            if (heading) heading.lastChild.textContent = ` Các chặng hoạt động trong Ngày ${newN}`;
+            if (tab) tab.lastChild.textContent = ` Ngày ${newN}`;
+        }
+
+        function qcDoRemoveDay(day) {
+            // 1) Nơi lưu trú đang gắn ngày bị xóa -> "Toàn bộ chuyến đi"; các ngày sau lùi 1
+            document.querySelectorAll('.qc-lodging-day-select').forEach(sel => {
+                const v = sel.value;
+                let nv = v;
+                if (v !== 'all') {
+                    const n = parseInt(v, 10);
+                    if (n === day) nv = 'all';
+                    else if (n > day) nv = String(n - 1);
+                }
+                sel.dataset.next = nv;
+            });
+            // 2) Gỡ khối + tab, đánh số lại các ngày sau
+            const content = document.getElementById(`qcDayContent_${day}`);
+            const tab = document.getElementById(`qcDayTab_${day}`);
+            if (content) content.remove();
+            if (tab) tab.remove();
+            const oldCounts = Object.assign({}, qcStopCounts);
+            delete qcStopCounts[day];
+            for (let k = day + 1; k <= qcDaysCount; k++) {
+                qcRenumberDay(k, k - 1);
+                qcStopCounts[k - 1] = oldCounts[k] || 0;
+            }
+            delete qcStopCounts[qcDaysCount];
+            qcDaysCount--;
+            const sub = document.getElementById('qcSubmittedDaysCount');
+            if (sub) sub.value = qcDaysCount;
+            // 3) Cập nhật ô chọn ngày ở lưu trú
+            document.querySelectorAll('.qc-lodging-day-select').forEach(sel => {
+                sel.innerHTML = buildLodgingDayOptions();
+                sel.value = sel.dataset.next || '1';
+                delete sel.dataset.next;
+            });
+            // 4) Chuyển sang ngày kế bên
+            switchQcDay(Math.min(day, qcDaysCount));
+            updateQcDaysHeaderBadge();
+            const notice = document.getElementById('qcDayNotice');
+            if (notice) notice.style.display = 'none';
+        }
+
+        function removeQcDay(day) {
+            if (day <= 1 || day > qcDaysCount) return;       // Ngày 1 luôn được giữ lại
+            if (!qcDayHasData(day)) { qcDoRemoveDay(day); return; }
+            geAsk({
+                title: `Xóa Ngày ${day}?`,
+                note: 'Các chặng đã nhập trong ngày này sẽ bị xóa. Nơi lưu trú đang gắn với ngày này được chuyển sang "Toàn bộ chuyến đi". Các ngày sau tự đánh số lại.',
+                fields: [],
+                confirmText: 'Xóa ngày'
+            }).then(function (v) { if (v) qcDoRemoveDay(day); });
+        }
+
         function addQcDay() {
             if (qcDaysCount >= qcMaxDays) {
-                if (typeof geToast !== 'undefined' && geToast.warn) {
-                    geToast.warn(`Chuyến đi ${qcDurationLabel} giới hạn tối đa ${qcMaxDays} ngày. Bạn có thể đổi thời lượng ở trên để tăng số ngày nhé!`);
-                } else {
-                    alert(`Chuyến đi ${qcDurationLabel} giới hạn tối đa ${qcMaxDays} ngày. Bạn có thể đổi thời lượng ở trên để thêm ngày nhé!`);
-                }
+                qcDayNotice(`Chuyến đi ${qcDurationLabel} giới hạn tối đa ${qcMaxDays} ngày. Bạn có thể đổi thời lượng ở trên để thêm ngày nhé!`);
                 return;
             }
 
@@ -1573,8 +1672,8 @@
                 dayDiv.innerHTML = `
                     <div class="p-2 rounded-3 qc-activity-box mb-2">
                         <div class="text-muted small fw-semibold mb-2 d-flex align-items-center justify-content-between" style="font-size: 0.72rem;">
-                            <span><i class="bi bi-geo-alt me-1"></i> Các chặng hoạt động trong Ngày ${day}</span>
-                            <div class="dropdown">
+                            <span class="qc-day-heading"><i class="bi bi-geo-alt me-1"></i> Các chặng hoạt động trong Ngày ${day}</span>
+                            <div class="d-flex align-items-center gap-2"><div class="dropdown">
                                 <button type="button" class="btn btn-sm btn-link text-primary fw-bold text-decoration-none p-0 dropdown-toggle" data-bs-toggle="dropdown" style="font-size: 0.75rem;">
                                     <i class="bi bi-plus-circle me-1"></i> Thêm chặng
                                 </button>
@@ -1583,6 +1682,7 @@
                                     <li><button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2" onclick="addQcStop(${day}, 'food')"><i class="bi bi-cup-hot-fill text-success"></i> 🍜 Chặng Ăn uống</button></li>
                                 </ul>
                             </div>
+                            <button type="button" class="btn btn-sm text-danger p-0 qc-del-day-btn" onclick="removeQcDay(${day})" title="Xóa ngày này" aria-label="Xóa ngày này"><i class="bi bi-trash"></i></button></div>
                         </div>
 
                         <div id="qcStopsContainer_${day}" class="d-flex flex-column gap-2 mb-2"></div>
@@ -1641,11 +1741,11 @@
                     <div class="row g-2 mb-2">
                         <div class="col-8">
                             <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Tên quán <span class="text-danger">*</span></label>
-                            <input type="text" name="stop_name_${day}[]" class="form-control form-control-sm qc-input-field" placeholder="Vd: Lẩu gà lá é Tao Ngộ, Bánh tráng nướng..." required>
+                            <input type="text" name="stop_name_${day}[]" class="form-control form-control-sm qc-input-field" placeholder="Vd: Lẩu gà lá é Tao Ngộ, Bánh tráng nướng...">
                         </div>
                         <div class="col-4">
                             <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giờ ghé</label>
-                            <input type="time" name="stop_time_${day}[]" class="form-control form-control-sm qc-input-field" value="12:00">
+                            <input type="time" name="stop_time_${day}[]" class="form-control form-control-sm qc-input-field">
                         </div>
                     </div>
                     <div class="row g-2 mb-2">
@@ -1682,14 +1782,16 @@
                         <button type="button" class="btn btn-sm text-danger p-0" onclick="removeQcStop(${day}, ${stopIdx})" title="Xóa chặng này"><i class="bi bi-trash"></i></button>
                     </div>
                     <input type="hidden" name="stop_type_${day}[]" value="travel">
+                    <input type="hidden" name="stop_food_${day}[]" value="">
+                    <input type="hidden" name="stop_open_hours_${day}[]" value="">
                     <div class="row g-2 mb-2">
                         <div class="col-8">
                             <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Tên chặng / Điểm đến <span class="text-danger">*</span></label>
-                            <input type="text" name="stop_name_${day}[]" class="form-control form-control-sm qc-input-field" placeholder="Vd: Đồi chè Cầu Đất, Thác Datanla..." required>
+                            <input type="text" name="stop_name_${day}[]" class="form-control form-control-sm qc-input-field" placeholder="Vd: Đồi chè Cầu Đất, Thác Datanla...">
                         </div>
                         <div class="col-4">
                             <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giờ ghé</label>
-                            <input type="time" name="stop_time_${day}[]" class="form-control form-control-sm qc-input-field" value="08:00">
+                            <input type="time" name="stop_time_${day}[]" class="form-control form-control-sm qc-input-field">
                         </div>
                     </div>
                     <div class="mb-2">
@@ -2236,6 +2338,43 @@
             renderQcPreviews();
         }
 
+        // Đăng lịch trình: mọi trường BẮT BUỘC trừ tệp đính kèm (server kiểm tra lại, đây chỉ để báo sớm cho người dùng)
+        function validateQcPlanForm(e) {
+            const $ = (id) => document.getElementById(id);
+            const fail = (msg, focusId) => {
+                e.preventDefault();
+                const box = $('qcPlanError');
+                if (box) { box.textContent = msg; box.classList.remove('d-none'); }
+                const t = focusId && $(focusId);
+                if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (t.focus) t.focus({ preventScroll: true }); }
+                return false;
+            };
+            if (!($('qcPlanCoverInput').files || []).length) return fail('Vui lòng chọn ảnh bìa cho chuyến đi.', 'qcPlanCoverBox');
+            if (!$('qcPlanTitle').value.trim()) return fail('Vui lòng nhập tên chuyến đi.', 'qcPlanTitle');
+            if (!$('qcPlanDestination').value.trim()) return fail('Vui lòng nhập địa điểm.', 'qcPlanDestination');
+            const sd = $('qcPlanStartDate').value, ed = $('qcPlanEndDate').value;
+            if (!sd || !ed) return fail('Vui lòng chọn ngày bắt đầu và ngày kết thúc.', 'qcPlanStartDate');
+            if (ed < sd) return fail('Ngày kết thúc phải sau ngày bắt đầu.', 'qcPlanEndDate');
+            if (!$('qcTripTypeInput').value.trim()) return fail('Vui lòng chọn loại chuyến đi (2N1Đ, 3N2Đ, 1 tuần...).', 'qcDurationPills');
+            const people = parseInt($('qcParticipantsInput').value, 10);
+            if (!people || people < 1) return fail('Vui lòng nhập số người tham gia.', 'qcParticipantsInput');
+            const budget = parseFloat(($('qcBudgetInput').value || '').replace(/[^0-9.]/g, ''));
+            if (!budget || budget <= 0) return fail('Vui lòng nhập dự toán ngân sách.', 'qcBudgetInput');
+            const rangeDays = Math.round((new Date(ed) - new Date(sd)) / 86400000) + 1;
+            const have = parseInt($('qcSubmittedDaysCount').value, 10) || 1;
+            const need = Math.max(rangeDays, have);
+            if (need > have) return fail('Bạn chọn ' + rangeDays + ' ngày nên cần thêm đủ ' + rangeDays + ' ngày trong lịch trình (hiện có ' + have + ').', 'qcAddDayBtn');
+            for (let d = 1; d <= need; d++) {
+                const names = Array.from(document.querySelectorAll('[name="stop_name_' + d + '[]"]')).filter(x => x.value.trim());
+                if (!names.length) {
+                    if (typeof switchQcDay === 'function') switchQcDay(d);
+                    return fail('Ngày ' + d + ' cần có ít nhất 1 điểm ghé.', 'qcDayContent_' + d);
+                }
+            }
+            $('qcPlanError')?.classList.add('d-none');
+            return true;
+        }
+
         function validateQcPostForm(e) {
             if (qcDataTransfer.files.length === 0) {
                 e.preventDefault();
@@ -2474,6 +2613,13 @@
                 updateBadge();
                 return data;
             });
+        }
+        // Chấm đỏ ở quả chuông: số thông báo chưa đọc (server trả kèm mỗi lần poll)
+        function setNotifBadge(n) {
+            var b = document.getElementById('stNotifBadge'), btn = document.getElementById('stNotifBtn');
+            if (!b || typeof n !== 'number') return;
+            b.textContent = n > 99 ? '99+' : String(n); b.hidden = n <= 0;
+            if (btn) btn.setAttribute('title', n > 0 ? 'Thông báo (' + n + ' chưa đọc)' : 'Thông báo');
         }
         function updateBadge() {
             var n = 0;
@@ -2904,6 +3050,7 @@
             }).catch(function () {}).then(function () { schedulePoll(); });
         }
         function applyPoll(data) {
+            setNotifBadge(data.notif_unread);
             data.conversations.forEach(function (p) {
                 var c = convs[p.id]; if (!c) return;
                 c.unread = p.unread; c.user.online = p.online; c.user.presence = p.presence; c.seen_id = p.seen_id;
@@ -3197,5 +3344,31 @@
     })();
     </script>
     {% block extra_js %}{% endblock %}
+<script>
+/* Giờ đăng "x phút trước": tự cập nhật mỗi phút (cùng quy tắc với app/timeutil.py).
+   <span class="ges-time" data-ts="2026-10-16T10:25:00Z" data-prefix="Đã cập nhật "> */
+(function () {
+    function pad(n) { return n < 10 ? "0" + n : "" + n; }
+    function vn(d) { return new Date(d.getTime() + 7 * 3600 * 1000); }   // đọc bằng getUTC* => giờ VN
+    function label(ts, prefix) {
+        var d = new Date(ts); if (isNaN(d)) return null;
+        var secs = (Date.now() - d.getTime()) / 1000, rel;
+        if (secs < 60) rel = "Vừa xong";
+        else if (secs < 3600) rel = Math.floor(secs / 60) + " phút trước";
+        else if (secs <= 24 * 3600) rel = Math.floor(secs / 3600) + " giờ trước";
+        else { var v = vn(d); rel = pad(v.getUTCDate()) + "/" + pad(v.getUTCMonth() + 1) + "/" + v.getUTCFullYear(); }
+        var c = vn(d);
+        return (prefix || "") + rel + " · " + pad(c.getUTCHours()) + ":" + pad(c.getUTCMinutes()) + " UTC+7";
+    }
+    function tick() {
+        document.querySelectorAll(".ges-time[data-ts]").forEach(function (el) {
+            var t = label(el.getAttribute("data-ts"), el.getAttribute("data-prefix"));
+            if (t !== null && el.textContent !== t) el.textContent = t;     // textContent: không chèn HTML
+        });
+    }
+    window.gesTimeTick = tick;
+    tick(); setInterval(tick, 60000);
+})();
+</script>
 </body>
-</html>
+</html>

@@ -163,7 +163,7 @@
                             <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill">{{ profile_user.profile_tag }}</span>
                         {% endif %}
                     </div>
-                    <p class="text-muted small mb-2"><i class="bi bi-envelope me-1"></i>{{ profile_user.email }}</p>
+                    {% if not profile_locked %}<p class="text-muted small mb-2"><i class="bi bi-envelope me-1"></i>{{ profile_user.email }}</p>{% endif %}
                     
                     {% if profile_user.bio %}
                         <p class="text-secondary small mb-2" style="line-height: 1.4;">{{ profile_user.bio }}</p>
@@ -171,7 +171,7 @@
                         <p class="text-muted fst-italic small mb-2">Chưa cập nhật tiểu sử.</p>
                     {% endif %}
 
-                    {% if profile_user.phone_number %}
+                    {% if profile_user.phone_number and not profile_locked %}
                         <small class="text-muted d-block"><i class="bi bi-telephone me-1"></i>{{ profile_user.phone_number }}</small>
                     {% endif %}
                 </div>
@@ -181,15 +181,15 @@
             <div class="col-md-5">
                 <div class="d-flex gap-2 mb-3">
                     <div class="stats-card">
-                        <span class="stats-number">{{ posts_count }}</span>
+                        {% if profile_locked %}<span class="stats-number" style="font-size:.85rem">Không hiện</span>{% else %}<span class="stats-number">{{ posts_count }}</span>{% endif %}
                         <span class="stats-label">Bài viết</span>
                     </div>
                     <button type="button" class="stats-card stats-btn" onclick="openFollowList('followers')" title="Xem danh sách người theo dõi">
-                        <span class="stats-number" id="followers-count">{{ followers_count }}</span>
+                        {% if profile_locked %}<span id="followers-count" class="stats-number" style="font-size:.85rem">Không hiện</span>{% else %}<span class="stats-number" id="followers-count">{{ followers_count }}</span>{% endif %}
                         <span class="stats-label">Follower</span>
                     </button>
                     <button type="button" class="stats-card stats-btn" onclick="openFollowList('following')" title="Xem danh sách đang theo dõi">
-                        <span class="stats-number" id="following-count">{{ following_count }}</span>
+                        {% if profile_locked %}<span id="following-count" class="stats-number" style="font-size:.85rem">Không hiện</span>{% else %}<span class="stats-number" id="following-count">{{ following_count }}</span>{% endif %}
                         <span class="stats-label">Following</span>
                     </button>
                 </div>
@@ -226,6 +226,14 @@
         </div>
     </div>
 
+    <!-- Tài khoản riêng tư: người chưa follow không thấy bài viết / lịch trình / album -->
+    {% if profile_locked %}
+    <div class="card border-0 shadow-sm p-5 text-center bg-white rounded-3 mt-4" id="private-lock">
+        <i class="bi bi-lock-fill text-muted" style="font-size: 3rem;"></i>
+        <h6 class="fw-bold mt-3 mb-1">Tài khoản này là riêng tư</h6>
+        <p class="text-muted small mb-0">Hãy theo dõi để xem bài viết, lịch trình và album của người này.</p>
+    </div>
+    {% else %}
     <!-- Navigation Tabs -->
     <ul class="nav profile-nav-tabs border-bottom mb-4 justify-content-center" id="profileTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -365,6 +373,7 @@
         </div>
 
     </div>
+    {% endif %}
 
 </div>
 
@@ -437,6 +446,7 @@
 {% block extra_js %}
 <script>
     // AJAX: Follow / Unfollow
+    const PROFILE_PRIVATE = {{ 'true' if profile_user.is_private else 'false' }};
     async function toggleFollow(userId) {
         const btn = document.getElementById('follow-btn');
         const icon = document.getElementById('follow-icon');
@@ -449,6 +459,7 @@
 
         try {
             const res = await fetch(endpoint, { method: 'POST' });
+            if (res.ok && PROFILE_PRIVATE) { window.location.reload(); return; }   // tài khoản riêng tư: mở/khóa nội dung
             if (res.ok) {
                 if (isCurrentlyFollowing) {
                     btn.classList.remove('btn-light', 'text-muted');

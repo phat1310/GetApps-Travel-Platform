@@ -130,3 +130,53 @@ def attach_map_links(links, *, post=None, itinerary=None):
 def visible_links(owner):
     """Danh sách MapLink hiển thị được (đã kiểm tra lại URL) của post/itinerary — dùng cho template/JSON."""
     return [m for m in (getattr(owner, "map_links", None) or []) if m.safe_url]
+
+
+# ---------- Dùng cho chặng / khách sạn trong form Đăng lịch trình ----------
+_BAD_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u202a-\u202e\u2066-\u2069\u200b-\u200f]")
+_LOOKS_LIKE_LINK = re.compile(r"^(https?://|www\.|maps\.app\.goo\.gl|goo\.gl/|(www\.)?google\.)", re.I)
+
+
+def clean_text(raw, max_len, keep_newlines=False):
+    """Bỏ ký tự điều khiển / đảo chiều chữ (U+202E...), gọn khoảng trắng, cắt đúng độ dài cột."""
+    s = _BAD_CHARS.sub("", str(raw or ""))
+    if keep_newlines:
+        s = s.replace("\r\n", "\n").strip()
+    else:
+        s = re.sub(r"\s+", " ", s).strip()
+    return s[:max_len]
+
+
+def looks_like_link(raw):
+    return bool(_LOOKS_LIKE_LINK.match((raw or "").strip()))
+
+
+def check_web_url(raw):
+    """Link đặt phòng (Agoda, Booking...): chỉ http/https, có tên miền, không user-info/khoảng trắng. -> (url|None, lỗi|None)"""
+    url = (raw or "").strip()
+    if not url:
+        return None, None
+    if len(url) > MAX_URL_LEN:
+        return None, f"Link quá dài (tối đa {MAX_URL_LEN} ký tự)."
+    if "\\" in url or any(ch.isspace() or not ch.isprintable() for ch in url):
+        return None, "Link không được chứa khoảng trắng hoặc ký tự lạ."
+    if "://" not in url:
+        url = "https://" + url
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return None, "Link không hợp lệ."
+    host = (parts.hostname or "").lower()
+    if parts.scheme not in ("http", "https") or not host or "." not in host:
+        return None, "Chỉ chấp nhận link bắt đầu bằng http hoặc https."
+    if "@" in parts.netloc or port not in (None, 80, 443):
+        return None, "Link không hợp lệ."
+    try:
+        host.encode("ascii")
+    except UnicodeEncodeError:
+        return None, "Tên miền chứa ký tự lạ."
+    clean = urlunsplit(("https", host, parts.path or "", parts.query, ""))
+    if len(clean) > MAX_URL_LEN:
+        return None, f"Link quá dài (tối đa {MAX_URL_LEN} ký tự)."
+    return clean, None

@@ -39,8 +39,9 @@ from app.auth.forms import (
     SettingsForm,
 )
 from app.auth.utils import validate_password
-from app.locations.discovery import following_ids, can_view_post, norm_text
+from app.locations.discovery import following_ids, can_view_post, can_view_itinerary, viewer_follow_set, norm_text
 from app.presence import presence_state
+from app.notifications import notify
 from app.extensions import db, csrf
 from app.models import (
     Comment,
@@ -74,8 +75,12 @@ def index():
 def explore():
     """Trang Khám phá địa điểm & trải nghiệm du lịch cộng đồng."""
     locations = Location.query.all()
-    recent_posts = Post.query.order_by(Post.created_at.desc()).limit(9).all()
-    featured_plans = Itinerary.query.filter_by(visibility='public').order_by(Itinerary.created_at.desc()).limit(6).all()
+    viewer_id = current_user.id if current_user.is_authenticated else None
+    viewer_follow = viewer_follow_set(viewer_id)
+    recent_posts = [p for p in Post.query.order_by(Post.created_at.desc()).limit(60).all()
+                    if can_view_post(p, viewer_id, viewer_follow)][:9]
+    featured_plans = [it for it in Itinerary.query.filter_by(visibility='public').order_by(Itinerary.created_at.desc()).limit(60).all()
+                      if can_view_itinerary(it, viewer_id, viewer_follow)][:6]
     return render_template(
         'explore.html',
         locations=locations,
@@ -285,6 +290,10 @@ def profile(username=None):
     my_follow_set = following_ids(current_user.id)
     raw_posts = Post.query.filter_by(user_id=profile_user.id).order_by(Post.created_at.desc()).all()
     raw_posts = [p for p in raw_posts if can_view_post(p, current_user.id, my_follow_set)]
+    # Tài khoản riêng tư: chủ + người đang follow xem đầy đủ; người lạ chỉ thấy khung khóa
+    profile_locked = bool(profile_user.is_private and profile_user.id != current_user.id and not is_following)
+    if profile_locked:
+        raw_posts = []
     posts_count = len(raw_posts)
 
     user_posts = []
@@ -310,8 +319,7 @@ def profile(username=None):
 
     # Lịch trình: chủ hồ sơ thấy hết; người khác chỉ thấy lịch trình công khai
     plans = sorted(profile_user.itineraries, key=lambda it: it.created_at or datetime.min, reverse=True)
-    if profile_user.id != current_user.id:
-        plans = [it for it in plans if (it.visibility or "public") == "public"]
+    plans = [it for it in plans if can_view_itinerary(it, current_user.id, my_follow_set)] if not profile_locked else []
 
     edit_form = EditProfileForm(obj=profile_user) if profile_user.id == current_user.id else None
 
@@ -325,7 +333,8 @@ def profile(username=None):
         user_posts=user_posts,
         album_photos=album_photos,
         plans=plans,
-        edit_form=edit_form
+        edit_form=edit_form,
+        profile_locked=profile_locked
     )
 
 
@@ -341,7 +350,7 @@ def profile_connections(username):
     if profile_user.is_private and profile_user.id != current_user.id:
         is_follower = Follow.query.filter_by(follower_id=current_user.id, followed_id=profile_user.id).first()
         if not is_follower:
-            return jsonify({"error": "Tài khoản riêng tư — hãy theo dõi để xem danh sách"}), 403
+            return jsonify({"error": "Bạn cần follow để xem"}), 403
 
     if kind == "followers":
         rows = (Follow.query.filter_by(followed_id=profile_user.id)
@@ -392,6 +401,18 @@ def update_activity_status():
     return jsonify({"show_activity": current_user.show_activity})
 
 
+@auth_bp.route('/profile/privacy', methods=['POST'])
+@login_required
+def update_privacy():
+    """Bật/tắt chế độ riêng tư của tài khoản (nút gạt trong Cài đặt)."""
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("is_private"), bool):
+        return jsonify({"error": "is_private phải là true hoặc false"}), 400
+    current_user.is_private = data["is_private"]
+    db.session.commit()
+    return jsonify({"is_private": current_user.is_private})
+
+
 @auth_bp.route('/profile/edit', methods=['POST'])
 @login_required
 def edit_profile():
@@ -437,13 +458,7 @@ def follow(user_id):
     )
     db.session.add(new_follow)
 
-    notification = Notification(
-        user_id=user_id,
-        actor_id=current_user.id,
-        notification_type="follow",
-        post_id=None
-    )
-    db.session.add(notification)
+    notify(user_id, current_user.id, "follow")     # báo vào chuông của người được theo dõi (không trùng nếu bấm lặp)
 
     db.session.commit()
     return jsonify({"message": f"Đã follow user {user_id}"}), 201
@@ -1137,4 +1152,4 @@ def google_callback():
         "user_id": user.id,
         "username": user.username,
         "profile_completed": user.profile_completed,
-    })
+    })

@@ -26,6 +26,7 @@ from app.models import (
 )
 from app.models.hashtag import Hashtag
 from app.locations.hashtag_utils import normalize_hashtag
+from app.locations.discovery import can_view_post, following_ids
 
 
 # =========================================================
@@ -100,8 +101,9 @@ def get_user(user_id):
             "avatar_url": user.avatar_url,
             "is_private": True,
             "is_following": False,
-            "follower_count": follower_count,
-            "following_count": following_count,
+            "follower_count": None,       # ẩn: "Không hiện"
+            "following_count": None,
+            "counts_hidden": True,
             "profile_access": "private"
         }), 200
 
@@ -280,6 +282,11 @@ def get_followers(user_id):
             "error": "Không tìm thấy user"
         }), 404
 
+    viewer_id = int(get_jwt_identity())
+    if user.is_private and viewer_id != user.id and not Follow.query.filter_by(
+            follower_id=viewer_id, followed_id=user.id).first():
+        return jsonify({"error": "Bạn cần follow để xem"}), 403
+
     # Tìm tất cả quan hệ mà user_id là người được follow
     follows = Follow.query.filter_by(
         followed_id=user_id
@@ -324,6 +331,11 @@ def get_following(user_id):
         return jsonify({
             "error": "Không tìm thấy user"
         }), 404
+
+    viewer_id = int(get_jwt_identity())
+    if user.is_private and viewer_id != user.id and not Follow.query.filter_by(
+            follower_id=viewer_id, followed_id=user.id).first():
+        return jsonify({"error": "Bạn cần follow để xem"}), 403
 
     # Tìm tất cả quan hệ mà user_id là người đi follow
     follows = Follow.query.filter_by(
@@ -380,10 +392,10 @@ def get_saved_posts():
     saved_posts = []
 
     for saved in saved_records:
-        post = db.session.get(Post, saved.post_id)
+        post = db.session.get(Post, saved.post_id) if saved.post_id else None
 
-        # Nếu bài viết đã bị xóa thì bỏ qua
-        if not post:
+        # Bài đã bị xóa, hoặc không còn được phép xem (riêng tư / tài khoản kín) thì bỏ qua
+        if not post or not can_view_post(post, current_user_id, following_ids(current_user_id)):
             continue
 
         # Lấy ảnh/video thuộc bài viết
@@ -612,14 +624,17 @@ def search_hashtags():
             "error": "Thiếu hashtag cần tìm"
         }), 400
 
-    posts = (
-        Post.query
-        .join(Post.hashtags)
-        .filter(Hashtag.name == keyword)
-        .order_by(Post.created_at.desc())
-        .limit(20)
-        .all()
-    )
+    viewer_id = int(get_jwt_identity())
+    viewer_follow = following_ids(viewer_id)
+    posts = [
+        p for p in (
+            Post.query
+            .join(Post.hashtags)
+            .filter(Hashtag.name == keyword)
+            .order_by(Post.created_at.desc())
+            .all()
+        ) if can_view_post(p, viewer_id, viewer_follow)
+    ][:20]
 
     result = []
 
@@ -688,6 +703,11 @@ def search_all():
         .distinct()
         .all()
     )
+
+    # Chỉ trả bài người xem được phép thấy (riêng tư chỉ chủ; tài khoản kín cần follow)
+    viewer_id = int(get_jwt_identity())
+    viewer_follow = following_ids(viewer_id)
+    posts = [p for p in posts if can_view_post(p, viewer_id, viewer_follow)]
 
     result = []
 
@@ -818,4 +838,4 @@ def search_all():
         "location_count": len(location_result),
         "posts": result,
         "locations": location_result
-    }), 200
+    }), 200

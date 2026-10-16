@@ -45,3 +45,21 @@ class Notification(db.Model):
         db.DateTime,
         default=datetime.utcnow
     )
+
+    # Thông báo về LỊCH TRÌNH (post_id để trống). Xóa bài/lịch trình thì xóa luôn thông báo của nó.
+    itinerary_id = db.Column(
+        db.Integer,
+        db.ForeignKey("itineraries.id"),
+        nullable=True,
+        index=True
+    )
+
+    actor = db.relationship("User", foreign_keys=[actor_id])
+    post = db.relationship(
+        "Post", foreign_keys=[post_id],
+        backref=db.backref("notifications", cascade="all, delete-orphan")
+    )
+    itinerary = db.relationship(
+        "Itinerary", foreign_keys=[itinerary_id],
+        backref=db.backref("notifications", cascade="all, delete-orphan")
+    )

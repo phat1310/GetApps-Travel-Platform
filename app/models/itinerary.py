@@ -161,6 +161,15 @@ class ItineraryStop(db.Model):
         elif not self.note and self.notes:
             self.note = self.notes
 
+    @property
+    def safe_map_url(self):
+        """Link Google Maps của chặng — kiểm tra lại khi HIỂN THỊ (dữ liệu cũ / sửa tay trong DB)."""
+        from app.locations.maplinks import check_map_url
+        if not self.location_link:
+            return None
+        url, err = check_map_url(self.location_link)
+        return None if err else url
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -196,7 +205,38 @@ class ItineraryLodging(db.Model):
     price_per_night = db.Column(db.Float, default=0.0)
     booking_reference = db.Column(db.String(100), nullable=True)
     booking_link = db.Column(db.String(500), nullable=True)
+    map_link = db.Column(db.String(500), nullable=True)      # link Google Maps (dài hơn cột address)
     note = db.Column(db.Text, nullable=True)
+
+    @property
+    def safe_map_url(self):
+        from app.locations.maplinks import check_map_url
+        for cand in (self.map_link, self.address):          # dữ liệu cũ của Phát lưu link trong address
+            if cand:
+                url, err = check_map_url(cand)
+                if not err:
+                    return url
+        return None
+
+    @property
+    def safe_booking_url(self):
+        from app.locations.maplinks import check_web_url, looks_like_link
+        raw = self.booking_link or ""
+        if not looks_like_link(raw):
+            return None
+        url, err = check_web_url(raw)
+        return None if err else url
+
+    @property
+    def booking_text(self):
+        return None if self.safe_booking_url else (self.booking_link or None)
+
+    @property
+    def address_text(self):
+        """Địa chỉ dạng chữ (không phải link)."""
+        from app.locations.maplinks import looks_like_link
+        a = self.address or ""
+        return None if (not a or looks_like_link(a)) else a
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -220,6 +260,7 @@ class ItineraryLodging(db.Model):
             "price_per_night": self.price_per_night,
             "booking_reference": self.booking_reference or self.booking_link,
             "booking_link": self.booking_link or self.booking_reference,
+            "map_link": self.safe_map_url,
             "note": self.note
         }
 

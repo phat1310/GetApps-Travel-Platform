@@ -1,0 +1,134 @@
+{# Nội dung cửa sổ chi tiết lịch trình (nạp bằng fetch vào modal). Mọi dữ liệu người dùng đều qua autoescape; link chỉ render khi đã qua safe_url. #}
+{% from "_maplinks.html" import map_chips %}
+{% macro money(v) %}{{ "{:,.0f}".format(v) }} đ{% endmacro %}
+<div class="pp" data-plan-id="{{ plan.id }}" data-has-attach="{{ 1 if has_attach else 0 }}" data-owner="{{ 1 if is_owner else 0 }}">
+    <div class="pp-hero">
+        <img src="{{ url_for('static', filename=cover) }}" alt="{{ plan.title }}">
+        <div class="pp-hero-shade"></div>
+        <div class="pp-hero-top">
+            {% if type_code %}<span class="pp-badge">{{ plan.trip_type or type_code }}</span>{% endif %}
+            {% if private %}<span class="pp-badge pp-badge-dark"><i class="bi bi-lock-fill me-1"></i>Riêng tư</span>{% endif %}
+        </div>
+        <div class="pp-hero-bottom">
+            <h4 class="pp-title">{{ plan.title }}</h4>
+            <div class="pp-sub">
+                <span><i class="bi bi-geo-alt-fill me-1"></i>{{ plan.destination }}</span>
+                {% if plan.start_date and plan.end_date %}
+                <span><i class="bi bi-calendar-event me-1"></i>{{ plan.start_date.strftime('%d/%m/%Y') }} – {{ plan.end_date.strftime('%d/%m/%Y') }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="pp-body">
+        <div class="pp-stats">
+            <div class="pp-stat"><i class="bi bi-hourglass-split"></i><b>{{ plan.total_days }} ngày</b><span>Thời lượng</span></div>
+            <div class="pp-stat"><i class="bi bi-people"></i><b>{{ plan.participants_count or '—' }}{% if plan.participants_count %} người{% endif %}</b><span>Thành viên</span></div>
+            <div class="pp-stat"><i class="bi bi-geo-alt"></i><b>{{ stops_total }}</b><span>Điểm ghé</span></div>
+            <div class="pp-stat"><i class="bi bi-wallet2"></i><b>{% if budget > 0 %}{{ money(budget) }}{% else %}Chưa đặt{% endif %}</b><span>Ngân sách</span></div>
+        </div>
+
+        <div class="pp-actions">
+            {% if is_owner %}
+            <a class="btn btn-outline-primary btn-sm rounded-pill px-3" href="{{ url_for('plans.edit', plan_id=plan.id) }}"><i class="bi bi-pencil-square me-1"></i>Chỉnh sửa</a>
+            {% endif %}
+            <button type="button" class="btn btn-sm rounded-pill px-3 {{ 'btn-primary' if saved else 'btn-outline-secondary' }}" data-pp="save"><i class="bi {{ 'bi-bookmark-fill' if saved else 'bi-bookmark' }} me-1"></i><span>{{ 'Đã lưu' if saved else 'Lưu' }}</span></button>
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-pp="share"><i class="bi bi-send me-1"></i>Chia sẻ</button>
+            <span class="pp-time ms-auto">{{ time_tag(plan.created_at, edited, prefix="Đăng ") }}</span>
+        </div>
+
+        {% if plan.description %}<p class="pp-desc">{{ plan.description }}</p>{% endif %}
+
+        <h6 class="pp-h"><i class="bi bi-map me-1"></i>Bản đồ hành trình</h6>
+        {% set map_list = plan.map_links|selectattr('safe_url')|list %}
+        {% if map_list %}
+            <div class="pp-card">{{ map_chips(map_list) }}</div>
+        {% else %}
+            <div class="pp-card pp-muted">Người đăng chưa thêm địa chỉ Google Maps.</div>
+        {% endif %}
+
+        {% set stay_all = plan.lodgings|list %}
+        {% if stay_all %}
+        <h6 class="pp-h"><i class="bi bi-building me-1"></i>Nơi lưu trú</h6>
+        <div class="pp-stays">
+            {% for l in stay_all %}
+            <div class="pp-card">
+                <div class="d-flex justify-content-between flex-wrap gap-2">
+                    <b><i class="bi bi-house-door-fill text-primary me-1"></i>{{ l.hotel_name }}</b>
+                    {% if l.price_per_night and l.price_per_night > 0 %}<span class="text-success fw-semibold small">{{ money(l.price_per_night) }} / đêm</span>{% endif %}
+                </div>
+                {% if l.day_id %}{% for d in plan.days if d.id == l.day_id %}<div class="small pp-muted">Đêm Ngày {{ d.day_number }}</div>{% endfor %}{% else %}<div class="small pp-muted">Toàn bộ chuyến đi</div>{% endif %}
+                <div class="d-flex flex-wrap gap-3 small mt-1">
+                    {% if l.safe_map_url %}<a href="{{ l.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Mở trên Google Maps</a>{% endif %}
+                    {% if l.safe_booking_url %}<a href="{{ l.safe_booking_url }}" target="_blank" rel="noopener noreferrer nofollow"><i class="bi bi-link-45deg me-1"></i>Link đặt phòng</a>
+                    {% elif l.booking_text %}<span class="pp-muted"><i class="bi bi-link-45deg me-1"></i>{{ l.booking_text }}</span>{% endif %}
+                </div>
+                {% if l.note %}<div class="small pp-muted mt-1">{{ l.note }}</div>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <h6 class="pp-h"><i class="bi bi-signpost-split me-1"></i>Lộ trình từng ngày</h6>
+        {% if plan.days %}
+        <div class="pp-daytabs" role="tablist">
+            {% for day in plan.days %}<button type="button" class="pp-daytab{{ ' active' if loop.first }}" data-day="{{ day.id }}">Ngày {{ day.day_number }}</button>{% endfor %}
+        </div>
+        {% for day in plan.days %}
+        <div class="pp-day{{ ' active' if loop.first }}" data-day-pane="{{ day.id }}">
+            {% if day.title %}<div class="pp-daytitle">{{ day.title }}</div>{% endif %}
+            {% if day.note %}<div class="small pp-muted mb-2"><i class="bi bi-chat-left-quote me-1"></i>{{ day.note }}</div>{% endif %}
+            {% for stop in day.stops %}
+            <div class="pp-stop">
+                <div class="pp-dot">{{ loop.index }}</div>
+                <div class="pp-stop-body">
+                    <div class="d-flex justify-content-between gap-2 flex-wrap">
+                        <b>{{ stop.location_name }}</b>
+                        {% set cost = stop.estimated_cost or stop.price or 0 %}
+                        {% if cost and cost > 0 %}<span class="text-success fw-semibold small">~{{ money(cost) }}</span>{% endif %}
+                    </div>
+                    <div class="small pp-muted d-flex flex-wrap gap-3 mt-1">
+                        {% if stop.arrival_time %}<span><i class="bi bi-clock me-1"></i>{{ stop.arrival_time }}</span>{% endif %}
+                        {% if stop.transportation %}<span><i class="bi bi-bicycle me-1"></i>{{ stop.transportation }}</span>{% endif %}
+                        {% if stop.address and not stop.safe_map_url %}<span><i class="bi bi-geo-alt me-1"></i>{{ stop.address }}</span>{% endif %}
+                    </div>
+                    {% if stop.notes %}<div class="small mt-1" style="white-space: pre-line;">{{ stop.notes }}</div>{% endif %}
+                    {% if stop.safe_map_url %}<a class="small d-inline-block mt-1" href="{{ stop.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Mở trên Google Maps</a>{% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="pp-muted small py-2">Ngày này chưa có điểm ghé.</div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="pp-card pp-muted">Chưa có lộ trình chi tiết.</div>
+        {% endif %}
+
+        <div class="pp-author">
+            {% if plan.author.avatar_url %}<img src="{{ plan.author.avatar_url }}" alt="" class="pp-av">
+            {% else %}<span class="pp-av pp-av-ph">{{ plan.author.username[0]|upper }}</span>{% endif %}
+            <div>
+                <div class="small pp-muted">Người đăng</div>
+                <a href="{{ url_for('auth.profile', username=plan.author.username) }}" class="fw-bold text-decoration-none">{{ plan.author.username }}</a>
+            </div>
+        </div>
+
+        <h6 class="pp-h" id="ppComments"><i class="bi bi-chat-dots me-1"></i>Bình luận <span class="pp-muted fw-normal">({{ comments }})</span></h6>
+        <div class="pp-cmts" id="ppCmtList">
+            {% for c in comment_list %}
+            <div class="pp-cmt"><b>{{ c.user.username }}</b> <span>{{ c.html }}</span></div>
+            {% else %}
+            <div class="pp-muted small" id="ppNoCmt">Chưa có bình luận nào.</div>
+            {% endfor %}
+        </div>
+        {% if current_user.is_authenticated %}
+        <form class="pp-cmt-form" data-pp-form="comment">
+            <input type="text" class="form-control form-control-sm rounded-pill" maxlength="500" placeholder="Viết bình luận..." aria-label="Bình luận">
+            <button class="btn btn-primary btn-sm rounded-pill px-3" type="submit">Gửi</button>
+        </form>
+        {% else %}
+        <div class="small pp-muted"><a href="{{ url_for('auth.login') }}">Đăng nhập</a> để bình luận.</div>
+        {% endif %}
+    </div>
+</div>

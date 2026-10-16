@@ -58,6 +58,8 @@
         flex: none;
     }
 
+    .notif-av { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: none; display: block; }
+
     .notif-ph {
         width: 48px;
         height: 48px;
@@ -104,12 +106,29 @@
         {% if notifications %}
             <div class="d-flex flex-column">
                 {% for n in notifications %}
-                    {% set target_url = '/locations/feed#post-article-' ~ n.post_id if n.post_id else '#' %}
+                    {% set actor = n.actor %}
+                    {% set who = (actor.nickname or actor.full_name or actor.username) if actor else 'Một người dùng' %}
+                    {% if n.itinerary_id and n.itinerary %}
+                        {% set target_url = url_for('plans.detail', plan_id=n.itinerary_id) %}
+                        {% set what = 'lịch trình' %}
+                    {% elif n.post_id %}
+                        {% set target_url = '/locations/feed#post-article-' ~ n.post_id %}
+                        {% set what = 'bài viết' %}
+                    {% elif n.notification_type == 'follow' and actor %}
+                        {% set target_url = url_for('auth.profile', username=actor.username) %}
+                        {% set what = '' %}
+                    {% else %}
+                        {% set target_url = '#' %}
+                        {% set what = '' %}
+                    {% endif %}
                     <a href="{{ target_url }}" class="notif-item">
                         <div class="position-relative">
-                            <div class="notif-ph">
-                                <i class="bi bi-person-fill"></i>
-                            </div>
+                            {% if actor and actor.avatar_url %}
+                                <img src="{{ actor.avatar_url }}" alt="" class="notif-av" loading="lazy"
+                                     onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('div'),{className:'notif-ph',innerHTML:'<i class=&quot;bi bi-person-fill&quot;></i>'}))">
+                            {% else %}
+                                <div class="notif-ph">{{ (who[:1] | upper) if who else '?' }}</div>
+                            {% endif %}
                             {% if n.notification_type == 'like' %}
                                 <div class="notif-badge-icon bg-danger"><i class="bi bi-heart-fill"></i></div>
                             {% elif n.notification_type == 'comment' %}
@@ -118,30 +137,35 @@
                                 <div class="notif-badge-icon bg-success"><i class="bi bi-send-fill"></i></div>
                             {% elif n.notification_type == 'follow' %}
                                 <div class="notif-badge-icon bg-info"><i class="bi bi-person-plus-fill"></i></div>
+                            {% elif n.notification_type == 'mention' %}
+                                <div class="notif-badge-icon bg-warning"><i class="bi bi-at"></i></div>
                             {% else %}
                                 <div class="notif-badge-icon bg-secondary"><i class="bi bi-bell-fill"></i></div>
                             {% endif %}
                         </div>
                         <div class="flex-grow-1">
                             <div class="small">
-                                <strong class="text-dark">Người dùng #{{ n.actor_id }}</strong>
+                                <strong class="text-dark">{{ who }}</strong>
                                 {% if n.notification_type == 'like' %}
-                                    <span class="text-secondary">đã thích bài viết của bạn.</span>
+                                    <span class="text-secondary">đã thích {{ what or 'bài viết' }} của bạn.</span>
                                 {% elif n.notification_type == 'comment' %}
-                                    <span class="text-secondary">đã bình luận về bài viết của bạn.</span>
+                                    <span class="text-secondary">đã bình luận về {{ what or 'bài viết' }} của bạn.</span>
                                 {% elif n.notification_type == 'share' %}
-                                    <span class="text-secondary">đã chia sẻ bài viết của bạn.</span>
+                                    <span class="text-secondary">đã chia sẻ {{ what or 'bài viết' }} của bạn.</span>
                                 {% elif n.notification_type == 'follow' %}
                                     <span class="text-secondary">đã bắt đầu theo dõi bạn.</span>
+                                {% elif n.notification_type == 'mention' %}
+                                    <span class="text-secondary">đã nhắc đến bạn trong một bình luận về {{ what or 'bài viết' }}.</span>
                                 {% else %}
                                     <span class="text-secondary">đã tương tác với bạn.</span>
                                 {% endif %}
+                                {% if n.itinerary and n.itinerary.title %}<span class="fw-semibold text-dark">“{{ n.itinerary.title }}”</span>{% endif %}
                             </div>
                             <small class="text-muted" style="font-size: 0.75rem;">
                                 {{ n.created_at.strftime('%H:%M %d/%m/%Y') if n.created_at else 'Vừa xong' }}
                             </small>
                         </div>
-                        {% if n.post_id %}
+                        {% if target_url != '#' %}
                             <i class="bi bi-chevron-right text-muted small"></i>
                         {% endif %}
                     </a>
@@ -153,7 +177,7 @@
                     <i class="bi bi-bell-slash fs-2"></i>
                 </div>
                 <h6 class="fw-bold text-dark">Chưa có thông báo nào</h6>
-                <p class="text-muted small mb-0">Khi có ai đó thích, bình luận hoặc chia sẻ bài viết của bạn, thông báo sẽ hiển thị ở đây.</p>
+                <p class="text-muted small mb-0">Khi có ai đó theo dõi bạn, thích, bình luận hoặc chia sẻ bài viết / lịch trình của bạn, thông báo sẽ hiển thị ở đây.</p>
             </div>
         {% endif %}
     </div>

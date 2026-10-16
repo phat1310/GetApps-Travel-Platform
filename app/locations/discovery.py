@@ -50,22 +50,25 @@ def popular_locations(limit=10):
     from app.models import Post, Itinerary, Location
     from app.models.post import post_extra_locations
 
+    hidden = hidden_account_ids() or [0]
     posts = {}
     q = (db.session.query(Post.location_id, func.count(Post.id))
-         .filter(Post.location_id.isnot(None), Post.original_post_id.is_(None), Post.visibility == "public")
+         .filter(Post.location_id.isnot(None), Post.original_post_id.is_(None), Post.visibility == "public",
+                 Post.user_id.notin_(hidden))
          .group_by(Post.location_id))
     for lid, n in q:
         posts[lid] = posts.get(lid, 0) + n
     q = (db.session.query(post_extra_locations.c.location_id, func.count(Post.id))
          .join(Post, Post.id == post_extra_locations.c.post_id)
-         .filter(Post.original_post_id.is_(None), Post.visibility == "public")
+         .filter(Post.original_post_id.is_(None), Post.visibility == "public", Post.user_id.notin_(hidden))
          .group_by(post_extra_locations.c.location_id))
     for lid, n in q:
         posts[lid] = posts.get(lid, 0) + n
 
     plans = {}
     q = (db.session.query(Itinerary.location_id, func.count(Itinerary.id))
-         .filter(Itinerary.location_id.isnot(None), or_(Itinerary.visibility == "public", Itinerary.visibility.is_(None)))
+         .filter(Itinerary.location_id.isnot(None), or_(Itinerary.visibility == "public", Itinerary.visibility.is_(None)),
+                 Itinerary.user_id.notin_(hidden))
          .group_by(Itinerary.location_id))
     for lid, n in q:
         plans[lid] = n
@@ -86,7 +89,7 @@ def popular_locations(limit=10):
 
 
 # ------------------------------------------------------------------
-# 3. QUYỀN XEM BÀI (private = chủ bài + người đang follow chủ bài)
+# 3. QUYỀN XEM BÀI (private = CHỈ chủ bài; tài khoản riêng tư = cần follow)
 # ------------------------------------------------------------------
 
 def following_ids(user_id):
@@ -105,17 +108,60 @@ def root_post(post):
     return cur
 
 
-def can_view_post(post, viewer_id, follow_set):
-    """Chủ bài luôn xem được; bài riêng tư chỉ người đang follow chủ bài; repost còn phải xem được cả bài gốc."""
-    if post.user_id != viewer_id and post.visibility == "private" and post.user_id not in follow_set:
+def account_hidden(author_id, viewer_id, follow_set):
+    """True nếu tác giả để TÀI KHOẢN riêng tư và người xem không phải chính chủ / chưa follow."""
+    if author_id is None or author_id == viewer_id:
         return False
+    from app.models import User
+    author = db.session.get(User, author_id)
+    if author is None or not getattr(author, "is_private", False):
+        return False
+    return author_id not in (follow_set or ())
+
+
+def can_view_post(post, viewer_id, follow_set):
+    """Quyền xem 1 bài.
+
+    - Chủ bài luôn xem được.
+    - Bài đặt 'riêng tư' (private) -> CHỈ chủ bài thấy, kể cả follower cũng không.
+    - Tác giả để tài khoản riêng tư -> chỉ người đang follow mới thấy bài công khai.
+    - Repost: phải xem được cả bài gốc thật sự (gốc bị xóa/riêng tư/tài khoản kín -> ẩn).
+    """
+    if post.user_id != viewer_id:
+        if post.visibility == "private":
+            return False
+        if account_hidden(post.user_id, viewer_id, follow_set):
+            return False
     if post.original_post_id:
         src = root_post(post)
         if src is None:
             return False
-        if src.user_id != viewer_id and src.visibility == "private" and src.user_id not in follow_set:
-            return False
+        if src.user_id != viewer_id:
+            if src.visibility == "private":
+                return False
+            if account_hidden(src.user_id, viewer_id, follow_set):
+                return False
     return True
+
+
+def can_view_itinerary(it, viewer_id, follow_set):
+    """Quyền xem 1 lịch trình: chủ luôn thấy; 'private' chỉ chủ; tài khoản kín -> cần follow."""
+    if it.user_id == viewer_id:
+        return True
+    if (it.visibility or "public") == "private":
+        return False
+    return not account_hidden(it.user_id, viewer_id, follow_set)
+
+
+def viewer_follow_set(viewer_id):
+    """Tập id người mà viewer đang follow (rỗng nếu chưa đăng nhập)."""
+    return following_ids(viewer_id) if viewer_id else set()
+
+
+def hidden_account_ids():
+    """Id các tài khoản đang để riêng tư (dùng để loại khỏi thống kê chung)."""
+    from app.models import User
+    return [u.id for u in User.query.filter_by(is_private=True).with_entities(User.id).all()]
 
 
 # ------------------------------------------------------------------
@@ -129,7 +175,7 @@ def suggest_users(me_id, limit=5):
 
     skip = following_ids(me_id) | {me_id}
 
-    base = (Post.original_post_id.is_(None), Post.visibility == "public")
+    base = (Post.original_post_id.is_(None), Post.visibility == "public", Post.user_id.notin_(hidden_account_ids() or [0]))
     post_cnt = dict(db.session.query(Post.user_id, func.count(Post.id)).filter(*base).group_by(Post.user_id).all())
     likes = dict(db.session.query(Post.user_id, func.count(Like.id))
                  .join(Like, Like.post_id == Post.id).filter(*base).group_by(Post.user_id).all())
