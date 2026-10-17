@@ -100,23 +100,47 @@
             vertical-align: baseline;
         }
 
+        .min-w-0 { min-width: 0 !important; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
         .st-top-actions {
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-        /* Thanh "Tìm kiếm hành trình" nhỏ gọn cạnh nút đổi giao diện */
+        /* Thanh "Tìm kiếm trên GetApps" đa năng cạnh nút đổi giao diện */
+        .st-search-wrapper { position: relative; }
         .st-search { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 5px 0 11px; margin: 0 .35rem 0 0; border-radius: 999px;
                      background: #f8fbff; border: 1px solid #dbe7f5; color: #3b6aa0; transition: border-color .15s, box-shadow .15s; }
         .st-search:focus-within { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,.22); }
-        .st-search i { font-size: .9rem; flex: none; }
-        .st-search input { width: 9.6rem; height: 24px; border: 0; outline: 0; border-radius: 999px; background: #f0f0f0; color: #1e293b; font-size: .78rem; padding: 0 10px; min-width: 0; }
+        .st-search i { font-size: .9rem; flex: none; color: inherit; }
+        .st-search input { width: 10.5rem; height: 24px; border: 0; outline: 0; border-radius: 999px; background: #f0f0f0; color: #1e293b; font-size: .78rem; padding: 0 10px; min-width: 0; transition: width .2s ease; }
+        .st-search:focus-within input { width: 14rem; }
         .st-search input::placeholder { color: #6b7280; }
         .st-search input::-webkit-search-cancel-button { display: none; }
         [data-bs-theme="dark"] .st-search { background: #232b3b; border-color: #334155; color: #94a3b8; }
         [data-bs-theme="dark"] .st-search input { background: #2d3748; color: #e2e8f0; }
         [data-bs-theme="dark"] .st-search input::placeholder { color: #94a3b8; }
-        @media (max-width: 575.98px) { .st-search { padding-left: 9px; } .st-search input { width: 3.6rem; text-overflow: ellipsis; transition: width .15s; } .st-search:focus-within input { width: 6.5rem; } }
+        @media (max-width: 575.98px) { .st-search { padding-left: 9px; } .st-search input { width: 4.5rem; text-overflow: ellipsis; } .st-search:focus-within input { width: 9rem; } }
+
+        /* Search Dropdown Box (Facebook Style) */
+        .st-search-dropdown { position: absolute; top: calc(100% + 6px); right: 0; width: 330px; max-width: 90vw; background: #ffffff;
+                              border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,0.12); z-index: 1070;
+                              overflow: hidden; display: none; }
+        [data-bs-theme="dark"] .st-search-dropdown { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+        .st-search-dropdown-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;
+                                     border-bottom: 1px solid #f1f5f9; font-size: 0.78rem; font-weight: 600; color: #64748b; }
+        [data-bs-theme="dark"] .st-search-dropdown-header { border-bottom-color: #334155; color: #94a3b8; }
+        .st-recent-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer;
+                          transition: background 0.15s; font-size: 0.82rem; text-decoration: none; color: inherit; }
+        .st-recent-item:hover { background: #f8fafc; }
+        [data-bs-theme="dark"] .st-recent-item:hover { background: #334155; }
+        .st-recent-item .recent-del-btn { border: 0; background: transparent; color: #94a3b8; padding: 2px 6px; border-radius: 50%; font-size: 0.85rem; line-height: 1; }
+        .st-recent-item .recent-del-btn:hover { color: #ef4444; background: rgba(239,68,68,0.12); }
+        .st-suggest-item { display: flex; align-items: center; gap: 10px; padding: 7px 12px; text-decoration: none; color: inherit; transition: background 0.15s; }
+        .st-suggest-item:hover { background: #f8fafc; }
+        [data-bs-theme="dark"] .st-suggest-item:hover { background: #334155; }
+        .st-suggest-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         .st-top-btn {
             width: 42px;
             height: 42px;
@@ -902,10 +926,22 @@
                 <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs" class="brand-logo-img" style="height: 30px; width: auto;">
             </a>
             <div class="st-top-actions">
-                <form class="st-search" method="get" action="{{ url_for('plans.index') }}" role="search">
-                    <i class="bi bi-search" aria-hidden="true"></i>
-                    <input type="search" name="kw" maxlength="100" placeholder="Tìm kiếm hành trình" aria-label="Tìm kiếm hành trình" autocomplete="off" value="{{ request.args.get('kw', '') if request.endpoint == 'plans.index' else '' }}">
-                </form>
+                <div class="st-search-wrapper" id="topSearchWrapper">
+                    <form class="st-search" id="topSearchForm" method="get" action="{{ url_for('auth.search_page') }}" role="search">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" id="topSearchInput" name="q" maxlength="100" placeholder="Tìm kiếm trên GetApps..." aria-label="Tìm kiếm trên GetApps" autocomplete="off" value="{{ request.args.get('q', '') if request.endpoint == 'auth.search_page' else '' }}">
+                    </form>
+                    <!-- Box tìm kiếm gần đây & gợi ý kiểu Facebook (tối đa 10 mục) -->
+                    <div class="st-search-dropdown" id="topSearchDropdown">
+                        <div class="st-search-dropdown-header" id="stDropdownHeader">
+                            <span><i class="bi bi-clock-history me-1"></i>Tìm kiếm gần đây</span>
+                            <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 text-muted" id="clearAllRecentBtn" style="font-size: 0.74rem;">Xóa tất cả</button>
+                        </div>
+                        <div id="stDropdownBody">
+                            <!-- Render bằng JavaScript -->
+                        </div>
+                    </div>
+                </div>
                 <button type="button" class="st-top-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Chuyển chế độ Nền sáng / Nền tối">
                     <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
                 </button>
@@ -3422,6 +3458,202 @@
         requestAnimationFrame(function () { el.style.opacity = '1'; el.style.transform = 'translate(-50%,-50%) scale(1)'; });
         setTimeout(function () { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 220); }, ms || 1600);
     };
+
+    // Quản lý 10 tìm kiếm gần nhất (Recent Searches) kiểu Facebook
+    (function () {
+        const RECENT_KEY = 'ges_recent_searches';
+        const MAX_RECENT = 10;
+        const input = document.getElementById('topSearchInput');
+        const form = document.getElementById('topSearchForm');
+        const dropdown = document.getElementById('topSearchDropdown');
+        const header = document.getElementById('stDropdownHeader');
+        const body = document.getElementById('stDropdownBody');
+        const clearAllBtn = document.getElementById('clearAllRecentBtn');
+        const wrapper = document.getElementById('topSearchWrapper');
+
+        if (!input || !dropdown || !body) return;
+
+        function getRecents() {
+            try {
+                const data = localStorage.getItem(RECENT_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveRecents(list) {
+            try {
+                localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, MAX_RECENT)));
+            } catch (e) {}
+        }
+
+        function addRecent(kw) {
+            kw = (kw || '').trim();
+            if (!kw) return;
+            let list = getRecents().filter(item => item.toLowerCase() !== kw.toLowerCase());
+            list.unshift(kw);
+            saveRecents(list);
+        }
+
+        function removeRecent(kw) {
+            let list = getRecents().filter(item => item !== kw);
+            saveRecents(list);
+            renderRecents();
+        }
+
+        function renderRecents() {
+            const list = getRecents();
+            header.style.display = 'flex';
+            body.innerHTML = '';
+
+            if (list.length === 0) {
+                body.innerHTML = '<div class="p-3 text-center text-muted small"><i class="bi bi-clock me-1"></i>Chưa có tìm kiếm gần đây</div>';
+                clearAllBtn.style.display = 'none';
+                return;
+            }
+
+            clearAllBtn.style.display = 'inline-block';
+            list.forEach(kw => {
+                const row = document.createElement('div');
+                row.className = 'st-recent-item';
+                row.innerHTML = `
+                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0" role="button">
+                        <i class="bi bi-clock-history text-muted"></i>
+                        <span class="truncate fw-semibold">${escapeHtml(kw)}</span>
+                    </div>
+                    <button type="button" class="recent-del-btn" title="Xóa"><i class="bi bi-x-lg"></i></button>
+                `;
+                row.querySelector('[role="button"]').addEventListener('click', () => {
+                    input.value = kw;
+                    addRecent(kw);
+                    form.submit();
+                });
+                row.querySelector('.recent-del-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeRecent(kw);
+                });
+                body.appendChild(row);
+            });
+        }
+
+        function renderSuggestions(data, kw) {
+            header.style.display = 'none';
+            body.innerHTML = '';
+
+            const searchRow = document.createElement('div');
+            searchRow.className = 'st-recent-item border-bottom';
+            searchRow.innerHTML = `
+                <div class="d-flex align-items-center gap-2 text-primary fw-semibold">
+                    <i class="bi bi-search"></i>
+                    <span>Tìm kiếm “${escapeHtml(kw)}”</span>
+                </div>
+                <i class="bi bi-arrow-right-short text-muted fs-5"></i>
+            `;
+            searchRow.addEventListener('click', () => {
+                addRecent(kw);
+                form.submit();
+            });
+            body.appendChild(searchRow);
+
+            if (data.users && data.users.length > 0) {
+                const uHead = document.createElement('div');
+                uHead.className = 'p-1 px-3 small text-muted fw-bold' + (document.body.dataset.bsTheme === 'dark' ? ' bg-dark' : ' bg-light');
+                uHead.innerText = 'Mọi người';
+                body.appendChild(uHead);
+
+                data.users.forEach(u => {
+                    const uRow = document.createElement('a');
+                    uRow.className = 'st-suggest-item';
+                    uRow.href = u.profile_url;
+                    uRow.innerHTML = `
+                        <img src="${u.avatar_url}" class="st-suggest-avatar" alt="">
+                        <div class="min-w-0">
+                            <div class="small fw-bold truncate">${escapeHtml(u.name)}</div>
+                            <div class="text-muted" style="font-size:0.7rem;">@${escapeHtml(u.username)}</div>
+                        </div>
+                    `;
+                    uRow.addEventListener('click', () => addRecent(kw));
+                    body.appendChild(uRow);
+                });
+            }
+
+            if (data.locations && data.locations.length > 0) {
+                const lHead = document.createElement('div');
+                lHead.className = 'p-1 px-3 small text-muted fw-bold' + (document.body.dataset.bsTheme === 'dark' ? ' bg-dark' : ' bg-light');
+                lHead.innerText = 'Địa điểm';
+                body.appendChild(lHead);
+
+                data.locations.forEach(loc => {
+                    const lRow = document.createElement('a');
+                    lRow.className = 'st-suggest-item';
+                    lRow.href = loc.search_url;
+                    lRow.innerHTML = `
+                        <div class="st-suggest-avatar d-flex align-items-center justify-content-center bg-primary text-white" style="font-size: 0.8rem;"><i class="bi bi-pin-map-fill"></i></div>
+                        <div class="min-w-0">
+                            <div class="small fw-bold truncate">${escapeHtml(loc.name)}</div>
+                            <div class="text-muted truncate" style="font-size:0.7rem;">${escapeHtml(loc.address || 'Việt Nam')}</div>
+                        </div>
+                    `;
+                    lRow.addEventListener('click', () => addRecent(kw));
+                    body.appendChild(lRow);
+                });
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        let suggestTimeout = null;
+        input.addEventListener('focus', function () {
+            dropdown.style.display = 'block';
+            if (!this.value.trim()) {
+                renderRecents();
+            }
+        });
+
+        input.addEventListener('input', function () {
+            const val = this.value.trim();
+            dropdown.style.display = 'block';
+            if (!val) {
+                renderRecents();
+                return;
+            }
+            clearTimeout(suggestTimeout);
+            suggestTimeout = setTimeout(async () => {
+                if (val.length >= 2) {
+                    try {
+                        const res = await fetch(`/search/suggest?q=${encodeURIComponent(val)}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            renderSuggestions(data, val);
+                        }
+                    } catch (e) {}
+                }
+            }, 200);
+        });
+
+        form.addEventListener('submit', function (e) {
+            const val = input.value.trim();
+            if (val) {
+                addRecent(val);
+            }
+        });
+
+        clearAllBtn.addEventListener('click', function () {
+            saveRecents([]);
+            renderRecents();
+        });
+
+        document.addEventListener('click', function (e) {
+            if (wrapper && !wrapper.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    })();
     </script>
     {% block extra_js %}{% endblock %}
 <script>

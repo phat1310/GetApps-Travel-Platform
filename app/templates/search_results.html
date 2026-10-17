@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% from "_presence.html" import dot, label with context %}
+{% from "_maplinks.html" import map_chips %}
+
+{% block title %}Tìm kiếm: {{ q if q else 'Khám phá' }} — GetApps (GEs){% endblock %}
+
+{% block extra_css %}
+{% include "locations/_post_css.html" %}
+{% include "plans/_plan_css.html" %}
+<style>
+    /* Facebook-style Search Results Page */
+    .search-container {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 1rem 0.5rem 3rem;
+    }
+
+    /* Tabs Bar kiểu Facebook */
+    .search-tabs-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 6px 4px;
+        margin-bottom: 1.25rem;
+        border-bottom: 1px solid var(--ges-border, #e2e8f0);
+        scrollbar-width: none;
+    }
+    .search-tabs-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .search-tab-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 18px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #64748b;
+        background: transparent;
+        border: 1px solid transparent;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+    .search-tab-pill:hover {
+        background: rgba(14, 165, 233, 0.08);
+        color: #0284c7;
+    }
+    .search-tab-pill.active {
+        background: #0284c7;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    }
+    [data-bs-theme="dark"] .search-tabs-nav {
+        border-bottom-color: #334155;
+    }
+    [data-bs-theme="dark"] .search-tab-pill {
+        color: #94a3b8;
+    }
+    [data-bs-theme="dark"] .search-tab-pill:hover {
+        background: rgba(56, 189, 248, 0.12);
+        color: #38bdf8;
+    }
+    [data-bs-theme="dark"] .search-tab-pill.active {
+        background: #38bdf8;
+        color: #0f172a;
+    }
+
+    /* Section Cards & Headers */
+    .search-section {
+        margin-bottom: 2rem;
+    }
+    .search-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.85rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1.5px solid rgba(14, 165, 233, 0.15);
+    }
+    .search-section-title {
+        font-weight: 700;
+        font-size: 1.05rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--ges-text-primary, #0f172a);
+    }
+    [data-bs-theme="dark"] .search-section-title {
+        color: #f8fafc;
+    }
+
+    /* User Search Card */
+    .search-user-card {
+        background: var(--ges-card-bg, #ffffff);
+        border: 1px solid var(--ges-border, #e2e8f0);
+        border-radius: 16px;
+        padding: 1rem 1.15rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .search-user-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+    }
+    [data-bs-theme="dark"] .search-user-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+
+    .search-user-info {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        text-decoration: none;
+        color: inherit;
+        min-width: 0;
+        flex: 1;
+    }
+    .search-user-avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        object-fit: cover;
+        position: relative;
+        flex-shrink: 0;
+    }
+    .search-user-ph {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0284c7, #38bdf8);
+        color: #ffffff;
+        font-size: 1.25rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    /* Location Card */
+    .search-location-card {
+        background: var(--ges-card-bg, #ffffff);
+        border: 1px solid var(--ges-border, #e2e8f0);
+        border-radius: 16px;
+        padding: 1.15rem;
+        margin-bottom: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    [data-bs-theme="dark"] .search-location-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+
+    /* Empty state */
+    .search-empty-box {
+        text-align: center;
+        padding: 3.5rem 1.5rem;
+        background: var(--ges-card-bg, #ffffff);
+        border-radius: 20px;
+        border: 1px dashed var(--ges-border, #cbd5e1);
+        margin: 1.5rem 0;
+    }
+    [data-bs-theme="dark"] .search-empty-box {
+        background: #1e293b;
+        border-color: #334155;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-container">
+
+    <!-- Header tìm kiếm -->
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div>
+            {% if q %}
+                <h4 class="fw-bold mb-1">
+                    <i class="bi bi-search text-primary me-2"></i>Kết quả cho “<span class="text-primary">{{ q }}</span>”
+                </h4>
+                <div class="small text-muted">Tìm thấy {{ total_results }} kết quả phù hợp</div>
+            {% else %}
+                <h4 class="fw-bold mb-1">
+                    <i class="bi bi-compass text-primary me-2"></i>Tìm kiếm trên GetApps
+                </h4>
+                <div class="small text-muted">Khám phá mọi người, bài viết, địa điểm và hành trình du lịch</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 4 Tabs chuẩn Facebook -->
+    <nav class="search-tabs-nav" aria-label="Bộ lọc tìm kiếm">
+        <a class="search-tab-pill {{ 'active' if tab == 'all' }}" href="{{ url_for('auth.search_page', q=q, tab='all') }}">
+            <i class="bi bi-grid-fill"></i> Tất cả
+        </a>
+        <a class="search-tab-pill {{ 'active' if tab == 'users' }}" href="{{ url_for('auth.search_page', q=q, tab='users') }}">
+            <i class="bi bi-people-fill"></i> Mọi người {% if counts.users %}<span class="badge rounded-pill bg-light text-dark ms-1" style="font-size: 0.72rem;">{{ counts.users }}</span>{% endif %}
+        </a>
+        <a class="search-tab-pill {{ 'active' if tab == 'posts' }}" href="{{ url_for('auth.search_page', q=q, tab='posts') }}">
+            <i class="bi bi-file-earmark-richtext-fill"></i> Bài viết {% if counts.posts %}<span class="badge rounded-pill bg-light text-dark ms-1" style="font-size: 0.72rem;">{{ counts.posts }}</span>{% endif %}
+        </a>
+        <a class="search-tab-pill {{ 'active' if tab == 'locations' }}" href="{{ url_for('auth.search_page', q=q, tab='locations') }}">
+            <i class="bi bi-geo-alt-fill"></i> Địa điểm {% if counts.locations %}<span class="badge rounded-pill bg-light text-dark ms-1" style="font-size: 0.72rem;">{{ counts.locations }}</span>{% endif %}
+        </a>
+    </nav>
+
+    {% if not q %}
+        <!-- Trạng thái chưa nhập từ khóa -->
+        <div class="search-empty-box">
+            <div class="display-6 text-primary mb-3"><i class="bi bi-search-heart"></i></div>
+            <h5 class="fw-bold mb-2">Nhập từ khóa để bắt đầu tìm kiếm</h5>
+            <p class="text-muted small mb-0">Bạn có thể tìm kiếm theo tên bạn bè, chủ đề bài viết, địa điểm yêu thích hoặc tên hành trình du lịch.</p>
+        </div>
+    {% elif total_results == 0 %}
+        <!-- Không có kết quả -->
+        <div class="search-empty-box">
+            <div class="display-6 text-muted mb-3"><i class="bi bi-emoji-neutral"></i></div>
+            <h5 class="fw-bold mb-2">Không tìm thấy kết quả nào cho “{{ q }}”</h5>
+            <p class="text-muted small mb-0">Hãy thử kiểm tra lại chính tả hoặc tìm bằng từ khóa ngắn gọn hơn.</p>
+        </div>
+    {% else %}
+
+        <!-- ==================== TAB 1: TẤT CẢ (ALL) ==================== -->
+        {% if tab == 'all' %}
+
+            <!-- Khối 1: MỌI NGƯỜI (Ưu tiên đầu tiên theo yêu cầu) -->
+            {% if users %}
+            <section class="search-section">
+                <div class="search-section-header">
+                    <span class="search-section-title">
+                        <i class="bi bi-people-fill text-primary"></i> Mọi người
+                    </span>
+                    {% if users|length > 3 %}
+                    <a href="{{ url_for('auth.search_page', q=q, tab='users') }}" class="small text-primary text-decoration-none fw-semibold">
+                        Xem tất cả {{ users|length }} người dùng <i class="bi bi-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="search-user-list">
+                    {% for item in users[:3] %}
+                        {% set u = item.user %}
+                        <div class="search-user-card">
+                            <a href="{{ url_for('auth.profile', username=u.username) }}" class="search-user-info">
+                                <div class="position-relative">
+                                    {% if u.avatar_url %}
+                                        <img src="{{ u.avatar_url }}" alt="{{ u.username }}" class="search-user-avatar">
+                                    {% else %}
+                                        <div class="search-user-ph">{{ u.username[0]|upper }}</div>
+                                    {% endif %}
+                                    {{ dot(u) }}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="fw-bold text-dark fs-6 truncate">{{ u.nickname or u.full_name or u.username }}</div>
+                                    <div class="text-muted small truncate">@{{ u.username }} {% if u.profile_tag %}· <span class="text-primary">{{ u.profile_tag }}</span>{% endif %}</div>
+                                    <div class="small text-muted mt-1">{{ item.followers_count }} người theo dõi</div>
+                                </div>
+                            </a>
+                            <div>
+                                {% if current_user.is_authenticated and not item.is_self %}
+                                    <button type="button" class="btn btn-sm {{ 'btn-light text-muted' if item.is_following else 'btn-ges-primary' }} px-3 rounded-pill fw-semibold"
+                                            onclick="toggleFollowUser({{ u.id }}, this)" data-following="{{ 1 if item.is_following else 0 }}">
+                                        {{ 'Đang theo dõi' if item.is_following else 'Theo dõi' }}
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Khối 2: BÀI VIẾT NỔI BẬT (Xếp theo tương tác cao nhất) -->
+            {% if posts %}
+            <section class="search-section">
+                <div class="search-section-header">
+                    <span class="search-section-title">
+                        <i class="bi bi-file-earmark-richtext-fill text-primary"></i> Bài viết nổi bật
+                    </span>
+                    {% if posts|length > 3 %}
+                    <a href="{{ url_for('auth.search_page', q=q, tab='posts') }}" class="small text-primary text-decoration-none fw-semibold">
+                        Xem tất cả {{ posts|length }} bài viết <i class="bi bi-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="posts-feed">
+                    {% for post in posts[:3] %}
+                        {% include "locations/_post_card.html" %}
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Khối 3: LỊCH TRÌNH ĐỀ XUẤT (Xếp theo tương tác cao nhất) -->
+            {% if plans %}
+            <section class="search-section">
+                <div class="search-section-header">
+                    <span class="search-section-title">
+                        <i class="bi bi-map-fill text-primary"></i> Lịch trình gợi ý
+                    </span>
+                    {% if plans|length > 2 %}
+                    <a href="{{ url_for('auth.search_page', q=q, tab='locations') }}" class="small text-primary text-decoration-none fw-semibold">
+                        Xem thêm lịch trình <i class="bi bi-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="pl-list">
+                    {% for c in plans[:2] %}
+                        {% include "plans/_plan_card.html" %}
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Khối 4: ĐỊA ĐIỂM -->
+            {% if locations %}
+            <section class="search-section">
+                <div class="search-section-header">
+                    <span class="search-section-title">
+                        <i class="bi bi-geo-alt-fill text-primary"></i> Địa điểm liên quan
+                    </span>
+                    <a href="{{ url_for('auth.search_page', q=q, tab='locations') }}" class="small text-primary text-decoration-none fw-semibold">
+                        Xem chi tiết địa điểm <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+                <div class="row g-3">
+                    {% for loc in locations[:3] %}
+                    <div class="col-md-4">
+                        <div class="search-location-card h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-primary"><i class="bi bi-pin-map-fill me-1"></i>{{ loc.name }}</h6>
+                                <p class="small text-muted mb-2">{{ loc.address or 'Việt Nam' }}</p>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('auth.search_page', q=loc.name, tab='locations') }}" class="btn btn-sm btn-outline-primary rounded-pill flex-grow-1">
+                                    Xem bài viết
+                                </a>
+                                {% if loc.map_link %}
+                                <a href="{{ loc.map_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-light rounded-circle" title="Mở Google Maps">
+                                    <i class="bi bi-geo-alt"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+        <!-- ==================== TAB 2: MỌI NGƯỜI (USERS) ==================== -->
+        {% elif tab == 'users' %}
+            <div class="search-user-list">
+                {% for item in users %}
+                    {% set u = item.user %}
+                    <div class="search-user-card">
+                        <a href="{{ url_for('auth.profile', username=u.username) }}" class="search-user-info">
+                            <div class="position-relative">
+                                {% if u.avatar_url %}
+                                    <img src="{{ u.avatar_url }}" alt="{{ u.username }}" class="search-user-avatar">
+                                {% else %}
+                                    <div class="search-user-ph">{{ u.username[0]|upper }}</div>
+                                {% endif %}
+                                {{ dot(u) }}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="fw-bold text-dark fs-6 truncate">{{ u.nickname or u.full_name or u.username }}</div>
+                                <div class="text-muted small truncate">@{{ u.username }} {% if u.profile_tag %}· <span class="text-primary">{{ u.profile_tag }}</span>{% endif %}</div>
+                                <div class="small text-muted mt-1">{{ item.followers_count }} người theo dõi · {{ item.following_count }} đang theo dõi</div>
+                            </div>
+                        </a>
+                        <div>
+                            {% if current_user.is_authenticated and not item.is_self %}
+                                <button type="button" class="btn btn-sm {{ 'btn-light text-muted' if item.is_following else 'btn-ges-primary' }} px-3 rounded-pill fw-semibold"
+                                        onclick="toggleFollowUser({{ u.id }}, this)" data-following="{{ 1 if item.is_following else 0 }}">
+                                    {{ 'Đang theo dõi' if item.is_following else 'Theo dõi' }}
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="search-empty-box">
+                        <h6 class="fw-bold mb-1">Không tìm thấy người dùng phù hợp</h6>
+                        <p class="text-muted small mb-0">Thử tìm kiếm với tên hoặc nickname khác.</p>
+                    </div>
+                {% endfor %}
+            </div>
+
+        <!-- ==================== TAB 3: BÀI VIẾT (POSTS) ==================== -->
+        {% elif tab == 'posts' %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="small text-muted">Sắp xếp theo: <b>Độ tương tác cao nhất</b> <i class="bi bi-sort-down"></i></span>
+            </div>
+            <div class="posts-feed">
+                {% for post in posts %}
+                    {% include "locations/_post_card.html" %}
+                {% else %}
+                    <div class="search-empty-box">
+                        <h6 class="fw-bold mb-1">Chưa có bài viết nào khớp với “{{ q }}”</h6>
+                        <p class="text-muted small mb-0">Hãy thử tìm theo tên địa điểm hoặc hashtag liên quan.</p>
+                    </div>
+                {% endfor %}
+            </div>
+
+        <!-- ==================== TAB 4: ĐỊA ĐIỂM (LOCATIONS) ==================== -->
+        {% elif tab == 'locations' %}
+            {% if locations %}
+                <div class="row g-3 mb-4">
+                    {% for loc in locations %}
+                    <div class="col-md-6">
+                        <div class="search-location-card h-100">
+                            <h5 class="fw-bold text-primary mb-1"><i class="bi bi-pin-map-fill me-2"></i>{{ loc.name }}</h5>
+                            <p class="small text-muted mb-3">{{ loc.address or 'Việt Nam' }}</p>
+                            {% if loc.map_link %}
+                            <a href="{{ loc.map_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary rounded-pill">
+                                <i class="bi bi-geo-alt me-1"></i>Xem trên Google Maps
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Bài viết về địa điểm -->
+            <div class="mb-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-file-earmark-richtext-fill text-primary me-2"></i>Bài viết tại địa điểm (Tương tác cao nhất)</h6>
+                <div class="posts-feed">
+                    {% for post in location_posts %}
+                        {% include "locations/_post_card.html" %}
+                    {% else %}
+                        <p class="text-muted small">Chưa có bài viết nào gắn thẻ địa điểm này.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Lịch trình về địa điểm -->
+            <div>
+                <h6 class="fw-bold mb-3"><i class="bi bi-map-fill text-primary me-2"></i>Lịch trình du lịch tại địa điểm</h6>
+                <div class="pl-list">
+                    {% for c in location_plans %}
+                        {% include "plans/_plan_card.html" %}
+                    {% else %}
+                        <p class="text-muted small">Chưa có lịch trình nào đến địa điểm này.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+        {% endif %}
+
+    {% endif %}
+
+</div>
+
+{% include "locations/_post_modals.html" %}
+{% include "plans/_plan_modals.html" %}
+{% endblock %}
+
+{% block extra_js %}
+{% include "locations/_post_js.html" %}
+{% include "plans/_plan_js.html" %}
+<script>
+    // AJAX: Follow / Unfollow user
+    async function toggleFollowUser(userId, btn) {
+        const isFollowing = btn.dataset.following === "1";
+        const url = isFollowing ? `/unfollow/${userId}` : `/follow/${userId}`;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            if (res.ok) {
+                if (isFollowing) {
+                    btn.dataset.following = "0";
+                    btn.innerText = "Theo dõi";
+                    btn.classList.remove('btn-light', 'text-muted');
+                    btn.classList.add('btn-ges-primary');
+                } else {
+                    btn.dataset.following = "1";
+                    btn.innerText = "Đang theo dõi";
+                    btn.classList.remove('btn-ges-primary');
+                    btn.classList.add('btn-light', 'text-muted');
+                }
+            }
+        } catch (err) {
+            console.error("Lỗi toggle follow:", err);
+        }
+    }
+</script>
+{% endblock %}

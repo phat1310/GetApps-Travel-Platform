@@ -50,13 +50,17 @@ from app.models import (
     Comment,
     Follow,
     Itinerary,
+    ItineraryStop,
+    ItineraryLodging,
     Like,
     Location,
     Notification,
     Photo,
     Post,
     SavedPost,
+    Share,
     User,
+    Hashtag,
 )
 
 from app.auth.tags import normalize_tags, hashtag_for, FIXED_TAG_HASHTAGS
@@ -92,6 +96,236 @@ def explore():
         recent_posts=recent_posts,
         featured_plans=featured_plans
     )
+
+
+# =========================================================
+# TÌM KIẾM TOÀN DIỆN (UNIVERSAL SEARCH) — CHUẨN FACEBOOK FEED
+# =========================================================
+
+@auth_bp.route('/search', methods=['GET'])
+def search_page():
+    """Trang kết quả tìm kiếm đa đối tượng: User, Bài viết, Lịch trình, Địa điểm.
+    Sắp xếp theo độ tương tác (Engagement Score: Like, Comment, Share).
+    Bảo vệ quyền riêng tư qua can_view_post và can_view_itinerary.
+    """
+    from app.locations.routes import build_post_cards
+    from app.plans.routes import cards_for_profile
+
+    q = (request.args.get('q') or '').strip()
+    tab = (request.args.get('tab') or 'all').strip().lower()
+    if tab not in ('all', 'users', 'posts', 'locations'):
+        tab = 'all'
+
+    viewer_id = current_user.id if current_user.is_authenticated else None
+    viewer_follow = viewer_follow_set(viewer_id)
+
+    matched_users = []
+    matched_posts = []
+    matched_plans = []
+    matched_locations = []
+    location_posts = []
+    location_plans = []
+
+    if q:
+        ql = q.lower()
+        # 1. TÌM USER (Tên, username, nickname, profile_tag, tags)
+        users_query = User.query.filter(
+            or_(
+                User.username.ilike(f"%{q}%"),
+                User.nickname.ilike(f"%{q}%"),
+                User.full_name.ilike(f"%{q}%"),
+                User.profile_tag.ilike(f"%{q}%"),
+                User.tags.ilike(f"%{q}%")
+            )
+        ).all()
+
+        user_cards = []
+        for u in users_query:
+            rel = 0
+            u_name = (u.username or '').lower()
+            u_nick = (u.nickname or '').lower()
+            u_full = (u.full_name or '').lower()
+            if u_name == ql:
+                rel += 1000
+            elif u_name.startswith(ql):
+                rel += 500
+            elif u_nick == ql:
+                rel += 400
+            elif u_full == ql:
+                rel += 300
+            elif ql in u_name:
+                rel += 200
+            else:
+                rel += 100
+
+            followers_count = Follow.query.filter_by(followed_id=u.id).count()
+            following_count = Follow.query.filter_by(follower_id=u.id).count()
+            is_following = bool(viewer_id and u.id in viewer_follow)
+            user_cards.append({
+                "user": u,
+                "relevance": rel + followers_count,
+                "followers_count": followers_count,
+                "following_count": following_count,
+                "is_following": is_following,
+                "is_self": bool(viewer_id and viewer_id == u.id)
+            })
+        user_cards.sort(key=lambda x: x["relevance"], reverse=True)
+        matched_users = user_cards
+
+        # 2. TÌM BÀI ĐĂNG (Caption, Hashtag) — Sắp xếp theo tương tác cao nhất
+        post_query = Post.query.outerjoin(Post.hashtags).filter(
+            or_(
+                Post.caption.ilike(f"%{q}%"),
+                Hashtag.name.ilike(f"%{q}%")
+            )
+        ).distinct().all()
+
+        viewable_posts = [p for p in post_query if can_view_post(p, viewer_id, viewer_follow)]
+
+        scored_posts = []
+        for p in viewable_posts:
+            l_cnt = Like.query.filter_by(post_id=p.id).count()
+            c_cnt = Comment.query.filter_by(post_id=p.id).count()
+            s_cnt = Share.query.filter_by(post_id=p.id).count()
+            score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
+            if ql in (p.caption or '').lower():
+                score += 10
+            scored_posts.append((score, p))
+        scored_posts.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
+        sorted_posts = [item[1] for item in scored_posts]
+        matched_posts = build_post_cards(sorted_posts, viewer_id)
+
+        # 3. TÌM LỊCH TRÌNH (Tiêu đề, điểm đến, loại chuyến đi, địa điểm ghé)
+        itin_query = Itinerary.query.filter(
+            or_(
+                Itinerary.title.ilike(f"%{q}%"),
+                Itinerary.destination.ilike(f"%{q}%"),
+                Itinerary.description.ilike(f"%{q}%"),
+                Itinerary.trip_type.ilike(f"%{q}%")
+            )
+        ).all()
+
+        stops_matching = ItineraryStop.query.filter(
+            or_(
+                ItineraryStop.activity_name.ilike(f"%{q}%"),
+                ItineraryStop.note.ilike(f"%{q}%")
+            )
+        ).all()
+        itin_ids = {p.id for p in itin_query}
+        for st in stops_matching:
+            if st.day and st.day.itinerary and st.day.itinerary.id not in itin_ids:
+                itin_query.append(st.day.itinerary)
+                itin_ids.add(st.day.itinerary.id)
+
+        viewable_plans = [p for p in itin_query if can_view_itinerary(p, viewer_id, viewer_follow)]
+
+        scored_plans = []
+        for it in viewable_plans:
+            l_cnt = Like.query.filter_by(itinerary_id=it.id).count()
+            c_cnt = Comment.query.filter_by(itinerary_id=it.id).count()
+            s_cnt = Share.query.filter_by(itinerary_id=it.id).count()
+            save_cnt = SavedPost.query.filter_by(itinerary_id=it.id).count()
+            score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4 + save_cnt * 3
+            if ql in (it.title or '').lower():
+                score += 10
+            scored_plans.append((score, it))
+        scored_plans.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
+        sorted_plans = [item[1] for item in scored_plans]
+        matched_plans = cards_for_profile(sorted_plans, viewer_id)
+
+        # 4. TÌM ĐỊA ĐIỂM (Location + bài đăng & lịch trình gắn thẻ địa điểm đó)
+        locs = Location.query.filter(
+            or_(
+                Location.name.ilike(f"%{q}%"),
+                Location.slug.ilike(f"%{q}%"),
+                Location.address.ilike(f"%{q}%")
+            )
+        ).all()
+        matched_locations = locs
+
+        loc_ids = [l.id for l in locs]
+        if loc_ids:
+            # Bài viết thuộc các địa điểm này
+            p_loc = Post.query.filter(Post.location_id.in_(loc_ids)).all()
+            v_p_loc = [p for p in p_loc if can_view_post(p, viewer_id, viewer_follow)]
+            scored_loc_p = []
+            for p in v_p_loc:
+                l_cnt = Like.query.filter_by(post_id=p.id).count()
+                c_cnt = Comment.query.filter_by(post_id=p.id).count()
+                s_cnt = Share.query.filter_by(post_id=p.id).count()
+                score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
+                scored_loc_p.append((score, p))
+            scored_loc_p.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
+            location_posts = build_post_cards([item[1] for item in scored_loc_p], viewer_id)
+
+            # Lịch trình thuộc các địa điểm này
+            pl_loc = Itinerary.query.filter(Itinerary.location_id.in_(loc_ids)).all()
+            v_pl_loc = [p for p in pl_loc if can_view_itinerary(p, viewer_id, viewer_follow)]
+            scored_loc_pl = []
+            for it in v_pl_loc:
+                l_cnt = Like.query.filter_by(itinerary_id=it.id).count()
+                c_cnt = Comment.query.filter_by(itinerary_id=it.id).count()
+                s_cnt = Share.query.filter_by(itinerary_id=it.id).count()
+                score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
+                scored_loc_pl.append((score, it))
+            scored_loc_pl.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
+            location_plans = cards_for_profile([item[1] for item in scored_loc_pl], viewer_id)
+
+    counts = {
+        "users": len(matched_users),
+        "posts": len(matched_posts),
+        "plans": len(matched_plans),
+        "locations": len(matched_locations)
+    }
+    total_results = sum(counts.values())
+
+    return render_template(
+        'search_results.html',
+        q=q,
+        tab=tab,
+        users=matched_users,
+        posts=matched_posts,
+        plans=matched_plans,
+        locations=matched_locations,
+        location_posts=location_posts,
+        location_plans=location_plans,
+        counts=counts,
+        total_results=total_results
+    )
+
+
+@auth_bp.route('/search/suggest', methods=['GET'])
+def search_suggest():
+    """API gợi ý nhanh khi người dùng gõ tìm kiếm ở Topbar."""
+    q = (request.args.get('q') or '').strip()
+    if not q or len(q) < 2:
+        return jsonify({"users": [], "locations": []})
+
+    users = User.query.filter(
+        or_(
+            User.username.ilike(f"%{q}%"),
+            User.nickname.ilike(f"%{q}%"),
+            User.full_name.ilike(f"%{q}%")
+        )
+    ).limit(5).all()
+
+    locs = Location.query.filter(Location.name.ilike(f"%{q}%")).limit(3).all()
+
+    return jsonify({
+        "users": [{
+            "id": u.id,
+            "username": u.username,
+            "name": u.nickname or u.full_name or u.username,
+            "avatar_url": u.avatar_url or f"https://ui-avatars.com/api/?name={u.username}&background=169fe3&color=fff",
+            "profile_url": url_for('auth.profile', username=u.username)
+        } for u in users],
+        "locations": [{
+            "id": l.id,
+            "name": l.name,
+            "address": l.address or "",
+            "search_url": url_for('auth.search_page', q=l.name, tab='locations')
+        } for l in locs]
+    })
 
 
 # =========================================================
