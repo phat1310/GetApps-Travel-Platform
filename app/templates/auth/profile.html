@@ -146,6 +146,16 @@
     .stats-row.stats-4 .stats-card { padding: 0.75rem 0.35rem; }
     .stats-row.stats-4 .stats-label { font-size: 0.62rem; letter-spacing: 0; white-space: nowrap; }
     .stats-row .stats-card { display: flex; flex-direction: column; justify-content: center; }
+    /* Khung hồ sơ co giãn theo BỀ RỘNG CỦA THẺ (không theo cửa sổ): đủ chỗ thì 2 cột, chật thì tự xếp chồng.
+       Nhờ vậy 4 ô thống kê không bị tràn/cắt khi mở cửa sổ nhỏ (profile-flow) */
+    .profile-header-card > .row > .col-md-7 { flex: 7 1 340px; width: auto; max-width: 100%; min-width: 0; }
+    .profile-header-card > .row > .col-md-5 { flex: 5 1 330px; width: auto; max-width: 100%; min-width: 0; }
+    .stats-row .stats-card { min-width: 0; overflow: hidden; }
+    /* Điện thoại rất hẹp: 4 ô xếp 2 x 2 cho đủ chỗ, chữ không bị cắt */
+    @media (max-width: 440px) {
+        .stats-row.stats-4 { flex-wrap: wrap; }
+        .stats-row.stats-4 .stats-card { flex: 1 1 calc(50% - .5rem); }
+    }
     .stats-like .stats-number { color: #dc2626; }
     .stats-like:hover { background: #fee2e2; }
     /* Cửa sổ nổi Lượt thích / Follower / Following */
