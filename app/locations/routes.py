@@ -80,7 +80,8 @@ def visible_itinerary_or_404(itinerary_id):
 @login_required
 def create_post():
     if request.method == "GET":
-        return render_template("locations/upload.html")
+        # Trang riêng đã bỏ: mở hộp "Tạo mới" (nút máy bay) ở tab Đăng bài
+        return redirect(url_for("locations.feed", compose="post"))
 
     files = request.files.getlist("images")
     is_browser_form = request.accept_mimetypes.accept_html and not request.is_json and request.headers.get("X-Requested-With") != "XMLHttpRequest"
@@ -1681,4 +1682,4 @@ def upload_stop_image(stop_id):
 @locations_bp.route("/itineraries/new", methods=["GET"])
 @login_required
 def new_itinerary_page():
-    return render_template("itinerary_create.html")
+    return redirect(url_for("locations.feed", compose="plan"))

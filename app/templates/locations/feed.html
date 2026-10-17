@@ -78,9 +78,9 @@
                 <h5 class="fw-bold mt-3 mb-1">Chưa có bài viết nào trên bảng tin</h5>
                 <p class="text-muted mb-4">Hãy là người đầu tiên chia sẻ hành trình du lịch tuyệt đẹp của bạn hoặc theo dõi bạn bè!</p>
                 <div class="d-flex justify-content-center gap-2">
-                    <a href="{{ url_for('locations.create_post') }}" class="btn btn-ges-primary">
+                    <button type="button" class="btn btn-ges-primary" onclick="openQuickCreate('post')">
                         <i class="bi bi-camera-fill me-1"></i> Đăng bài ngay
-                    </a>
+                    </button>
                 </div>
             </div>
         {% endif %}

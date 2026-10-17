@@ -450,6 +450,9 @@ def _required_error(title, destination, trip_type, start, end, participants, bud
 @login_required
 def create():
     """Tạo lịch trình du lịch mới."""
+    if request.method == 'GET':
+        # Trang riêng đã bỏ: dùng hộp "Tạo mới" (nút máy bay) ở mọi trang, mở sẵn tab Đăng lịch trình
+        return redirect(url_for('locations.feed', compose='plan'))
     form = PlanCreateForm()
 
     # 1. API JSON tạo lịch trình

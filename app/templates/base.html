@@ -1541,6 +1541,27 @@
             }
         }
 
+        // Mở hộp "Tạo mới" ở tab 'post' hoặc 'plan' (dùng cho nút "Đăng bài đầu tiên" ở trang cá nhân...)
+        function openQuickCreate(tab) {
+            const el = document.getElementById('quickCreateModal');
+            if (!el || typeof bootstrap === 'undefined') return;
+            switchQuickCreateTab(tab === 'plan' ? 'plan' : 'post');
+            bootstrap.Modal.getOrCreateInstance(el).show();
+        }
+        window.openQuickCreate = openQuickCreate;
+        // Đến từ liên kết cũ /locations/upload, /plans/create... -> mở sẵn hộp rồi bỏ ?compose khỏi thanh địa chỉ
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                const u = new URL(window.location.href);
+                const c = u.searchParams.get('compose');
+                if (c === 'post' || c === 'plan') {
+                    u.searchParams.delete('compose');
+                    history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+                    setTimeout(function () { openQuickCreate(c); }, 150);
+                }
+            } catch (e) { /* trình duyệt cũ: bỏ qua */ }
+        });
+
         function switchQcDay(day) {
             currentQcDay = day;
             document.querySelectorAll('.qc-day-tab').forEach(btn => {

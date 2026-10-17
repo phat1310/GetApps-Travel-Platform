@@ -858,6 +858,24 @@ def update_contact():
     })
 
 
+@auth_bp.route("/profile/bio", methods=["POST"])
+@login_required
+def update_bio():
+    """Lưu tiểu sử (bio) của người dùng. Nhận JSON {"bio": "..."}; rỗng = xoá tiểu sử."""
+    data = request.get_json(silent=True) or {}
+    bio = data.get("bio", "")
+    if bio is None:
+        bio = ""
+    if not isinstance(bio, str):
+        return jsonify({"error": "Tiểu sử không hợp lệ."}), 400
+    bio = bio.strip()
+    if len(bio) > 255:
+        return jsonify({"error": "Tiểu sử tối đa 255 ký tự (hiện tại %d)." % len(bio)}), 400
+    current_user.bio = bio or None
+    db.session.commit()
+    return jsonify({"bio": current_user.bio or ""})
+
+
 @auth_bp.route("/csrf-token", methods=["GET"])
 def csrf_token():
     """Lấy CSRF token cho AJAX/Single Page requests."""

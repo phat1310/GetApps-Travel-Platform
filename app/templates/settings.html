@@ -413,7 +413,7 @@
     const CSRF_TOKEN = "{{ csrf_token() }}";
     const LOGIN_URL = "{{ url_for('auth.login') }}";
     const API = {                    // endpoint do Trúc làm. Điền URL là hoạt động, null = chưa có
-        bio: null,                   // ví dụ "/profile/update", nhận JSON {"bio": "..."}
+        bio: "/profile/bio",            // nhận JSON {"bio": "..."}
         privacy: "/profile/privacy"  // nhận JSON {"is_private": true}
     };
     const MAX_TAGS = 3;
@@ -667,7 +667,6 @@
     $("f-bio").addEventListener("submit", function (e) {
         e.preventDefault();
         run(e.target, async function (box) {
-            if (!API.bio) return alertIn(box, "warning", "Chức năng lưu tiểu sử đang chờ API của Trúc, chưa lưu được.");
             const v = $("in-bio").value.trim();
             const r = await postJson(API.bio, {bio: v});
             if (!r.ok) return alertIn(box, "danger", errText(r));

@@ -313,9 +313,9 @@
                     <p class="text-muted small">Người dùng này chưa đăng bài viết hoặc chuyến đi nào.</p>
                     {% if current_user.is_authenticated and current_user.id == profile_user.id %}
                         <div>
-                            <a href="{{ url_for('locations.create_post') }}" class="btn btn-ges-primary btn-sm">
+                            <button type="button" class="btn btn-ges-primary btn-sm" onclick="openQuickCreate('post')">
                                 <i class="bi bi-plus-lg me-1"></i> Đăng bài đầu tiên
-                            </a>
+                            </button>
                         </div>
                     {% endif %}
                 </div>
@@ -333,7 +333,15 @@
             {% else %}
                 <div class="card border-0 shadow-sm p-5 text-center bg-white rounded-3">
                     <i class="bi bi-map text-muted" style="font-size: 3rem;"></i>
-                    <h6 class="fw-bold mt-3 mb-0">Chưa đăng lịch trình</h6>
+                    <h6 class="fw-bold mt-3 mb-{% if current_user.is_authenticated and current_user.id == profile_user.id %}1{% else %}0{% endif %}">Chưa đăng lịch trình</h6>
+                    {% if current_user.is_authenticated and current_user.id == profile_user.id %}
+                        <p class="text-muted small">Hãy chia sẻ chuyến đi đầu tiên của bạn với cộng đồng.</p>
+                        <div>
+                            <button type="button" class="btn btn-ges-primary btn-sm" onclick="openQuickCreate('plan')">
+                                <i class="bi bi-plus-lg me-1"></i> Đăng lịch trình đầu tiên
+                            </button>
+                        </div>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
