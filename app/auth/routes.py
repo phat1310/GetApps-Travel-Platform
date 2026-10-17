@@ -1221,9 +1221,8 @@ def google_callback():
         db.session.commit()
 
     login_user(user)
-    return jsonify({
-        "message": "Đăng nhập Google thành công",
-        "user_id": user.id,
-        "username": user.username,
-        "profile_completed": user.profile_completed,
-    })
+
+    if not user.profile_completed:
+        return redirect(url_for("auth.onboarding"))
+
+    return redirect(url_for("auth.index"))
