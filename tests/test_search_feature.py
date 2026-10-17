@@ -127,3 +127,28 @@ def test_search_locations_dataset(client):
     # Địa điểm trả về có liên quan tới Đà Lạt / Lâm Đồng
     assert any("Lâm Đồng" in loc["address"] or "Đà Lạt" in loc["name"] for loc in suggest_data["locations"])
 
+
+def test_search_posts_by_location_and_unaccented_hashtag(client, app, users):
+    """Tìm 'Đà Lạt' (có dấu) phải tìm thấy bài viết có hashtag #dalat (không dấu) hoặc gắn location Đà Lạt."""
+    with app.app_context():
+        u1_id = users["user1"].id
+        loc = Location(name="Đà Lạt", address="Lâm Đồng", slug="da-lat")
+        db.session.add(loc)
+        db.session.commit()
+
+        p = Post(user_id=u1_id, caption="Quá tuyệt vời #vietnam #chill #dalat", location_id=loc.id, visibility="public")
+        db.session.add(p)
+        db.session.commit()
+
+    # Tìm với 'Đà Lạt' (có dấu) trong Tab posts
+    res = client.get('/search?q=Đà Lạt&tab=posts')
+    assert res.status_code == 200
+    assert "Quá tuyệt vời".encode('utf-8') in res.data
+    assert "#dalat".encode('utf-8') in res.data
+
+    # Tìm với 'da lat' (không dấu) trong Tab posts
+    res_no_accent = client.get('/search?q=da lat&tab=posts')
+    assert res_no_accent.status_code == 200
+    assert "Quá tuyệt vời".encode('utf-8') in res_no_accent.data
+
+

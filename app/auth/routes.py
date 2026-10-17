@@ -8,6 +8,7 @@ import os
 import random
 import re
 import secrets
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -103,11 +104,39 @@ def explore():
 # TÌM KIẾM TOÀN DIỆN (UNIVERSAL SEARCH) — CHUẨN FACEBOOK FEED
 # =========================================================
 
+def search_variants(q):
+    """Sinh các biến thể của từ khóa tìm kiếm:
+    - Chuỗi gốc (e.g. 'Đà Lạt')
+    - Chuỗi thường (e.g. 'đà lạt')
+    - Chuỗi không dấu có dấu cách (e.g. 'da lat')
+    - Chuỗi không dấu viết liền (e.g. 'dalat')
+    """
+    raw = (q or "").strip()
+    if not raw:
+        return []
+    variants = set()
+    variants.add(raw)
+    variants.add(raw.lower())
+
+    s = unicodedata.normalize("NFD", raw).replace("đ", "d").replace("Đ", "D")
+    unaccented_with_spaces = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    unaccented_clean = re.sub(r"\s+", " ", unaccented_with_spaces).strip().lower()
+    if unaccented_clean:
+        variants.add(unaccented_clean)
+
+    compact = norm_text(raw)
+    if compact:
+        variants.add(compact)
+
+    return [v for v in variants if v]
+
+
 @auth_bp.route('/search', methods=['GET'])
 def search_page():
     """Trang kết quả tìm kiếm đa đối tượng: User, Bài viết, Lịch trình, Địa điểm.
     Sắp xếp theo độ tương tác (Engagement Score: Like, Comment, Share).
     Bảo vệ quyền riêng tư qua can_view_post và can_view_itinerary.
+    Hỗ trợ tiếng Việt có dấu, không dấu và liên kết địa danh tự động.
     """
     from app.locations.routes import build_post_cards
     from app.plans.routes import cards_for_profile
@@ -129,16 +158,67 @@ def search_page():
 
     if q:
         ql = q.lower()
-        # 1. TÌM USER (Tên, username, nickname, profile_tag, tags)
-        users_query = User.query.filter(
-            or_(
-                User.username.ilike(f"%{q}%"),
-                User.nickname.ilike(f"%{q}%"),
-                User.full_name.ilike(f"%{q}%"),
-                User.profile_tag.ilike(f"%{q}%"),
-                User.tags.ilike(f"%{q}%")
+        qn = norm_text(q)
+        q_vars = search_variants(q)
+
+        # 1. TÌM ĐỊA ĐIỂM (Dataset hành chính Việt Nam + CSDL Location)
+        # Thực hiện trước để trích xuất matched_db_loc_ids phục vụ lọc Bài viết & Lịch trình
+        matched_locations = []
+        loc_codes = set()
+        matched_db_loc_ids = set()
+
+        # 1.1. Dataset chuẩn hành chính Việt Nam (34 tỉnh/thành, phường/xã, địa danh du lịch)
+        real_places = places.search(q, limit=12)
+        real_place_codes = {rp["code"] for rp in real_places if rp.get("code")}
+        for rp in real_places:
+            loc_codes.add(rp["code"])
+            map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(rp['label'])}"
+            kind_label = "Tỉnh / Thành phố" if rp.get("kind") == "province" else "Phường / Xã / Đặc khu"
+            matched_locations.append({
+                "code": rp["code"],
+                "name": rp["name"],
+                "full_name": rp["label"],
+                "kind": rp.get("kind"),
+                "kind_label": kind_label,
+                "note": rp.get("note") or rp.get("via") or "",
+                "map_link": map_url,
+                "is_real_place": True
+            })
+
+        # 1.2. Tìm thêm các địa điểm đã lưu trong CSDL khớp với từ khóa hoặc mã đơn vị hành chính
+        for dl in Location.query.all():
+            dl_norm = norm_text(dl.name or "")
+            dl_addr_norm = norm_text(dl.address or "")
+            dl_slug_norm = norm_text(dl.slug or "")
+            matches = (
+                (dl.code and dl.code in real_place_codes) or
+                any(v in (dl.name or '').lower() or v in (dl.address or '').lower() for v in q_vars) or
+                any(norm_text(v) in dl_norm or norm_text(v) in dl_addr_norm or norm_text(v) in dl_slug_norm for v in q_vars if norm_text(v))
             )
-        ).all()
+            if matches:
+                matched_db_loc_ids.add(dl.id)
+                if dl.code not in loc_codes:
+                    matched_locations.append({
+                        "id": dl.id,
+                        "code": dl.code,
+                        "name": dl.name,
+                        "full_name": dl.address or dl.name,
+                        "kind": dl.kind or "location",
+                        "kind_label": "Địa điểm",
+                        "note": dl.address or "",
+                        "map_link": dl.map_link or f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(dl.name)}",
+                        "is_real_place": True
+                    })
+
+        # 2. TÌM USER (Tên, username, nickname, profile_tag, tags) — Hỗ trợ đa biến thể tiếng Việt
+        user_filters = []
+        for var in q_vars:
+            user_filters.append(User.username.ilike(f"%{var}%"))
+            user_filters.append(User.nickname.ilike(f"%{var}%"))
+            user_filters.append(User.full_name.ilike(f"%{var}%"))
+            user_filters.append(User.profile_tag.ilike(f"%{var}%"))
+            user_filters.append(User.tags.ilike(f"%{var}%"))
+        users_query = User.query.filter(or_(*user_filters)).all()
 
         user_cards = []
         for u in users_query:
@@ -146,15 +226,15 @@ def search_page():
             u_name = (u.username or '').lower()
             u_nick = (u.nickname or '').lower()
             u_full = (u.full_name or '').lower()
-            if u_name == ql:
+            if u_name == ql or norm_text(u_name) == qn:
                 rel += 1000
-            elif u_name.startswith(ql):
+            elif u_name.startswith(ql) or norm_text(u_name).startswith(qn):
                 rel += 500
-            elif u_nick == ql:
+            elif u_nick == ql or norm_text(u_nick) == qn:
                 rel += 400
-            elif u_full == ql:
+            elif u_full == ql or norm_text(u_full) == qn:
                 rel += 300
-            elif ql in u_name:
+            elif ql in u_name or qn in norm_text(u_name):
                 rel += 200
             else:
                 rel += 100
@@ -173,13 +253,25 @@ def search_page():
         user_cards.sort(key=lambda x: x["relevance"], reverse=True)
         matched_users = user_cards
 
-        # 2. TÌM BÀI ĐĂNG (Caption, Hashtag) — Sắp xếp theo tương tác cao nhất
-        post_query = Post.query.outerjoin(Post.hashtags).filter(
-            or_(
-                Post.caption.ilike(f"%{q}%"),
-                Hashtag.name.ilike(f"%{q}%")
-            )
-        ).distinct().all()
+        # 3. TÌM BÀI ĐĂNG (Caption, Hashtag, Địa điểm gắn thẻ) — Sắp xếp theo tương tác cao nhất
+        post_filters = []
+        for var in q_vars:
+            post_filters.append(Post.caption.ilike(f"%{var}%"))
+            post_filters.append(Hashtag.name.ilike(f"%{var}%"))
+        if matched_db_loc_ids:
+            post_filters.append(Post.location_id.in_(list(matched_db_loc_ids)))
+
+        post_query = Post.query.outerjoin(Post.hashtags).filter(or_(*post_filters)).distinct().all()
+
+        # Quét bổ sung qua norm_text để không bỏ sót các hashtag dính liền không dấu (#dalat)
+        existing_p_ids = {p.id for p in post_query}
+        for p in Post.query.order_by(Post.created_at.desc()).limit(300).all():
+            if p.id in existing_p_ids:
+                continue
+            cap_norm = norm_text(p.caption or "")
+            if any(norm_text(v) in cap_norm for v in q_vars if norm_text(v)):
+                post_query.append(p)
+                existing_p_ids.add(p.id)
 
         viewable_posts = [p for p in post_query if can_view_post(p, viewer_id, viewer_follow)]
 
@@ -189,29 +281,30 @@ def search_page():
             c_cnt = Comment.query.filter_by(post_id=p.id).count()
             s_cnt = Share.query.filter_by(post_id=p.id).count()
             score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
-            if ql in (p.caption or '').lower():
+            if any(v in (p.caption or '').lower() or norm_text(v) in norm_text(p.caption or '') for v in q_vars if v):
                 score += 10
             scored_posts.append((score, p))
         scored_posts.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
         sorted_posts = [item[1] for item in scored_posts]
         matched_posts = build_post_cards(sorted_posts, viewer_id)
+        location_posts = matched_posts
 
-        # 3. TÌM LỊCH TRÌNH (Tiêu đề, điểm đến, loại chuyến đi, địa điểm ghé)
-        itin_query = Itinerary.query.filter(
-            or_(
-                Itinerary.title.ilike(f"%{q}%"),
-                Itinerary.destination.ilike(f"%{q}%"),
-                Itinerary.description.ilike(f"%{q}%"),
-                Itinerary.trip_type.ilike(f"%{q}%")
-            )
-        ).all()
+        # 4. TÌM LỊCH TRÌNH (Tiêu đề, điểm đến, loại chuyến đi, địa điểm ghé)
+        itin_filters = []
+        for var in q_vars:
+            itin_filters.append(Itinerary.title.ilike(f"%{var}%"))
+            itin_filters.append(Itinerary.destination.ilike(f"%{var}%"))
+            itin_filters.append(Itinerary.description.ilike(f"%{var}%"))
+            itin_filters.append(Itinerary.trip_type.ilike(f"%{var}%"))
+        if matched_db_loc_ids:
+            itin_filters.append(Itinerary.location_id.in_(list(matched_db_loc_ids)))
+        itin_query = Itinerary.query.filter(or_(*itin_filters)).all()
 
-        stops_matching = ItineraryStop.query.filter(
-            or_(
-                ItineraryStop.activity_name.ilike(f"%{q}%"),
-                ItineraryStop.note.ilike(f"%{q}%")
-            )
-        ).all()
+        stop_filters = []
+        for var in q_vars:
+            stop_filters.append(ItineraryStop.activity_name.ilike(f"%{var}%"))
+            stop_filters.append(ItineraryStop.note.ilike(f"%{var}%"))
+        stops_matching = ItineraryStop.query.filter(or_(*stop_filters)).all()
         itin_ids = {p.id for p in itin_query}
         for st in stops_matching:
             if st.day and st.day.itinerary and st.day.itinerary.id not in itin_ids:
@@ -227,92 +320,13 @@ def search_page():
             s_cnt = Share.query.filter_by(itinerary_id=it.id).count()
             save_cnt = SavedPost.query.filter_by(itinerary_id=it.id).count()
             score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4 + save_cnt * 3
-            if ql in (it.title or '').lower():
+            if any(v in (it.title or '').lower() or norm_text(v) in norm_text(it.title or '') for v in q_vars if v):
                 score += 10
             scored_plans.append((score, it))
         scored_plans.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
         sorted_plans = [item[1] for item in scored_plans]
         matched_plans = cards_for_profile(sorted_plans, viewer_id)
-
-        # 4. TÌM ĐỊA ĐIỂM (Dataset hành chính Việt Nam thanglequoc/vietnamese-provinces-database + CSDL Location)
-        matched_locations = []
-        loc_codes = set()
-        matched_db_loc_ids = set()
-
-        # 4.1. Dataset chuẩn hành chính Việt Nam (34 tỉnh/thành, phường/xã, địa danh du lịch)
-        real_places = places.search(q, limit=12)
-        for rp in real_places:
-            loc_codes.add(rp["code"])
-            map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(rp['label'])}"
-            kind_label = "Tỉnh / Thành phố" if rp.get("kind") == "province" else "Phường / Xã / Đặc khu"
-            matched_locations.append({
-                "code": rp["code"],
-                "name": rp["name"],
-                "full_name": rp["label"],
-                "kind": rp.get("kind"),
-                "kind_label": kind_label,
-                "note": rp.get("note") or rp.get("via") or "",
-                "map_link": map_url,
-                "is_real_place": True
-            })
-
-        # 4.2. Tìm thêm các địa điểm đã lưu trong CSDL
-        db_locs = Location.query.filter(
-            or_(
-                Location.name.ilike(f"%{q}%"),
-                Location.slug.ilike(f"%{q}%"),
-                Location.address.ilike(f"%{q}%")
-            )
-        ).all()
-        for dl in db_locs:
-            matched_db_loc_ids.add(dl.id)
-            if dl.code not in loc_codes:
-                matched_locations.append({
-                    "id": dl.id,
-                    "code": dl.code,
-                    "name": dl.name,
-                    "full_name": dl.address or dl.name,
-                    "kind": dl.kind or "location",
-                    "kind_label": "Địa điểm",
-                    "note": dl.address or "",
-                    "map_link": dl.map_link or f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(dl.name)}",
-                    "is_real_place": True
-                })
-
-        # 4.3. Tìm tất cả bài viết liên quan đến địa điểm (theo location_id HOẶC caption chứa từ khóa)
-        loc_posts_filter = [Post.caption.ilike(f"%{q}%")]
-        if matched_db_loc_ids:
-            loc_posts_filter.append(Post.location_id.in_(list(matched_db_loc_ids)))
-        loc_posts_query = Post.query.filter(or_(*loc_posts_filter)).distinct().all()
-        v_p_loc = [p for p in loc_posts_query if can_view_post(p, viewer_id, viewer_follow)]
-        scored_loc_p = []
-        for p in v_p_loc:
-            l_cnt = Like.query.filter_by(post_id=p.id).count()
-            c_cnt = Comment.query.filter_by(post_id=p.id).count()
-            s_cnt = Share.query.filter_by(post_id=p.id).count()
-            score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
-            scored_loc_p.append((score, p))
-        scored_loc_p.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
-        location_posts = build_post_cards([item[1] for item in scored_loc_p], viewer_id)
-
-        # 4.4. Tìm tất cả lịch trình liên quan đến địa điểm (theo location_id HOẶC destination/title chứa từ khóa)
-        loc_plans_filter = [
-            Itinerary.destination.ilike(f"%{q}%"),
-            Itinerary.title.ilike(f"%{q}%")
-        ]
-        if matched_db_loc_ids:
-            loc_plans_filter.append(Itinerary.location_id.in_(list(matched_db_loc_ids)))
-        loc_plans_query = Itinerary.query.filter(or_(*loc_plans_filter)).distinct().all()
-        v_pl_loc = [p for p in loc_plans_query if can_view_itinerary(p, viewer_id, viewer_follow)]
-        scored_loc_pl = []
-        for it in v_pl_loc:
-            l_cnt = Like.query.filter_by(itinerary_id=it.id).count()
-            c_cnt = Comment.query.filter_by(itinerary_id=it.id).count()
-            s_cnt = Share.query.filter_by(itinerary_id=it.id).count()
-            score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
-            scored_loc_pl.append((score, it))
-        scored_loc_pl.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
-        location_plans = cards_for_profile([item[1] for item in scored_loc_pl], viewer_id)
+        location_plans = matched_plans
 
     counts = {
         "users": len(matched_users),
@@ -344,21 +358,20 @@ def search_suggest():
     if not q or len(q) < 2:
         return jsonify({"users": [], "locations": []})
 
-    users = User.query.filter(
-        or_(
-            User.username.ilike(f"%{q}%"),
-            User.nickname.ilike(f"%{q}%"),
-            User.full_name.ilike(f"%{q}%")
-        )
-    ).limit(5).all()
+    q_vars = search_variants(q)
+    user_filters = []
+    for var in q_vars:
+        user_filters.append(User.username.ilike(f"%{var}%"))
+        user_filters.append(User.nickname.ilike(f"%{var}%"))
+        user_filters.append(User.full_name.ilike(f"%{var}%"))
+    users = User.query.filter(or_(*user_filters)).limit(5).all()
 
     # 1. Tra cứu CSDL địa điểm đã có trong hệ thống
-    db_locs = Location.query.filter(
-        or_(
-            Location.name.ilike(f"%{q}%"),
-            Location.address.ilike(f"%{q}%")
-        )
-    ).limit(4).all()
+    db_loc_filters = []
+    for var in q_vars:
+        db_loc_filters.append(Location.name.ilike(f"%{var}%"))
+        db_loc_filters.append(Location.address.ilike(f"%{var}%"))
+    db_locs = Location.query.filter(or_(*db_loc_filters)).limit(4).all()
 
     loc_results = []
     seen_names = set()
