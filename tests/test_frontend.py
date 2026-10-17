@@ -49,14 +49,12 @@ def test_feed_json_api(client, users, post):
 
 
 def test_upload_page_get(client):
-    """GET /locations/upload render trang đăng bài 200 OK."""
+    """GET /locations/upload chuyển hướng sang Feed kèm tham số mở hộp tạo bài (compose=post)."""
     login_user(client)
     res = client.get("/locations/upload")
-    assert res.status_code == 200
-    html = res.data.decode("utf-8")
-    assert "Đăng bài viết" in html
-    assert "post-upload-form" in html
-    assert "images" in html
+    assert res.status_code == 302
+    assert "compose=post" in res.headers["Location"]
+
 
 
 def test_upload_post_form_submit(client):

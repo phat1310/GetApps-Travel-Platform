@@ -337,15 +337,23 @@
                     <div class="col-md-4">
                         <div class="search-location-card h-100 d-flex flex-column justify-content-between">
                             <div>
-                                <h6 class="fw-bold mb-1 text-primary"><i class="bi bi-pin-map-fill me-1"></i>{{ loc.name }}</h6>
-                                <p class="small text-muted mb-2">{{ loc.address or 'Việt Nam' }}</p>
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                    <h6 class="fw-bold mb-0 text-primary truncate" title="{{ loc.name }}"><i class="bi bi-pin-map-fill me-1"></i>{{ loc.name }}</h6>
+                                    {% if loc.kind_label %}
+                                    <span class="badge bg-light text-secondary border rounded-pill" style="font-size: 0.68rem;">{{ loc.kind_label }}</span>
+                                    {% endif %}
+                                </div>
+                                <p class="small text-muted mb-1 text-truncate" title="{{ loc.full_name or loc.address }}">{{ loc.full_name or loc.address or 'Việt Nam' }}</p>
+                                {% if loc.note %}
+                                <div class="small text-secondary fst-italic mb-2" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i>{{ loc.note }}</div>
+                                {% endif %}
                             </div>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 mt-2">
                                 <a href="{{ url_for('auth.search_page', q=loc.name, tab='locations') }}" class="btn btn-sm btn-outline-primary rounded-pill flex-grow-1">
                                     Xem bài viết
                                 </a>
                                 {% if loc.map_link %}
-                                <a href="{{ loc.map_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-light rounded-circle" title="Mở Google Maps">
+                                <a href="{{ loc.map_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-light rounded-circle" title="Mở chỉ đường Google Maps">
                                     <i class="bi bi-geo-alt"></i>
                                 </a>
                                 {% endif %}
@@ -417,14 +425,29 @@
                 <div class="row g-3 mb-4">
                     {% for loc in locations %}
                     <div class="col-md-6">
-                        <div class="search-location-card h-100">
-                            <h5 class="fw-bold text-primary mb-1"><i class="bi bi-pin-map-fill me-2"></i>{{ loc.name }}</h5>
-                            <p class="small text-muted mb-3">{{ loc.address or 'Việt Nam' }}</p>
-                            {% if loc.map_link %}
-                            <a href="{{ loc.map_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary rounded-pill">
-                                <i class="bi bi-geo-alt me-1"></i>Xem trên Google Maps
-                            </a>
-                            {% endif %}
+                        <div class="search-location-card h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                    <h5 class="fw-bold text-primary mb-0"><i class="bi bi-pin-map-fill me-2"></i>{{ loc.name }}</h5>
+                                    {% if loc.kind_label %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">{{ loc.kind_label }}</span>
+                                    {% endif %}
+                                </div>
+                                <p class="small text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>{{ loc.full_name or loc.address or 'Việt Nam' }}</p>
+                                {% if loc.note %}
+                                <div class="small text-secondary fst-italic mb-3"><i class="bi bi-info-circle me-1"></i>{{ loc.note }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+                                {% if loc.map_link %}
+                                <a href="{{ loc.map_link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary rounded-pill">
+                                    <i class="bi bi-geo-alt me-1"></i>Mở Google Maps
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('auth.search_page', q=loc.name, tab='locations') }}" class="btn btn-sm btn-light rounded-pill">
+                                    <i class="bi bi-search me-1"></i>Xem bài viết & lịch trình
+                                </a>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}

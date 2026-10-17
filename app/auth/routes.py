@@ -46,6 +46,7 @@ from app.presence import presence_state
 from app.timeutil import relative_label
 from app.notifications import notify
 from app.extensions import db, csrf
+import app.locations.places as places
 from app.models import (
     Comment,
     Follow,
@@ -233,43 +234,85 @@ def search_page():
         sorted_plans = [item[1] for item in scored_plans]
         matched_plans = cards_for_profile(sorted_plans, viewer_id)
 
-        # 4. TÌM ĐỊA ĐIỂM (Location + bài đăng & lịch trình gắn thẻ địa điểm đó)
-        locs = Location.query.filter(
+        # 4. TÌM ĐỊA ĐIỂM (Dataset hành chính Việt Nam thanglequoc/vietnamese-provinces-database + CSDL Location)
+        matched_locations = []
+        loc_codes = set()
+        matched_db_loc_ids = set()
+
+        # 4.1. Dataset chuẩn hành chính Việt Nam (34 tỉnh/thành, phường/xã, địa danh du lịch)
+        real_places = places.search(q, limit=12)
+        for rp in real_places:
+            loc_codes.add(rp["code"])
+            map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(rp['label'])}"
+            kind_label = "Tỉnh / Thành phố" if rp.get("kind") == "province" else "Phường / Xã / Đặc khu"
+            matched_locations.append({
+                "code": rp["code"],
+                "name": rp["name"],
+                "full_name": rp["label"],
+                "kind": rp.get("kind"),
+                "kind_label": kind_label,
+                "note": rp.get("note") or rp.get("via") or "",
+                "map_link": map_url,
+                "is_real_place": True
+            })
+
+        # 4.2. Tìm thêm các địa điểm đã lưu trong CSDL
+        db_locs = Location.query.filter(
             or_(
                 Location.name.ilike(f"%{q}%"),
                 Location.slug.ilike(f"%{q}%"),
                 Location.address.ilike(f"%{q}%")
             )
         ).all()
-        matched_locations = locs
+        for dl in db_locs:
+            matched_db_loc_ids.add(dl.id)
+            if dl.code not in loc_codes:
+                matched_locations.append({
+                    "id": dl.id,
+                    "code": dl.code,
+                    "name": dl.name,
+                    "full_name": dl.address or dl.name,
+                    "kind": dl.kind or "location",
+                    "kind_label": "Địa điểm",
+                    "note": dl.address or "",
+                    "map_link": dl.map_link or f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(dl.name)}",
+                    "is_real_place": True
+                })
 
-        loc_ids = [l.id for l in locs]
-        if loc_ids:
-            # Bài viết thuộc các địa điểm này
-            p_loc = Post.query.filter(Post.location_id.in_(loc_ids)).all()
-            v_p_loc = [p for p in p_loc if can_view_post(p, viewer_id, viewer_follow)]
-            scored_loc_p = []
-            for p in v_p_loc:
-                l_cnt = Like.query.filter_by(post_id=p.id).count()
-                c_cnt = Comment.query.filter_by(post_id=p.id).count()
-                s_cnt = Share.query.filter_by(post_id=p.id).count()
-                score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
-                scored_loc_p.append((score, p))
-            scored_loc_p.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
-            location_posts = build_post_cards([item[1] for item in scored_loc_p], viewer_id)
+        # 4.3. Tìm tất cả bài viết liên quan đến địa điểm (theo location_id HOẶC caption chứa từ khóa)
+        loc_posts_filter = [Post.caption.ilike(f"%{q}%")]
+        if matched_db_loc_ids:
+            loc_posts_filter.append(Post.location_id.in_(list(matched_db_loc_ids)))
+        loc_posts_query = Post.query.filter(or_(*loc_posts_filter)).distinct().all()
+        v_p_loc = [p for p in loc_posts_query if can_view_post(p, viewer_id, viewer_follow)]
+        scored_loc_p = []
+        for p in v_p_loc:
+            l_cnt = Like.query.filter_by(post_id=p.id).count()
+            c_cnt = Comment.query.filter_by(post_id=p.id).count()
+            s_cnt = Share.query.filter_by(post_id=p.id).count()
+            score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
+            scored_loc_p.append((score, p))
+        scored_loc_p.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
+        location_posts = build_post_cards([item[1] for item in scored_loc_p], viewer_id)
 
-            # Lịch trình thuộc các địa điểm này
-            pl_loc = Itinerary.query.filter(Itinerary.location_id.in_(loc_ids)).all()
-            v_pl_loc = [p for p in pl_loc if can_view_itinerary(p, viewer_id, viewer_follow)]
-            scored_loc_pl = []
-            for it in v_pl_loc:
-                l_cnt = Like.query.filter_by(itinerary_id=it.id).count()
-                c_cnt = Comment.query.filter_by(itinerary_id=it.id).count()
-                s_cnt = Share.query.filter_by(itinerary_id=it.id).count()
-                score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
-                scored_loc_pl.append((score, it))
-            scored_loc_pl.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
-            location_plans = cards_for_profile([item[1] for item in scored_loc_pl], viewer_id)
+        # 4.4. Tìm tất cả lịch trình liên quan đến địa điểm (theo location_id HOẶC destination/title chứa từ khóa)
+        loc_plans_filter = [
+            Itinerary.destination.ilike(f"%{q}%"),
+            Itinerary.title.ilike(f"%{q}%")
+        ]
+        if matched_db_loc_ids:
+            loc_plans_filter.append(Itinerary.location_id.in_(list(matched_db_loc_ids)))
+        loc_plans_query = Itinerary.query.filter(or_(*loc_plans_filter)).distinct().all()
+        v_pl_loc = [p for p in loc_plans_query if can_view_itinerary(p, viewer_id, viewer_follow)]
+        scored_loc_pl = []
+        for it in v_pl_loc:
+            l_cnt = Like.query.filter_by(itinerary_id=it.id).count()
+            c_cnt = Comment.query.filter_by(itinerary_id=it.id).count()
+            s_cnt = Share.query.filter_by(itinerary_id=it.id).count()
+            score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
+            scored_loc_pl.append((score, it))
+        scored_loc_pl.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
+        location_plans = cards_for_profile([item[1] for item in scored_loc_pl], viewer_id)
 
     counts = {
         "users": len(matched_users),
@@ -309,7 +352,38 @@ def search_suggest():
         )
     ).limit(5).all()
 
-    locs = Location.query.filter(Location.name.ilike(f"%{q}%")).limit(3).all()
+    # 1. Tra cứu CSDL địa điểm đã có trong hệ thống
+    db_locs = Location.query.filter(
+        or_(
+            Location.name.ilike(f"%{q}%"),
+            Location.address.ilike(f"%{q}%")
+        )
+    ).limit(4).all()
+
+    loc_results = []
+    seen_names = set()
+    for dl in db_locs:
+        seen_names.add(dl.name.lower())
+        loc_results.append({
+            "code": dl.code or "",
+            "name": dl.name,
+            "address": dl.address or dl.name,
+            "note": dl.address or "",
+            "search_url": url_for('auth.search_page', q=dl.name, tab='locations')
+        })
+
+    # 2. Tra cứu thêm địa danh thực tế từ dataset places (vietnamese-provinces-database)
+    real_places = places.search(q, limit=4)
+    for p in real_places:
+        if p["name"].lower() not in seen_names:
+            seen_names.add(p["name"].lower())
+            loc_results.append({
+                "code": p["code"],
+                "name": p["name"],
+                "address": p["label"],
+                "note": p.get("note") or "",
+                "search_url": url_for('auth.search_page', q=p["name"], tab='locations')
+            })
 
     return jsonify({
         "users": [{
@@ -319,12 +393,7 @@ def search_suggest():
             "avatar_url": u.avatar_url or f"https://ui-avatars.com/api/?name={u.username}&background=169fe3&color=fff",
             "profile_url": url_for('auth.profile', username=u.username)
         } for u in users],
-        "locations": [{
-            "id": l.id,
-            "name": l.name,
-            "address": l.address or "",
-            "search_url": url_for('auth.search_page', q=l.name, tab='locations')
-        } for l in locs]
+        "locations": loc_results[:6]
     })
 
 

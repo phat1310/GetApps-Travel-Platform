@@ -108,3 +108,22 @@ def test_search_suggest_api(client, app):
     data = res.get_json()
     assert len(data["locations"]) >= 1
     assert data["locations"][0]["name"] == "Hồ Xuân Hương Đà Lạt"
+
+
+def test_search_locations_dataset(client):
+    """Tìm kiếm địa điểm thực tế từ dataset vietnamese-provinces-database (Đà Lạt, Lâm Đồng)."""
+    # Test tab locations với từ khóa 'đà lạt'
+    res = client.get('/search?q=đà lạt&tab=locations')
+    assert res.status_code == 200
+    content = res.data.decode('utf-8')
+    assert "Lâm Đồng".encode('utf-8') in res.data or "Đà Lạt".encode('utf-8') in res.data
+    assert "google.com/maps" in content
+
+    # Test suggest API với từ khóa 'đà lạt'
+    res_suggest = client.get('/search/suggest?q=đà lạt')
+    assert res_suggest.status_code == 200
+    suggest_data = res_suggest.get_json()
+    assert len(suggest_data["locations"]) > 0
+    # Địa điểm trả về có liên quan tới Đà Lạt / Lâm Đồng
+    assert any("Lâm Đồng" in loc["address"] or "Đà Lạt" in loc["name"] for loc in suggest_data["locations"])
+
