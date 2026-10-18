@@ -542,13 +542,15 @@ def create():
             flash(detail_error, "danger")
             return render_template('plans/create.html', form=form), 400
 
-        # Bắt buộc: mọi trường trừ tệp đính kèm; ảnh bìa; mỗi ngày >= 1 chặng
+        # Bắt buộc: mọi trường trừ tệp đính kèm; ảnh bìa; mỗi ngày >= 1 chặng (TRỪ khi đã đính kèm tệp lịch trình:
+        # lúc đó được bỏ trống chặng và nơi lưu trú, người xem đọc chi tiết trong tệp)
+        has_attach = bool(form.attachment_file.data and getattr(form.attachment_file.data, 'filename', ''))
         pc_raw = form.participants_count.data or (int(request.form.get('participants_count')) if request.form.get('participants_count', '').isdigit() else None)
         req_err = _required_error(form.title.data, form.destination.data, form.trip_type.data or request.form.get('trip_type'),
                                   form.start_date.data, form.end_date.data, pc_raw, form.estimated_budget.data)
         if not req_err and not (form.cover_image.data and getattr(form.cover_image.data, 'filename', '')):
             req_err = "Vui lòng chọn ảnh bìa cho chuyến đi."
-        if not req_err:
+        if not req_err and not has_attach:
             for d in range(1, total_days + 1):
                 if not stops_by_day.get(d):
                     req_err = f"Ngày {d} cần có ít nhất 1 điểm ghé."

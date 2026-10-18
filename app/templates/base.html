@@ -2421,7 +2421,8 @@
             renderQcPreviews();
         }
 
-        // Đăng lịch trình: mọi trường BẮT BUỘC trừ tệp đính kèm (server kiểm tra lại, đây chỉ để báo sớm cho người dùng)
+        // Đăng lịch trình: mọi trường BẮT BUỘC trừ tệp đính kèm (server kiểm tra lại, đây chỉ để báo sớm cho người dùng).
+        // Đã đính kèm tệp lịch trình: được bỏ trống chặng + nơi lưu trú, nhưng phải xác nhận "Vẫn đăng" trước.
         function validateQcPlanForm(e) {
             const $ = (id) => document.getElementById(id);
             const fail = (msg, focusId) => {
@@ -2443,16 +2444,45 @@
             if (!people || people < 1) return fail('Vui lòng nhập số người tham gia.', 'qcParticipantsInput');
             const budget = parseFloat(($('qcBudgetInput').value || '').replace(/[^0-9.]/g, ''));
             if (!budget || budget <= 0) return fail('Vui lòng nhập dự toán ngân sách.', 'qcBudgetInput');
+            const attInput = $('qcAttachmentInput');
+            const hasAttach = !!(attInput && attInput.files && attInput.files.length);   // đã đính kèm tệp lịch trình (PDF/Word/Excel/PowerPoint)
             const rangeDays = Math.round((new Date(ed) - new Date(sd)) / 86400000) + 1;
             const have = parseInt($('qcSubmittedDaysCount').value, 10) || 1;
             const need = Math.max(rangeDays, have);
-            if (need > have) return fail('Bạn chọn ' + rangeDays + ' ngày nên cần thêm đủ ' + rangeDays + ' ngày trong lịch trình (hiện có ' + have + ').', 'qcAddDayBtn');
+            // Có tệp: không bắt phải dựng đủ các ngày (server tự tạo ngày theo khoảng ngày đã chọn)
+            if (need > have && !hasAttach) return fail('Bạn chọn ' + rangeDays + ' ngày nên cần thêm đủ ' + rangeDays + ' ngày trong lịch trình (hiện có ' + have + ').', 'qcAddDayBtn');
+            let missingStops = need > have;
             for (let d = 1; d <= need; d++) {
                 const names = Array.from(document.querySelectorAll('[name="stop_name_' + d + '[]"]')).filter(x => x.value.trim());
                 if (!names.length) {
+                    if (hasAttach) { missingStops = true; continue; }     // có tệp thì được bỏ trống chặng (sẽ hỏi xác nhận bên dưới)
                     if (typeof switchQcDay === 'function') switchQcDay(d);
                     return fail('Ngày ' + d + ' cần có ít nhất 1 điểm ghé.', 'qcDayContent_' + d);
                 }
+            }
+            const missingLodging = !Array.from(document.querySelectorAll('[name="hotel_name[]"]')).some(x => x.value.trim());
+            const form = e.target.closest ? e.target.closest('form') : e.target;
+            const confirmedSkip = !!(form && form.dataset.attOk === '1');
+            if (form) delete form.dataset.attOk;                          // chỉ có hiệu lực đúng 1 lần gửi
+            if (hasAttach && (missingStops || missingLodging) && !confirmedSkip) {
+                e.preventDefault();
+                $('qcPlanError')?.classList.add('d-none');
+                const miss = [];
+                if (missingStops) miss.push('chặng hoạt động');
+                if (missingLodging) miss.push('nơi lưu trú');
+                const fname = (attInput.files[0] && attInput.files[0].name) || 'tệp đính kèm';
+                geAsk({
+                    title: 'Đăng mà không chọn ' + miss.join(' và ') + '?',
+                    note: 'Bạn đã đính kèm tệp lịch trình "' + fname + '" nên có thể bỏ trống ' + miss.join(' và ') + '. Người xem sẽ xem chi tiết trong tệp đính kèm. Bạn có chắc chắn muốn đăng không?',
+                    fields: [],
+                    confirmText: 'Vẫn đăng',
+                    cancelText: 'Quay lại điền'
+                }).then(function (v) {
+                    if (!v || !form) return;
+                    form.dataset.attOk = '1';
+                    if (form.requestSubmit) form.requestSubmit(); else form.submit();
+                });
+                return false;
             }
             $('qcPlanError')?.classList.add('d-none');
             return qcMapGuard(e, 'plan', '#qcPlanDestination', 'qcPlanMapJson');
