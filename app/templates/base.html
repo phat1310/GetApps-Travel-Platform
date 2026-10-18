@@ -1353,10 +1353,11 @@
                                     <button type="button" class="btn btn-outline-secondary w-100 py-2 rounded-3 small fw-semibold d-flex align-items-center justify-content-center gap-2" style="font-size: 0.82rem; border-style: dashed;" onclick="document.getElementById('qcAttachmentInput').click()">
                                         <i class="bi bi-file-earmark-arrow-up"></i> Tải lên tệp lịch trình (.pdf, .xlsx, .docx, .pptx)
                                     </button>
+                                    <div class="small text-success mt-2 d-none" id="qcAttachModeNote"><i class="bi bi-check-circle-fill me-1"></i>Đã đính kèm tệp: không cần điền ngày, chặng hoạt động và nơi lưu trú.</div>
                                 </div>
 
                                 <!-- PHẦN 4: LỊCH TRÌNH CHI TIẾT TỪNG NGÀY & CÁC CHẶNG -->
-                                <div class="qc-box-card p-3 rounded-4">
+                                <div class="qc-box-card p-3 rounded-4" id="qcDaysSection">
                                     <div class="d-flex align-items-center justify-content-between mb-2">
                                         <span class="fw-bold text-dark small d-flex align-items-center gap-1">
                                             <i class="bi bi-calendar-check text-primary"></i> Lịch trình chi tiết từng ngày
@@ -1421,10 +1422,22 @@
                                                             </div>
                                                         </div>
                                                         <div class="mb-2">
-                                                            <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Địa chỉ / Link Google Maps</label>
+                                                            <div class="qc-map-block qc-map-inline mb-1" data-max="1">
+    <div class="qc-map-head">
+        <i class="bi bi-map-fill text-primary"></i>
+        <span>Địa chỉ (Google Maps)</span>
+        <span class="qc-map-count">0/1</span>
+        <button type="button" class="qc-map-add" onclick="qcOpenInlineMap(this)" title="Thêm địa chỉ Google Maps" aria-label="Thêm địa chỉ Google Maps"><i class="bi bi-plus-lg"></i></button>
+    </div>
+    <div class="ges-map-chips"><span class="qc-map-empty">Chưa có địa chỉ. Bấm dấu + để dán link Google Maps.</span></div>
+    <input type="hidden" name="stop_location_1[]" value="">
+</div>
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giá / chi phí (đ/người)</label>
                                                             <div class="input-group input-group-sm">
-                                                                <span class="input-group-text qc-input-icon-box"><i class="bi bi-map"></i></span>
-                                                                <input type="text" name="stop_location_1[]" class="form-control qc-input-field" placeholder="Địa chỉ hoặc dán link Google Maps...">
+                                                                <span class="input-group-text qc-input-icon-box">$</span>
+                                                                <input type="text" name="stop_price_1[]" data-money inputmode="numeric" autocomplete="off" class="form-control qc-input-field" placeholder="Vd: 50.000 đ/người">
                                                             </div>
                                                         </div>
                                                         <div>
@@ -1456,7 +1469,7 @@
                                 </div>
 
                                 <!-- PHẦN 5: KHỐI LƯU TRÚ & DỊCH VỤ (KHÁCH SẠN / HOMESTAY) -->
-                                <div class="qc-box-card p-3 rounded-4">
+                                <div class="qc-box-card p-3 rounded-4" id="qcLodgingSection">
                                     <div class="d-flex align-items-center justify-content-between mb-2">
                                         <span class="fw-bold text-dark small d-flex align-items-center gap-1">
                                             <i class="bi bi-building text-primary"></i> Khối lưu trú & dịch vụ (Khách sạn / Homestay)
@@ -1505,11 +1518,16 @@
                                                 </div>
                                             </div>
                                             <div class="mb-2">
-                                                <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Link vị trí Google Maps</label>
-                                                <div class="input-group input-group-sm">
-                                                    <span class="input-group-text qc-input-icon-box"><i class="bi bi-geo-alt-fill text-danger"></i></span>
-                                                    <input type="text" name="lodging_map_link[]" class="form-control qc-input-field" placeholder="Dán link Google Maps vị trí khách sạn/homestay...">
-                                                </div>
+                                                <div class="qc-map-block qc-map-inline mb-1" data-max="1">
+    <div class="qc-map-head">
+        <i class="bi bi-map-fill text-primary"></i>
+        <span>Địa chỉ (Google Maps)</span>
+        <span class="qc-map-count">0/1</span>
+        <button type="button" class="qc-map-add" onclick="qcOpenInlineMap(this)" title="Thêm địa chỉ Google Maps" aria-label="Thêm địa chỉ Google Maps"><i class="bi bi-plus-lg"></i></button>
+    </div>
+    <div class="ges-map-chips"><span class="qc-map-empty">Chưa có địa chỉ. Bấm dấu + để dán link Google Maps.</span></div>
+    <input type="hidden" name="lodging_map_link[]" value="">
+</div>
                                             </div>
                                             <div class="mb-1">
                                                 <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Ghi chú khách sạn (Mẹo nhận phòng, view phòng...)</label>
@@ -1832,10 +1850,22 @@
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Địa chỉ quán / Link Google Maps</label>
+                        <div class="qc-map-block qc-map-inline mb-1" data-max="1">
+    <div class="qc-map-head">
+        <i class="bi bi-map-fill text-primary"></i>
+        <span>Địa chỉ (Google Maps)</span>
+        <span class="qc-map-count">0/1</span>
+        <button type="button" class="qc-map-add" onclick="qcOpenInlineMap(this)" title="Thêm địa chỉ Google Maps" aria-label="Thêm địa chỉ Google Maps"><i class="bi bi-plus-lg"></i></button>
+    </div>
+    <div class="ges-map-chips"><span class="qc-map-empty">Chưa có địa chỉ. Bấm dấu + để dán link Google Maps.</span></div>
+    <input type="hidden" name="stop_location_${day}[]" value="">
+</div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giá / chi phí (đ/người)</label>
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text qc-input-icon-box"><i class="bi bi-geo-alt"></i></span>
-                            <input type="text" name="stop_location_${day}[]" class="form-control qc-input-field" placeholder="Địa chỉ quán hoặc link Google Maps...">
+                            <span class="input-group-text qc-input-icon-box">$</span>
+                            <input type="text" name="stop_price_${day}[]" data-money inputmode="numeric" autocomplete="off" class="form-control qc-input-field" placeholder="Vd: 50.000 đ/người">
                         </div>
                     </div>
                     <div>
@@ -1868,10 +1898,22 @@
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Địa chỉ / Link Google Maps</label>
+                        <div class="qc-map-block qc-map-inline mb-1" data-max="1">
+    <div class="qc-map-head">
+        <i class="bi bi-map-fill text-primary"></i>
+        <span>Địa chỉ (Google Maps)</span>
+        <span class="qc-map-count">0/1</span>
+        <button type="button" class="qc-map-add" onclick="qcOpenInlineMap(this)" title="Thêm địa chỉ Google Maps" aria-label="Thêm địa chỉ Google Maps"><i class="bi bi-plus-lg"></i></button>
+    </div>
+    <div class="ges-map-chips"><span class="qc-map-empty">Chưa có địa chỉ. Bấm dấu + để dán link Google Maps.</span></div>
+    <input type="hidden" name="stop_location_${day}[]" value="">
+</div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giá / chi phí (đ/người)</label>
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text qc-input-icon-box"><i class="bi bi-map"></i></span>
-                            <input type="text" name="stop_location_${day}[]" class="form-control qc-input-field" placeholder="Địa chỉ hoặc link Google Maps...">
+                            <span class="input-group-text qc-input-icon-box">$</span>
+                            <input type="text" name="stop_price_${day}[]" data-money inputmode="numeric" autocomplete="off" class="form-control qc-input-field" placeholder="Vd: 50.000 đ/người">
                         </div>
                     </div>
                     <div>
@@ -1961,11 +2003,16 @@
                     </div>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Link vị trí Google Maps</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text qc-input-icon-box"><i class="bi bi-geo-alt-fill text-danger"></i></span>
-                        <input type="text" name="lodging_map_link[]" class="form-control qc-input-field" placeholder="Dán link Google Maps của khách sạn/homestay...">
-                    </div>
+                    <div class="qc-map-block qc-map-inline mb-1" data-max="1">
+    <div class="qc-map-head">
+        <i class="bi bi-map-fill text-primary"></i>
+        <span>Địa chỉ (Google Maps)</span>
+        <span class="qc-map-count">0/1</span>
+        <button type="button" class="qc-map-add" onclick="qcOpenInlineMap(this)" title="Thêm địa chỉ Google Maps" aria-label="Thêm địa chỉ Google Maps"><i class="bi bi-plus-lg"></i></button>
+    </div>
+    <div class="ges-map-chips"><span class="qc-map-empty">Chưa có địa chỉ. Bấm dấu + để dán link Google Maps.</span></div>
+    <input type="hidden" name="lodging_map_link[]" value="">
+</div>
                 </div>
                 <div class="mb-1">
                     <label class="form-label text-muted small fw-semibold mb-1" style="font-size: 0.72rem;">Ghi chú khách sạn (Mẹo nhận phòng, view phòng...)</label>
@@ -2309,6 +2356,92 @@
         }
         document.addEventListener('DOMContentLoaded', function () { qcMapRender('post'); qcMapRender('plan'); });
 
+        // ===== Ô "Địa chỉ (Google Maps)" của từng chặng / nơi lưu trú: giống ô ở phần Địa điểm, mỗi ô 1 link =====
+        function qcInlineMapRender(block) {
+            const items = block._items || [];
+            const list = block.querySelector('.ges-map-chips');
+            const count = block.querySelector('.qc-map-count');
+            const add = block.querySelector('.qc-map-add');
+            const hidden = block.querySelector('input[type=hidden]');
+            const max = parseInt(block.dataset.max, 10) || 1;
+            list.textContent = '';
+            if (!items.length) {
+                const e = document.createElement('span');
+                e.className = 'qc-map-empty';
+                e.textContent = 'Chưa có địa chỉ. Bấm dấu + để dán link Google Maps.';
+                list.appendChild(e);
+            }
+            items.forEach(function (it, i) {
+                const chip = document.createElement('span');
+                chip.className = 'ges-map-chip';
+                chip.title = it.url;
+                const ic = document.createElement('i'); ic.className = 'bi bi-geo-alt-fill';
+                const t = document.createElement('span'); t.textContent = it.label || 'Xem trên Google Maps';
+                const x = document.createElement('button');
+                x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Xóa địa chỉ này');
+                x.addEventListener('click', function () { items.splice(i, 1); qcInlineMapRender(block); });
+                chip.appendChild(ic); chip.appendChild(t); chip.appendChild(x);
+                list.appendChild(chip);
+            });
+            count.textContent = items.length + '/' + max;
+            add.hidden = items.length >= max;
+            hidden.value = items.length ? items[0].url : '';
+        }
+
+        function qcOpenInlineMap(btn) {
+            const block = btn.closest('.qc-map-inline');
+            if (!block) return;
+            block._items = block._items || [];
+            const max = parseInt(block.dataset.max, 10) || 1;
+            if (block._items.length >= max) return;
+            geAsk({
+                title: 'Thêm địa chỉ Google Maps',
+                note: 'Mở Google Maps → Chia sẻ → Sao chép liên kết, rồi dán vào đây.',
+                fields: [
+                    { name: 'url', label: 'Link Google Maps', placeholder: 'https://maps.app.goo.gl/...', maxlength: 500 },
+                    { name: 'label', label: 'Tên hiển thị (không bắt buộc)', placeholder: 'Vd: Đồi chè Cầu Đất', maxlength: 60, hint: 'Để trống thì hiển thị "Xem trên Google Maps".' }
+                ],
+                confirmText: 'Thêm địa chỉ',
+                validate: function (v) {
+                    const r = qcCheckMapUrl(v.url);
+                    if (r.err) return { message: r.err, field: 'url' };
+                    return null;
+                }
+            }).then(function (v) {
+                if (!v) return;
+                const r = qcCheckMapUrl(v.url);
+                if (r.err || block._items.length >= max) return;
+                block._items.push({ url: r.url, label: (v.label || '').replace(/\s+/g, ' ').trim() });
+                qcInlineMapRender(block);
+            });
+        }
+
+        // Ngày đi / về chỉ được chọn đến hết năm (năm hiện tại + 2)
+        function qcMaxPlanYear() { return new Date().getFullYear() + 2; }
+        document.addEventListener('DOMContentLoaded', function () {
+            ['qcPlanStartDate', 'qcPlanEndDate'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.max = qcMaxPlanYear() + '-12-31';
+            });
+        });
+
+        // Đã đính kèm tệp lịch trình (PDF/Word/Excel...) thì không cần điền ngày, chặng, nơi lưu trú
+        function qcHasAttachment() {
+            const i = document.getElementById('qcAttachmentInput');
+            return !!(i && i.files && i.files.length);
+        }
+        function qcApplyAttachMode() {
+            const on = qcHasAttachment();
+            ['qcDaysSection', 'qcLodgingSection'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.classList.toggle('d-none', on);
+                el.querySelectorAll('input, select, textarea').forEach(function (f) { f.disabled = on; });   // ô bị tắt thì không gửi lên server
+            });
+            const note = document.getElementById('qcAttachModeNote');
+            if (note) note.classList.toggle('d-none', !on);
+        }
+
         function formatQcBudgetDisplay(input) {
             // keep raw numeric value clean
         }
@@ -2324,6 +2457,7 @@
                 if (nameEl) nameEl.innerText = file.name;
                 if (sizeEl) sizeEl.innerText = `${(file.size / (1024 * 1024)).toFixed(1)} MB • Đã tải lên thành công`;
             }
+            qcApplyAttachMode();
         }
 
         function removeQcAttachedFile() {
@@ -2331,6 +2465,7 @@
             const card = document.getElementById('qcAttachedFileCard');
             if (input) input.value = '';
             if (card) card.style.display = 'none';
+            qcApplyAttachMode();
         }
 
         function renderQcPreviews() {
@@ -2435,14 +2570,35 @@
             if (!($('qcPlanCoverInput').files || []).length) return fail('Vui lòng chọn ảnh bìa cho chuyến đi.', 'qcPlanCoverBox');
             if (!$('qcPlanTitle').value.trim()) return fail('Vui lòng nhập tên chuyến đi.', 'qcPlanTitle');
             if (!$('qcPlanDestination').value.trim()) return fail('Vui lòng chọn địa điểm (Tỉnh/Thành, có thể kèm Phường/Xã).', 'qcPlanDestination');
+            const hasAttach = qcHasAttachment();
             const sd = $('qcPlanStartDate').value, ed = $('qcPlanEndDate').value;
-            if (!sd || !ed) return fail('Vui lòng chọn ngày bắt đầu và ngày kết thúc.', 'qcPlanStartDate');
-            if (ed < sd) return fail('Ngày kết thúc phải sau ngày bắt đầu.', 'qcPlanEndDate');
+            if (!hasAttach && (!sd || !ed)) return fail('Vui lòng chọn ngày bắt đầu và ngày kết thúc.', 'qcPlanStartDate');
+            if ((sd && !ed) || (!sd && ed)) return fail('Vui lòng chọn đủ ngày bắt đầu và ngày kết thúc (hoặc để trống cả hai khi đã đính kèm tệp).', 'qcPlanStartDate');
+            if (sd && ed && ed < sd) return fail('Ngày kết thúc phải sau ngày bắt đầu.', 'qcPlanEndDate');
+            const maxYear = qcMaxPlanYear();
+            if ((sd && parseInt(sd.split('-')[0], 10) > maxYear) || (ed && parseInt(ed.split('-')[0], 10) > maxYear)) return fail('Chỉ được chọn ngày đi và về trong vòng đến năm ' + maxYear + '.', 'qcPlanStartDate');
             if (!$('qcTripTypeInput').value.trim()) return fail('Vui lòng chọn loại chuyến đi (2N1Đ, 3N2Đ, 1 tuần...).', 'qcDurationPills');
+                        // Loại chuyến đi phải khớp số ngày trên lịch (trừ hao +1 ngày; 1 tháng: 28-31 ngày)
+            const tripRange = (function (t) {
+                const code = (t || '').split(' - ')[0].trim().toLowerCase();
+                let m = code.match(/^(\d+)\s*n\s*(\d+)\s*[đd]$/);
+                if (m) { const n = parseInt(m[1], 10); return [n, n + 1]; }
+                m = code.match(/^(\d+)\s*tuần$/);
+                if (m) { const n = parseInt(m[1], 10) * 7; return [n, n + 1]; }
+                if (code === '1 tháng') return [28, 31];
+                return null;
+            })($('qcTripTypeInput').value);
+            if (tripRange && sd && ed) {
+                const tripDays = Math.round((new Date(ed) - new Date(sd)) / 86400000) + 1;
+                const tripCode = $('qcTripTypeInput').value.split(' - ')[0].trim();
+                if (tripDays < tripRange[0]) return fail('Loại chuyến đi ' + tripCode + ' cần ít nhất ' + tripRange[0] + ' ngày, nhưng bạn mới chọn ' + tripDays + ' ngày. Hãy chọn thêm ngày trên lịch hoặc đổi loại chuyến đi.', 'qcDurationPills');
+                if (tripDays > tripRange[1]) return fail('Loại chuyến đi ' + tripCode + ' chỉ phù hợp tối đa ' + tripRange[1] + ' ngày, nhưng bạn đã chọn ' + tripDays + ' ngày. Hãy rút ngắn lịch hoặc chọn loại chuyến đi dài hơn.', 'qcDurationPills');
+            }
             const people = parseInt($('qcParticipantsInput').value, 10);
             if (!people || people < 1) return fail('Vui lòng nhập số người tham gia.', 'qcParticipantsInput');
             const budget = parseFloat(($('qcBudgetInput').value || '').replace(/[^0-9.]/g, ''));
             if (!budget || budget <= 0) return fail('Vui lòng nhập dự toán ngân sách.', 'qcBudgetInput');
+            if (!hasAttach) {
             const rangeDays = Math.round((new Date(ed) - new Date(sd)) / 86400000) + 1;
             const have = parseInt($('qcSubmittedDaysCount').value, 10) || 1;
             const need = Math.max(rangeDays, have);
@@ -2453,6 +2609,7 @@
                     if (typeof switchQcDay === 'function') switchQcDay(d);
                     return fail('Ngày ' + d + ' cần có ít nhất 1 điểm ghé.', 'qcDayContent_' + d);
                 }
+            }
             }
             $('qcPlanError')?.classList.add('d-none');
             return qcMapGuard(e, 'plan', '#qcPlanDestination', 'qcPlanMapJson');
@@ -3682,5 +3839,50 @@
     tick(); setInterval(tick, 60000);
 })();
 </script>
+<script>
+(function () {
+  const SEL = 'input[name="lodging_price[]"], input[data-money]';
+  const suffixOf = el => el.name === "lodging_price[]" ? " đ/đêm" : " đ/người";
+
+  // Gõ: chỉ giữ số, thêm dấu chấm và đuôi " đ/đêm" (giá phòng) hoặc " đ/người" (giá chặng)
+  document.addEventListener("input", function (e) {
+    const el = e.target;
+    if (!el.matches || !el.matches(SEL)) return;
+    const SUF = suffixOf(el);
+    const digits = el.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+    if (!digits) { el.value = ""; return; }
+    const text = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    el.value = text + SUF;
+    el.setSelectionRange(text.length, text.length);
+  });
+
+  // Không cho con trỏ nằm sau phần đuôi
+  ["click", "keyup", "focusin"].forEach(function (ev) {
+    document.addEventListener(ev, function (e) {
+      const el = e.target;
+      if (!el.matches || !el.matches(SEL)) return;
+      const SUF = suffixOf(el);
+      if (!el.value.endsWith(SUF)) return;
+      const max = el.value.length - SUF.length;
+      if (el.selectionStart > max || el.selectionEnd > max) {
+        el.setSelectionRange(Math.min(el.selectionStart, max), Math.min(el.selectionEnd, max));
+      }
+    });
+  });
+
+  // Lúc bấm đăng: đổi "50.000 đ/người" thành "50000" rồi mới gửi lên server
+  document.addEventListener("formdata", function (e) {
+    const names = new Set();
+    for (const k of e.formData.keys()) {
+      if (k === "lodging_price[]" || /^stop_price_\d+\[\]$/.test(k)) names.add(k);
+    }
+    names.forEach(function (name) {
+      const vals = e.formData.getAll(name);
+      e.formData.delete(name);
+      vals.forEach(v => e.formData.append(name, String(v).replace(/\D/g, "")));
+    });
+  });
+})();
+</script>
 </body>
-</html>
+</html>

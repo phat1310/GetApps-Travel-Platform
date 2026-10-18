@@ -58,6 +58,7 @@ def _parse_trip_details(total_days):
         descs = f.getlist(f'stop_desc_{d}[]')
         foods = f.getlist(f'stop_food_{d}[]')
         opens = f.getlist(f'stop_open_hours_{d}[]')
+        prices = f.getlist(f'stop_price_{d}[]')
         rows = []
         for i, raw_name in enumerate(names):
             name = clean_text(raw_name, 120)
@@ -95,7 +96,12 @@ def _parse_trip_details(total_days):
                 note = " • ".join(parts)
             else:
                 activity, note = name, desc
-            rows.append(dict(name=name, activity=activity, time=stime or None, address=address, link=link, note=note or None))
+
+            sprice = None
+            _digits = re.sub(r"\D", "", clean_text(_at(prices, i), 40))
+            if _digits:
+                sprice = min(int(_digits), 2000000000)
+            rows.append(dict(name=name, activity=activity, time=stime or None, address=address, link=link, note=note or None, price=sprice))
         stops_by_day[d] = rows
 
     lodgings = []
@@ -427,7 +433,24 @@ def repost(plan_id):
     return jsonify({"message": "Đã đăng lại lịch trình", "reposted": True, "already": False})
 
 
-def _required_error(title, destination, trip_type, start, end, participants, budget):
+def _trip_days_range(trip_type):
+    """Loại chuyến đi -> (ít nhất, nhiều nhất) số ngày trên lịch; None nếu loại không có số ngày cố định.
+    Trừ hao +1 ngày (đi đêm hôm trước, sáng hôm sau mới tới). 1 tháng: 28-31 ngày."""
+    code = (trip_type or '').split(' - ')[0].strip().lower()
+    m = re.match(r'^(\d+)\s*n\s*(\d+)\s*[đd]$', code)          # 2N1Đ, 3N2Đ...
+    if m:
+        d = int(m.group(1))
+        return d, d + 1
+    m = re.match(r'^(\d+)\s*tuần$', code)                        # 1 tuần, 2 tuần
+    if m:
+        d = int(m.group(1)) * 7
+        return d, d + 1
+    if code == '1 tháng':
+        return 28, 31
+    return None                                                   # Đi phượt, Nghỉ dưỡng, Gia đình...
+
+
+def _required_error(title, destination, trip_type, start, end, participants, budget, has_attachment=False):
     """Các trường BẮT BUỘC khi đăng lịch trình (kiểm tra ở server, không tin client). Trả về câu lỗi hoặc None."""
     if not (title or '').strip():
         return "Vui lòng nhập tên chuyến đi."
@@ -435,10 +458,25 @@ def _required_error(title, destination, trip_type, start, end, participants, bud
         return "Vui lòng nhập địa điểm."
     if not (trip_type or '').strip():
         return "Vui lòng chọn loại chuyến đi (2N1Đ, 3N2Đ, 1 tuần...)."
-    if not start or not end:
+    if not has_attachment and (not start or not end):       # đã đính kèm tệp lịch trình thì không bắt buộc chọn ngày
         return "Vui lòng chọn ngày bắt đầu và ngày kết thúc."
-    if end < start:
+    if (start and not end) or (end and not start):
+        return "Vui lòng chọn đủ ngày bắt đầu và ngày kết thúc (hoặc để trống cả hai khi đã đính kèm tệp)."
+    if start and end and end < start:
         return "Ngày kết thúc phải sau ngày bắt đầu."
+    max_year = datetime.now().year + 2                        # chỉ cho chọn đến hết năm (năm hiện tại + 2)
+    if (start and start.year > max_year) or (end and end.year > max_year):
+        return f"Chỉ được chọn ngày đi và về trong vòng đến năm {max_year}."
+    rng = _trip_days_range(trip_type) if (start and end) else None
+    if rng:
+        days = (end - start).days + 1
+        code = (trip_type or '').split(' - ')[0].strip()
+        if days < rng[0]:
+            return (f"Loại chuyến đi {code} cần ít nhất {rng[0]} ngày, nhưng bạn mới chọn {days} ngày. "
+                    f"Hãy chọn thêm ngày trên lịch hoặc đổi loại chuyến đi.")
+        if days > rng[1]:
+            return (f"Loại chuyến đi {code} chỉ phù hợp tối đa {rng[1]} ngày, nhưng bạn đã chọn {days} ngày. "
+                    f"Hãy rút ngắn lịch hoặc chọn loại chuyến đi dài hơn.")
     if not participants or participants < 1 or participants > 1000:
         return "Vui lòng nhập số người tham gia (từ 1 trở lên)."
     if not budget or budget <= 0:
@@ -544,11 +582,12 @@ def create():
 
         # Bắt buộc: mọi trường trừ tệp đính kèm; ảnh bìa; mỗi ngày >= 1 chặng
         pc_raw = form.participants_count.data or (int(request.form.get('participants_count')) if request.form.get('participants_count', '').isdigit() else None)
+        has_attach = bool(form.attachment_file.data and getattr(form.attachment_file.data, 'filename', ''))
         req_err = _required_error(form.title.data, form.destination.data, form.trip_type.data or request.form.get('trip_type'),
-                                  form.start_date.data, form.end_date.data, pc_raw, form.estimated_budget.data)
+                                  form.start_date.data, form.end_date.data, pc_raw, form.estimated_budget.data, has_attach)
         if not req_err and not (form.cover_image.data and getattr(form.cover_image.data, 'filename', '')):
             req_err = "Vui lòng chọn ảnh bìa cho chuyến đi."
-        if not req_err:
+        if not req_err and not has_attach:                        # có tệp đính kèm thì không bắt buộc chặng hoạt động
             for d in range(1, total_days + 1):
                 if not stops_by_day.get(d):
                     req_err = f"Ngày {d} cần có ít nhất 1 điểm ghé."
@@ -613,6 +652,7 @@ def create():
                     address=st['address'],
                     location_link=st['link'],
                     notes=st['note'],
+                    price=st.get('price'),
                 ))
                 any_stops_added = True
 
