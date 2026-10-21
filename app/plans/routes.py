@@ -919,4 +919,4 @@ def delete_stop(stop_id):
         return jsonify({"message": "Đã xóa điểm dừng"}), 200
 
     flash("Đã xóa điểm dừng.", "info")
-    return redirect(url_for('plans.detail', plan_id=plan.id))
+    return redirect(url_for('plans.detail', plan_id=plan.id))

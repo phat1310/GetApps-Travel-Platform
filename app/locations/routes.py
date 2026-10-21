@@ -1689,4 +1689,4 @@ def upload_stop_image(stop_id):
 @locations_bp.route("/itineraries/new", methods=["GET"])
 @login_required
 def new_itinerary_page():
-    return redirect(url_for("locations.feed", compose="plan"))
+    return redirect(url_for("locations.feed", compose="plan"))

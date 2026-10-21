@@ -838,4 +838,4 @@ def search_all():
         "location_count": len(location_result),
         "posts": result,
         "locations": location_result
-    }), 200
+    }), 200

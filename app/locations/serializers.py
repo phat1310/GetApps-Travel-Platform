@@ -106,4 +106,4 @@ def serialize_posts(posts, viewer_id):
             "liked_by_me": p.id in liked,
             "saved_by_me": p.id in saved,
         })
-    return result
+    return result

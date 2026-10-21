@@ -1670,4 +1670,4 @@ def google_callback():
     if not user.profile_completed:
         return redirect(url_for("auth.onboarding"))
 
-    return redirect(url_for("auth.index"))
+    return redirect(url_for("auth.index"))

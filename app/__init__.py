@@ -201,4 +201,4 @@ def create_app(config_override=None):
 
     csrf.exempt(api_bp)
 
-    return app
+    return app

@@ -18,4 +18,4 @@ class Location(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=True, index=True)
 
     def __repr__(self):
-        return f'<Location {self.name}>'
+        return f'<Location {self.name}>'
