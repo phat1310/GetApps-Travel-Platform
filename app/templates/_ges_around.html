@@ -1,0 +1,18 @@
+{# GEs Around — nút radar cố định góc dưới trái + khung tìm kiếm. Chỉ render cho người đã đăng nhập (xem base.html). #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ges-around.css') }}">
+<div id="gaRoot" data-areas-url="{{ url_for('ges_around.areas') }}" data-search-url="{{ url_for('ges_around.search') }}">
+  <button type="button" class="ga-fab" id="gaFab" aria-label="GEs Around — gợi ý quanh bạn" aria-expanded="false" aria-controls="gaPanel">
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><circle cx="24" cy="24" r="19"/><circle cx="24" cy="24" r="11"/><circle cx="24" cy="24" r="3" fill="currentColor"/><path d="M24 24 L38 10"/></svg>
+    <span class="ga-bdg" id="gaBadge" hidden></span>
+    <span class="ga-tip" id="gaTip" role="status">GEs Around</span>
+  </button>
+
+  <section class="ga-panel" id="gaPanel" role="dialog" aria-label="GEs Around" hidden>
+    <header class="ga-hd">
+      <h3><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><circle cx="24" cy="24" r="19"/><circle cx="24" cy="24" r="11"/><circle cx="24" cy="24" r="3" fill="currentColor"/><path d="M24 24 L38 10"/></svg>GEs Around</h3>
+      <button type="button" class="ga-x" id="gaClose" aria-label="Đóng">✕</button>
+    </header>
+    <div class="ga-body" id="gaBody"></div>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='js/ges-around.js') }}" defer></script>

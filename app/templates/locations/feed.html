@@ -77,7 +77,7 @@
                 <h5 class="fw-bold mt-3 mb-1">Chưa có bài viết nào trên bảng tin</h5>
                 <p class="text-muted mb-4">Hãy là người đầu tiên chia sẻ hành trình du lịch tuyệt đẹp của bạn hoặc theo dõi bạn bè!</p>
                 <div class="d-flex justify-content-center gap-2">
-                    <button type="button" class="btn btn-ges-primary" onclick="openQuickCreate('post')">
+                    <button type="button" class="btn btn-ges-primary" {% if current_user.is_authenticated %}onclick="openQuickCreate('post')"{% else %}data-login-gate="đăng bài"{% endif %}>
                         <i class="bi bi-camera-fill me-1"></i> Đăng bài ngay
                     </button>
                 </div>
@@ -90,6 +90,17 @@
     <div class="col-lg-4 d-none d-lg-block">
       <div class="feed-side">
         
+        {% if not current_user.is_authenticated %}
+        <div class="sidebar-card guest-card" id="meCard">
+            <div class="gc-ic"><i class="bi bi-person-circle"></i></div>
+            <h6>Góc cá nhân chưa hoạt động</h6>
+            <p>Kích hoạt ngay để đăng bài, lưu hành trình, nhắn tin và kết nối với cộng đồng du lịch!</p>
+            <div class="gc-btns">
+                <a href="{{ url_for('auth.login', next=request.full_path.rstrip('?')) }}" class="st-guest-btn st-guest-login">Đăng nhập</a>
+                <a href="{{ url_for('auth.register') }}" class="st-guest-btn st-guest-reg">Đăng ký</a>
+            </div>
+        </div>
+        {% else %}
         <!-- Thẻ hồ sơ của mình: bấm cả thẻ -> trang cá nhân; "Xem tất cả" -> tab Bài viết ở trang cá nhân -->
         <div class="sidebar-card me-card" id="meCard">
             {% set mybg = current_user.profile_bg_safe %}
@@ -146,6 +157,7 @@
             </div>
             <a href="{{ url_for('auth.profile') }}" class="stretched-link" aria-label="Xem trang cá nhân của bạn"></a>
         </div>
+        {% endif %}
 
         <!-- Địa điểm nổi bật: xếp theo số bài đăng + lịch trình công khai; mặc định 3, "Xem thêm" mở tối đa 10 -->
         <div class="sidebar-card">
@@ -177,6 +189,7 @@
             {% endif %}
         </div>
 
+        {% if current_user.is_authenticated %}
         <!-- Gợi ý kết nối: 5 người (đăng bài nhiều tương tác nhất; chưa ai đăng thì người đăng ký sớm nhất) -->
         <div class="sidebar-card">
             <div class="d-flex align-items-center justify-content-between mb-3">
@@ -215,6 +228,7 @@
                 <p class="text-muted small mb-0">Đang cập nhật danh sách bạn bè du lịch.</p>
             {% endif %}
         </div>
+        {% endif %}
 
         <!-- Footer snippet -->
         <div class="text-muted small px-2">

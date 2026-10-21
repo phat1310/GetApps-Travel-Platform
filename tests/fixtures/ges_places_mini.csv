@@ -1,0 +1,7 @@
+id,name,grp,kind,lat,lon,src,brand,addr,hours,web,pop
+t-1,Quán Gần,an_uong,amenity=cafe,10.7730,106.6990,osm,,1 Lê Lợi,,https://example.com/a,1
+t-2,Quán Xa,an_uong,amenity=cafe,10.9000,106.8000,osm,,,,,0
+t-3,Nhà hàng Đắt,an_uong,amenity=restaurant,10.7740,106.6985,osm,,,,javascript:alert(1),0
+t-4,Đầm Sen,giai_tri,leisure=amusement_park,10.7633,106.6350,osm,,,,,2
+t-5,<img src=x onerror=alert(1)>,tham_quan,tourism=attraction,10.7769,106.6954,osm,,,,,2
+t-6,Chùa Ngoài Vùng,tham_quan,amenity=place_of_worship,21.0000,105.8000,osm,,,,,0

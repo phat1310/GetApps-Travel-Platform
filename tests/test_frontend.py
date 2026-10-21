@@ -21,9 +21,9 @@ def test_root_index_redirect(client):
 
 
 def test_feed_unauthenticated(client):
-    """Chưa login truy cập /locations/feed bị từ chối hoặc chuyển hướng (401/302)."""
+    """Khách (chưa login) xem được bảng tin công khai (chi tiết: tests/test_guest_access.py)."""
     res = client.get("/locations/feed")
-    assert res.status_code in [302, 401]
+    assert res.status_code == 200
 
 
 def test_feed_authenticated_html(client, users, post):

@@ -1,0 +1,69 @@
+{# Chỉ render cho KHÁCH (chưa đăng nhập): khung "Cần đăng nhập" + chặn các nút cần tài khoản. #}
+<style>
+.st-guest-auth{display:flex;align-items:center;gap:8px;margin-left:2px}
+.st-guest-btn{display:inline-flex;align-items:center;padding:7px 16px;border-radius:999px;font-weight:700;font-size:.88rem;text-decoration:none;white-space:nowrap;border:1.5px solid #1789c3;transition:background .15s,color .15s}
+.st-guest-login{color:#1789c3;background:transparent}
+.st-guest-login:hover{background:#1789c3;color:#fff}
+.st-guest-reg{color:#fff;background:#1789c3}
+.st-guest-reg:hover{background:#106f9f;border-color:#106f9f;color:#fff}
+@media (max-width:575.98px){.st-guest-btn{padding:6px 11px;font-size:.8rem}}
+.guest-card{text-align:center;padding:22px 18px}
+.guest-card .gc-ic{width:56px;height:56px;border-radius:50%;background:#e7f4fc;color:#1789c3;display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 10px}
+.guest-card h6{font-weight:800;margin-bottom:4px}
+.guest-card p{font-size:.86rem;color:var(--bs-secondary-color,#6c757d);margin-bottom:12px}
+.guest-card .gc-btns{display:flex;gap:8px;justify-content:center}
+.lg-ov{position:fixed;inset:0;z-index:2100;background:rgba(15,35,52,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.lg-ov[hidden]{display:none}
+.lg-box{background:#fff;color:#1f4a63;border-radius:22px;padding:26px 24px 20px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.lg-box .lg-ic{width:60px;height:60px;border-radius:50%;background:#e7f4fc;color:#1789c3;display:flex;align-items:center;justify-content:center;font-size:1.7rem;margin:0 auto 10px}
+.lg-box h5{font-weight:800;margin:0 0 6px}
+.lg-box p{font-size:.92rem;color:#5d7b91;margin:0 0 16px}
+.lg-box .lg-btns{display:flex;flex-direction:column;gap:8px}
+.lg-box .lg-later{background:none;border:0;color:#6f8aa0;font-size:.85rem;margin-top:6px;cursor:pointer}
+</style>
+<div class="lg-ov" id="gesLoginGate" role="dialog" aria-modal="true" aria-labelledby="lgTitle" hidden>
+  <div class="lg-box">
+    <div class="lg-ic"><i class="bi bi-person-lock"></i></div>
+    <h5 id="lgTitle">Cần đăng nhập</h5>
+    <p id="lgMsg">Bạn cần đăng nhập để dùng tính năng này.</p>
+    <div class="lg-btns">
+      <a class="st-guest-btn st-guest-reg justify-content-center" id="lgLogin" href="{{ url_for('auth.login') }}">Đăng nhập</a>
+      <a class="st-guest-btn st-guest-login justify-content-center" href="{{ url_for('auth.register') }}">Tạo tài khoản mới</a>
+    </div>
+    <button type="button" class="lg-later" id="lgLater">Để sau</button>
+  </div>
+</div>
+<script>
+(function () {
+  var ov = document.getElementById('gesLoginGate'), msg = document.getElementById('lgMsg');
+  var loginUrl = "{{ url_for('auth.login') }}";
+  function show(what) {
+    msg.textContent = what ? 'Bạn cần đăng nhập để ' + what + '.' : 'Bạn cần đăng nhập để dùng tính năng này.';
+    document.getElementById('lgLogin').href = loginUrl + '?next=' + encodeURIComponent(location.pathname + location.search);
+    ov.hidden = false;
+    document.getElementById('lgLogin').focus();
+  }
+  function hide() { ov.hidden = true; }
+  window.gesNeedLogin = show;
+  document.getElementById('lgLater').addEventListener('click', hide);
+  ov.addEventListener('click', function (e) { if (e.target === ov) hide(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !ov.hidden) hide(); });
+  // Bấm vào nút cần tài khoản (đăng bài, thông báo, tin nhắn, cài đặt...) -> hiện khung thay vì thực hiện
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-login-gate]');
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    show(t.getAttribute('data-login-gate'));
+  }, true);
+  // Thích / bình luận / lưu / chia sẻ / theo dõi... gửi lên server bị 401 -> hiện khung đăng nhập
+  var orig = window.fetch;
+  window.fetch = function () {
+    return orig.apply(this, arguments).then(function (res) {
+      if (res.status === 401) {
+        res.clone().json().then(function (j) { if (j && j.login_required) show(''); }).catch(function () {});
+      }
+      return res;
+    });
+  };
+})();
+</script>

@@ -937,10 +937,11 @@
     .mention-empty { padding: 8px 12px; font-size: .8rem; color: #64748b; }
     </style>
 </head>
-<body class="{% if current_user.is_authenticated %}has-pill-side{% endif %}">
+<body class="has-pill-side{% if not current_user.is_authenticated %} is-guest{% endif %}">
 
     <!-- ==================== HEADER & NAVBAR ==================== -->
-    {% if current_user.is_authenticated %}
+    {# Khung giao diện dùng chung cho cả khách và người đã đăng nhập; chức năng cần tài khoản dùng data-login-gate #}
+    {% if True %}
         <!-- Top Bar Proposal (Slide 4 & forntend.jpg) -->
         <header class="st-top">
             <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps" style="margin-left: -14px;">
@@ -966,8 +967,9 @@
                 <button type="button" class="st-top-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Chuyển chế độ Nền sáng / Nền tối">
                     <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
                 </button>
-                <a href="{{ url_for('auth.settings_page') }}" class="st-top-btn {% if request.endpoint in ['auth.settings', 'auth.settings_page'] %}active{% endif %}" title="Cài đặt tài khoản" aria-label="Cài đặt"><i class="bi bi-gear-fill"></i></a>
+                <a href="{{ url_for('auth.settings_page') }}" class="st-top-btn {% if request.endpoint in ['auth.settings', 'auth.settings_page'] %}active{% endif %}" title="Cài đặt tài khoản" aria-label="Cài đặt" {% if not current_user.is_authenticated %}data-login-gate="cài đặt"{% endif %}><i class="bi bi-gear-fill"></i></a>
                 <span class="st-top-divider" aria-hidden="true"></span>
+                {% if current_user.is_authenticated %}
                 <a class="st-top-avatar" href="{{ url_for('auth.profile', username=current_user.username) }}" title="Trang cá nhân của bạn" aria-label="Trang cá nhân của bạn">
                     {% if current_user.avatar_url %}
                         <img src="{{ current_user.avatar_url }}" alt="" onerror="this.src='https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=169fe3&color=fff'">
@@ -975,6 +977,12 @@
                         <img src="https://ui-avatars.com/api/?name={{ current_user.nickname or current_user.username }}&background=169fe3&color=fff" alt="">
                     {% endif %}
                 </a>
+                {% else %}
+                <span class="st-guest-auth">
+                    <a href="{{ url_for('auth.login', next=request.full_path.rstrip('?')) }}" class="st-guest-btn st-guest-login">Đăng nhập</a>
+                    <a href="{{ url_for('auth.register') }}" class="st-guest-btn st-guest-reg">Đăng ký</a>
+                </span>
+                {% endif %}
             </div>
         </header>
 
@@ -988,38 +996,20 @@
                 <i class="bi bi-calendar3"></i>
                 <span>Lịch trình</span>
             </a>
-            <button class="st-create" type="button" data-bs-toggle="modal" data-bs-target="#quickCreateModal" aria-label="Tạo mới bài viết hoặc lịch trình" title="Tạo mới bài viết hoặc Lịch trình">
+            <button class="st-create" type="button" {% if current_user.is_authenticated %}data-bs-toggle="modal" data-bs-target="#quickCreateModal"{% else %}data-login-gate="đăng bài"{% endif %} aria-label="Tạo mới bài viết hoặc lịch trình" title="Tạo mới bài viết hoặc Lịch trình">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24" aria-hidden="true"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 1.82 3.16.77 1.33 1.6-.43 5.31-1.42 4.35-1.16L21 11.49c.81-.23 1.28-1.05 1.07-1.85z"/></svg>
             </button>
-            <a class="st-nav st-bell {% if request.endpoint == 'auth.notifications_page' %}active{% endif %}" href="/notifications" id="stNotifBtn" title="{{ 'Thông báo (' ~ notif_unread ~ ' chưa đọc)' if notif_unread else 'Thông báo' }}">
+            <a class="st-nav st-bell {% if request.endpoint == 'auth.notifications_page' %}active{% endif %}" href="/notifications" id="stNotifBtn" {% if not current_user.is_authenticated %}data-login-gate="xem thông báo"{% endif %} title="{{ 'Thông báo (' ~ notif_unread ~ ' chưa đọc)' if notif_unread else 'Thông báo' }}">
                 <i class="bi bi-bell"></i>
                 <span>Thông báo</span>
                 <span class="st-msg-badge st-notif-badge" id="stNotifBadge" {% if not notif_unread %}hidden{% endif %}>{{ '99+' if notif_unread > 99 else notif_unread }}</span>
             </a>
-            <button type="button" class="st-nav st-nav-btn" id="stMsgBtn" aria-label="Tin nhắn" title="Tin nhắn">
+            <button type="button" class="st-nav st-nav-btn" id="stMsgBtn" aria-label="Tin nhắn" title="Tin nhắn" {% if not current_user.is_authenticated %}data-login-gate="nhắn tin"{% endif %}>
                 <span class="st-msg-icon" aria-hidden="true"></span>
                 <span class="st-msg-badge" id="stMsgBadge" hidden>0</span>
                 <span>Tin nhắn</span>
             </button>
         </nav>
-    {% else %}
-        <!-- Unauthenticated Top Navbar -->
-        <header class="sticky-top">
-            <nav class="navbar navbar-expand-lg navbar-ges">
-                <div class="container">
-                    <a class="navbar-brand d-flex align-items-center me-4 text-decoration-none py-0" href="{{ url_for('locations.feed') }}" title="GEs — Get · Explore · Share" style="margin-left: -10px;">
-                        <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs — GetApps" class="brand-logo-img">
-                    </a>
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <button type="button" class="theme-toggle-btn me-2" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối">
-                            <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
-                        </button>
-                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-sm px-3">Đăng nhập</a>
-                        <a href="{{ url_for('auth.register') }}" class="btn btn-ges-primary btn-sm px-3">Đăng ký</a>
-                    </div>
-                </div>
-            </nav>
-        </header>
     {% endif %}
 
     <!-- ==================== FLASH MESSAGES ==================== -->
@@ -3084,6 +3074,12 @@
             }
         })();
     </script>
+
+    {% if current_user.is_authenticated %}
+    {% include "_ges_around.html" %}
+    {% else %}
+    {% include "_login_gate.html" %}
+    {% endif %}
 
     {% if current_user.is_authenticated %}
     <!-- ==================== CHAT KIỂU MESSENGER ==================== -->

@@ -5,3 +5,4 @@ __pycache__/
 .git/
 .pytest_cache/
 instance/
+app/data/data_draw/

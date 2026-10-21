@@ -173,6 +173,7 @@ def create_app(config_override=None):
     from app.api import api_bp
     from app.plans import plans_bp
     from app.chat import chat_bp
+    from app.ges_around import ges_around_bp
     from app.presence import init_presence
     init_presence(app)
     from app.mentions import render_mentions
@@ -198,6 +199,7 @@ def create_app(config_override=None):
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(plans_bp, url_prefix="/plans")
     app.register_blueprint(chat_bp, url_prefix="/chat")
+    app.register_blueprint(ges_around_bp, url_prefix="/ges-around")
 
     csrf.exempt(api_bp)
 
