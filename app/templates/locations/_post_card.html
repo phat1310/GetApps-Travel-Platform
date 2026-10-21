@@ -95,13 +95,13 @@
                     <!-- Post Caption -->
                     {% if post.caption %}
                         <div class="px-3 pb-2">
-                            <p class="mb-1 text-dark" style="white-space: pre-line; font-size: 0.95rem; line-height: 1.5;">{{ post.caption }}</p>
+                            <p class="mb-1 text-dark" style="white-space: pre-line; font-size: 0.95rem; line-height: 1.5;">{{ post.caption | mentions }}</p>
                         </div>
                     {% endif %}
 
                     <!-- Post Media (Multi-photo Carousel or Single photo/video) -->
                     {% if post.photos %}
-                        <div class="post-media-container">
+                        <div class="post-media-container{% if post.photos|length > 1 %} is-collage{% endif %}">
                             {% if post.photos|length == 1 %}
                                 {% set photo = post.photos[0] %}
                                 {% if photo.media_type == 'video' %}
@@ -113,31 +113,25 @@
                                     <img src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" alt="Post image" loading="lazy">
                                 {% endif %}
                             {% else %}
-                                <div id="carouselPost{{ post.id }}" class="carousel slide w-100" data-bs-interval="false">
-                                    <div class="carousel-indicators">
-                                        {% for photo in post.photos %}
-                                            <button type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide-to="{{ loop.index0 }}" class="{% if loop.first %}active{% endif %}"></button>
-                                        {% endfor %}
-                                    </div>
-                                    <div class="carousel-inner">
-                                        {% for photo in post.photos %}
-                                            <div class="carousel-item {% if loop.first %}active{% endif %} text-center">
+                                {# Ảnh/video xếp lưới kiểu Facebook: tối đa 5 ô, ô cuối hiện "+N"; bấm vào mở lightbox xem hết (xem _post_js.html) #}
+                                {% set n_media = post.photos|length %}
+                                <div class="ges-collage c{{ [n_media, 5]|min }}" data-collage>
+                                    {% for photo in post.photos %}
+                                        {% set src = url_for('static', filename=photo.file_path.replace('static/', '')) %}
+                                        {% if loop.index0 < 5 %}
+                                            <button type="button" class="ges-cell" data-src="{{ src }}" data-type="{{ 'video' if photo.media_type == 'video' else 'image' }}" aria-label="Xem ảnh {{ loop.index }} / {{ n_media }}">
                                                 {% if photo.media_type == 'video' %}
-                                                    <video controls playsinline class="w-100">
-                                                        <source src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" type="video/mp4">
-                                                    </video>
+                                                    <video muted playsinline preload="metadata" src="{{ src }}#t=0.1"></video>
+                                                    <span class="ges-cell-play"><i class="bi bi-play-fill"></i></span>
                                                 {% else %}
-                                                    <img src="{{ url_for('static', filename=photo.file_path.replace('static/', '')) }}" class="d-block w-100" alt="Photo {{ loop.index }}">
+                                                    <img src="{{ src }}" alt="Ảnh {{ loop.index }}" loading="lazy">
                                                 {% endif %}
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide="prev">
-                                        <span class="carousel-control-prev-icon"></span>
-                                    </button>
-                                    <button class="carousel-control-next" type="button" data-bs-target="#carouselPost{{ post.id }}" data-bs-slide="next">
-                                        <span class="carousel-control-next-icon"></span>
-                                    </button>
+                                                {% if loop.index0 == 4 and n_media > 5 %}<span class="ges-cell-more">+{{ n_media - 5 }}</span>{% endif %}
+                                            </button>
+                                        {% else %}
+                                            <span hidden data-src="{{ src }}" data-type="{{ 'video' if photo.media_type == 'video' else 'image' }}"></span>
+                                        {% endif %}
+                                    {% endfor %}
                                 </div>
                             {% endif %}
                         </div>

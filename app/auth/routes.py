@@ -131,6 +131,49 @@ def search_variants(q):
     return [v for v in variants if v]
 
 
+def _fold(text):
+    """Bỏ dấu tiếng Việt + chữ thường + gộp khoảng trắng: 'Võ  Quốc Khánh' -> 'vo quoc khanh'."""
+    s = unicodedata.normalize("NFD", text or "").replace("đ", "d").replace("Đ", "D")
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+
+def find_users(q, limit=None):
+    """Tìm người dùng theo username / tên hiển thị / họ tên / thẻ, KHÔNG phân biệt dấu và hoa thường.
+
+    Vì sao không dùng SQL ILIKE: SQL so khớp chuỗi thô nên 'vo quoc khanh' không khớp 'Võ Quốc Khánh'.
+    Cách làm: mỗi từ trong ô tìm kiếm phải xuất hiện (đã bỏ dấu) trong tên/username của người đó, theo thứ tự bất kỳ
+    ('khanh quoc' vẫn ra); gõ liền không dấu ('voquockhanh') cũng khớp. Chỉ đọc vài cột nhẹ rồi lọc bằng Python.
+    Trả danh sách User, xếp: trùng đúng > bắt đầu bằng > còn lại."""
+    qf = _fold(q)
+    if not qf:
+        return []
+    tokens, qc = qf.split(), qf.replace(" ", "")
+    rows = db.session.query(User.id, User.username, User.nickname, User.full_name, User.profile_tag, User.tags).all()
+    scored = []
+    for uid, uname, nick, full, ptag, tags in rows:
+        names = [_fold(uname), _fold(nick), _fold(full)]
+        hay = " ".join(names + [_fold(ptag), _fold(tags)])
+        hay_c = hay.replace(" ", "")
+        if not (all(t in hay for t in tokens) or qc in hay_c):
+            continue
+        if any(n == qf or n.replace(" ", "") == qc for n in names if n):
+            rank = 0
+        elif any(n.startswith(qf) for n in names if n):
+            rank = 1
+        elif any(qf in n for n in names if n):
+            rank = 2
+        else:
+            rank = 3
+        scored.append((rank, uid))
+    scored.sort()
+    ids = [uid for _, uid in (scored[:limit] if limit else scored)]
+    if not ids:
+        return []
+    by_id = {u.id: u for u in User.query.filter(User.id.in_(ids)).all()}
+    return [by_id[i] for i in ids if i in by_id]
+
+
 @auth_bp.route('/search', methods=['GET'])
 def search_page():
     """Trang kết quả tìm kiếm đa đối tượng: User, Bài viết, Lịch trình, Địa điểm.
@@ -211,14 +254,7 @@ def search_page():
                     })
 
         # 2. TÌM USER (Tên, username, nickname, profile_tag, tags) — Hỗ trợ đa biến thể tiếng Việt
-        user_filters = []
-        for var in q_vars:
-            user_filters.append(User.username.ilike(f"%{var}%"))
-            user_filters.append(User.nickname.ilike(f"%{var}%"))
-            user_filters.append(User.full_name.ilike(f"%{var}%"))
-            user_filters.append(User.profile_tag.ilike(f"%{var}%"))
-            user_filters.append(User.tags.ilike(f"%{var}%"))
-        users_query = User.query.filter(or_(*user_filters)).all()
+        users_query = find_users(q)          # không phân biệt dấu: 'vo quoc khanh' ra 'Võ Quốc Khánh'
 
         user_cards = []
         for u in users_query:
@@ -245,6 +281,7 @@ def search_page():
             user_cards.append({
                 "user": u,
                 "relevance": rel + followers_count,
+                "base_rel": rel,
                 "followers_count": followers_count,
                 "following_count": following_count,
                 "is_following": is_following,
@@ -262,6 +299,17 @@ def search_page():
             post_filters.append(Post.location_id.in_(list(matched_db_loc_ids)))
 
         post_query = Post.query.outerjoin(Post.hashtags).filter(or_(*post_filters)).distinct().all()
+
+        # Bài viết CỦA người dùng khớp tên: tìm "vo quoc khanh" thì ngoài hồ sơ còn thấy luôn bài người đó đăng.
+        # Chỉ lấy người khớp mạnh (trùng đúng username/tên hoặc username bắt đầu bằng từ khóa), tối đa 3 người, 40 bài mới nhất mỗi người,
+        # để gõ "khanh" không đổ cả trăm bài của mọi người tên Khánh vào kết quả.
+        author_ids = [c["user"].id for c in user_cards if c["base_rel"] >= 300][:3]
+        if author_ids:
+            have = {p.id for p in post_query}
+            for ap in Post.query.filter(Post.user_id.in_(author_ids)).order_by(Post.created_at.desc()).limit(40 * len(author_ids)).all():
+                if ap.id not in have:
+                    post_query.append(ap)
+                    have.add(ap.id)
 
         # Quét bổ sung qua norm_text để không bỏ sót các hashtag dính liền không dấu (#dalat)
         existing_p_ids = {p.id for p in post_query}
@@ -283,6 +331,8 @@ def search_page():
             score = l_cnt * 2 + c_cnt * 3 + s_cnt * 4
             if any(v in (p.caption or '').lower() or norm_text(v) in norm_text(p.caption or '') for v in q_vars if v):
                 score += 10
+            if p.user_id in author_ids:
+                score += 20          # bài do chính người được tìm đăng: ưu tiên lên đầu
             scored_posts.append((score, p))
         scored_posts.sort(key=lambda x: (x[0], x[1].created_at or datetime.min), reverse=True)
         sorted_posts = [item[1] for item in scored_posts]
@@ -359,12 +409,7 @@ def search_suggest():
         return jsonify({"users": [], "locations": []})
 
     q_vars = search_variants(q)
-    user_filters = []
-    for var in q_vars:
-        user_filters.append(User.username.ilike(f"%{var}%"))
-        user_filters.append(User.nickname.ilike(f"%{var}%"))
-        user_filters.append(User.full_name.ilike(f"%{var}%"))
-    users = User.query.filter(or_(*user_filters)).limit(5).all()
+    users = find_users(q, limit=5)       # tên hiển thị / họ tên / username, bỏ dấu
 
     # 1. Tra cứu CSDL địa điểm đã có trong hệ thống
     db_loc_filters = []
@@ -1120,18 +1165,84 @@ def onboarding_skip():
 @login_required
 def notifications_page():
     """Giao diện danh sách thông báo hoạt động của người dùng."""
-    notifications = Notification.query.filter_by(
-        user_id=current_user.id
+    _migrate_legacy_share_notifications(current_user.id)
+    notifications = Notification.query.filter(
+        Notification.user_id == current_user.id,
+        Notification.notification_type != "share",
     ).order_by(
         Notification.created_at.desc()
     ).limit(50).all()
+
+    previews = _notification_previews(notifications)
 
     # Đánh dấu đã đọc
     for n in notifications:
         n.is_read = True
     db.session.commit()
 
-    return render_template("auth/notifications.html", notifications=notifications)
+    return render_template("auth/notifications.html", notifications=notifications, previews=previews)
+
+
+def _migrate_legacy_share_notifications(user_id):
+    """Thông báo "share" kiểu CŨ (trước khi tách riêng): nếu thật ra là một lượt ĐĂNG LẠI thì đổi thành "repost" và trỏ tới
+    bài đăng lại của người đó; còn lại (copy link / tải về) thì xóa vì không còn báo loại này nữa."""
+    from app.models import Post, Share
+    rows = Notification.query.filter_by(user_id=user_id, notification_type="share").all()
+    if not rows:
+        return
+    for n in rows:
+        if n.post_id:
+            rp = Post.query.filter_by(user_id=n.actor_id, original_post_id=n.post_id).order_by(Post.id.desc()).first()
+            if rp:
+                n.notification_type, n.post_id = "repost", rp.id
+                continue
+        elif n.itinerary_id:
+            if Share.query.filter_by(user_id=n.actor_id, itinerary_id=n.itinerary_id, share_type="repost").first():
+                n.notification_type = "repost"
+                continue
+        db.session.delete(n)
+    db.session.commit()
+
+
+def _notification_previews(notifications):
+    """Khung xem trước bài/lịch trình cho từng thông báo (ảnh nhỏ + trích nội dung + số tim/bình luận),
+    để biết ai đã thích bài NÀO mà không cần mở. Gom truy vấn theo lô (không N+1)."""
+    from sqlalchemy import func
+    from app.models import Post, Photo, Like, Comment, Itinerary
+    post_ids = {n.post_id for n in notifications if n.post_id}
+    plan_ids = {n.itinerary_id for n in notifications if n.itinerary_id}
+    out = {}
+    if post_ids:
+        posts = {p.id: p for p in Post.query.filter(Post.id.in_(post_ids)).all()}
+        # bài đăng lại luôn hiển thị nội dung của bài gốc
+        content_ids = {p.id: (p.original_post_id or p.id) for p in posts.values()}
+        photos = {}
+        for ph in Photo.query.filter(Photo.post_id.in_(set(content_ids.values()))).order_by(Photo.id.asc()).all():
+            photos.setdefault(ph.post_id, ph)
+        caps = {p.id: p for p in Post.query.filter(Post.id.in_(set(content_ids.values()))).all()}
+        likes = dict(db.session.query(Like.post_id, func.count(Like.id)).filter(Like.post_id.in_(post_ids)).group_by(Like.post_id).all())
+        cmts = dict(db.session.query(Comment.post_id, func.count(Comment.id)).filter(Comment.post_id.in_(post_ids)).group_by(Comment.post_id).all())
+        for pid, p in posts.items():
+            ph = photos.get(content_ids[pid])
+            cap = (p.repost_note or (caps.get(content_ids[pid]).caption if caps.get(content_ids[pid]) else p.caption) or "").strip()
+            out[("post", pid)] = {
+                "text": (cap[:90] + "…") if len(cap) > 90 else cap,
+                "thumb": (url_for("static", filename=ph.file_path.replace("static/", "")) if ph and ph.media_type != "video" else None),
+                "is_video": bool(ph and ph.media_type == "video"),
+                "likes": likes.get(pid, 0), "comments": cmts.get(pid, 0),
+                "in_caption": ("@" + (current_user.username or "").lower()) in (caps.get(content_ids[pid]).caption if caps.get(content_ids[pid]) and caps.get(content_ids[pid]).caption else "").lower(),
+            }
+    if plan_ids:
+        likes = dict(db.session.query(Like.itinerary_id, func.count(Like.id)).filter(Like.itinerary_id.in_(plan_ids)).group_by(Like.itinerary_id).all())
+        cmts = dict(db.session.query(Comment.itinerary_id, func.count(Comment.id)).filter(Comment.itinerary_id.in_(plan_ids)).group_by(Comment.itinerary_id).all())
+        for pl in Itinerary.query.filter(Itinerary.id.in_(plan_ids)).all():
+            cov = pl.cover_image
+            out[("plan", pl.id)] = {
+                "text": pl.title, "sub": pl.destination or "",
+                "thumb": (url_for("static", filename=cov.replace("static/", "")) if cov and not cov.startswith(("http://", "https://", "/")) else cov) or None,
+                "is_video": False, "likes": likes.get(pl.id, 0), "comments": cmts.get(pl.id, 0),
+            }
+    return out
 
 
 @auth_bp.route("/settings/contact", methods=["POST"])

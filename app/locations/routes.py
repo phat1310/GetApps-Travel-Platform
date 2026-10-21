@@ -5,13 +5,13 @@ chi tiết bài viết, like, comment, share, save, địa điểm, lịch trìn
 import os
 from datetime import datetime
 import uuid
-from flask import request, jsonify, current_app, render_template, redirect, url_for, flash, send_from_directory
+from flask import abort, request, jsonify, current_app, render_template, redirect, url_for, flash, send_from_directory
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from app.locations import locations_bp
 from app.notifications import notify
-from app.mentions import notify_mentions, render_mentions, suggest as suggest_mentions
+from app.mentions import notify_mentions, notify_new_mentions, render_mentions, suggest as suggest_mentions
 from app.extensions import db
 from app.models import (
     Post, Photo, Like, Comment, Share, SavedPost, Location, User,
@@ -226,6 +226,9 @@ def create_post():
             db.session.add(photo)
 
         db.session.commit()
+        # Gắn thẻ @ trong caption -> báo cho người được tag (bỏ qua người không xem được bài / chính mình)
+        if notify_mentions(caption, current_user.id, current_user.id, post=post):
+            db.session.commit()
 
     except Exception:
         db.session.rollback()
@@ -382,6 +385,7 @@ def edit_post(post_id):
             extra_locations.append(loc)
 
     post = db.session.get(Post, post_id)       # get_or_create_location có thể commit
+    old_caption = post.caption or ""
     post.caption = caption
     post.visibility = visibility
     post.location_id = location.id if location else None
@@ -409,6 +413,7 @@ def edit_post(post_id):
         changed = bool(prepared) or _post_snapshot(post) != before
         if changed:
             post.edited_at = datetime.utcnow()
+        notify_new_mentions(old_caption, caption, current_user.id, post=post)      # chỉ báo người MỚI được tag
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -602,7 +607,8 @@ def mention_suggest():
         if post and user_can_access_post(post):
             extra = [r[0] for r in db.session.query(Comment.user_id).filter_by(post_id=pid).distinct().limit(20).all()]
             extra.append(post.user_id)
-    return jsonify({"users": suggest_mentions(current_user.id, q, extra_ids=extra)})
+    # Trả tối đa 200 người (người đang theo dõi xếp đầu); khung gợi ý ở trình duyệt hiện ~8 dòng rồi cuộn để xem hết
+    return jsonify({"users": suggest_mentions(current_user.id, q, limit=200, extra_ids=extra)})
 
 
 @locations_bp.route("/popular", methods=["GET"])
@@ -611,6 +617,16 @@ def popular_places_api():
     """Top địa điểm nổi bật (bài đăng + lịch trình công khai) — dùng cho chip gợi ý ở form lịch trình."""
     limit = min(max(request.args.get("limit", 3, type=int), 1), 10)
     return jsonify({"places": popular_locations(limit)})
+
+
+@locations_bp.route("/p/<int:post_id>", methods=["GET"])
+@login_required
+def view_post(post_id):
+    """Trang xem ĐÚNG 1 bài (link từ thông báo): không phụ thuộc bài đó có nằm trong bảng tin của người xem hay không."""
+    post = db.session.get(Post, post_id)
+    if not post or not user_can_access_post(post):
+        abort(404)                       # không phân biệt "không tồn tại" và "không có quyền" -> không lộ bài riêng tư
+    return render_template("locations/post_view.html", posts=build_post_cards([post], current_user.id))
 
 
 @locations_bp.route("/posts/<int:post_id>", methods=["GET"])
@@ -880,11 +896,7 @@ def download_post(post_id):
 
         db.session.add(share)
 
-        # Tạo thông báo Share cho chủ bài viết
-        # Không gửi thông báo nếu tự download bài của mình
-        notify(post.user_id, current_user.id, "share", post_id=post.id)
-
-        # Lưu Share + Notification cùng transaction
+        # Tải về: chỉ ghi nhận lượt chia sẻ, KHÔNG báo cho chủ bài
         db.session.commit()
 
     return send_from_directory(
@@ -949,11 +961,7 @@ def share_post(post_id):
 
     db.session.add(share)
 
-    # Tạo thông báo Share cho chủ bài viết
-    # Không gửi thông báo nếu tự share bài của mình
-    notify(post.user_id, current_user.id, "share", post_id=post.id)
-
-    # Lưu Share + Notification cùng transaction
+    # Copy link: chỉ ghi nhận lượt chia sẻ, KHÔNG báo cho chủ bài
     db.session.commit()
 
     return jsonify({
@@ -1109,9 +1117,9 @@ def repost_post(post_id):
 
     db.session.add(share)
 
-    # Tạo thông báo Share cho chủ bài viết gốc
-    # Không gửi thông báo nếu tự repost bài của mình
-    notify(original_post.user_id, current_user.id, "share", post_id=original_post.id)
+    # Báo cho chủ bài gốc: "X đã đăng lại bài viết của bạn" — thông báo trỏ tới BÀI ĐĂNG LẠI (repost.id) chứ không phải bài gốc
+    # (không báo nếu tự đăng lại bài của mình: notify() tự bỏ qua)
+    notify(original_post.user_id, current_user.id, "repost", post_id=repost.id)
 
     # Lưu Repost + Share + Notification cùng transaction
     db.session.commit()
@@ -1550,8 +1558,7 @@ def share_itinerary(itinerary_id):
         db.session.commit()
         return jsonify({"message": "Đã hủy chia sẻ", "shared": False})
     db.session.add(Share(user_id=current_user.id, itinerary_id=itinerary_id, share_type="copy_link"))
-    notify(plan.user_id, current_user.id, "share", itinerary_id=plan.id)
-    db.session.commit()
+    db.session.commit()                      # chia sẻ kiểu copy link: không báo cho chủ lịch trình
     return jsonify({"message": "Đã chia sẻ", "shared": True})
 
 

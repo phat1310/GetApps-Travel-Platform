@@ -10,6 +10,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ config.APP_NAME }} — Get Up & Explore{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {# Google chặn (403/429) ảnh avatar lh3.googleusercontent.com khi trình duyệt gửi Referer từ site lạ. same-origin: vẫn gửi Referer cho chính site mình (Flask-WTF cần khi HTTPS), không gửi ra ngoài. #}
+    <meta name="referrer" content="same-origin">
 
     <!-- Favicon / App Icon -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/logo_icon.svg') }}">
@@ -915,6 +917,25 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/place-picker.css') }}">
     {% block extra_css %}{% endblock %}
+    <style>
+    a.mention { color: #0284c7; font-weight: 600; text-decoration: none; }
+    a.mention:hover { text-decoration: underline; }
+    [data-bs-theme="dark"] a.mention { color: #38bdf8; }
+    .mention-box {
+        position: fixed; z-index: 2000; display: none; max-height: 372px; overflow-y: auto; overscroll-behavior: contain;
+        background: #fff; border: 1px solid #dbe4ee; border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18); padding: 4px;
+    }
+    [data-bs-theme="dark"] .mention-box { background: #1e2733; border-color: #2d3a4b; }
+    .mention-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; cursor: pointer; }
+    .mention-item.active, .mention-item:hover { background: #e0f2fe; }
+    [data-bs-theme="dark"] .mention-item.active, [data-bs-theme="dark"] .mention-item:hover { background: #26435a; }
+    .mention-av { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: none; background: #0ea5e9; color: #fff;
+        display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; }
+    .mention-name { font-weight: 600; font-size: .85rem; line-height: 1.1; color: #0f172a; }
+    [data-bs-theme="dark"] .mention-name { color: #e2e8f0; }
+    .mention-user { font-size: .72rem; color: #64748b; }
+    .mention-empty { padding: 8px 12px; font-size: .8rem; color: #64748b; }
+    </style>
 </head>
 <body class="{% if current_user.is_authenticated %}has-pill-side{% endif %}">
 
@@ -1118,7 +1139,7 @@
                                     </span>
                                     <span class="text-muted small" id="qcCharCounter">0/1500</span>
                                 </div>
-                                <textarea class="form-control qc-textarea border-0 p-2" id="qcCaption" name="caption" rows="4" maxlength="1500" placeholder="Chia sẻ cảm xúc, trải nghiệm hoặc mẹo du lịch của bạn..." oninput="updateQcCharCounter()"></textarea>
+                                <textarea class="form-control qc-textarea border-0 p-2" id="qcCaption" name="caption" data-mention rows="4" maxlength="1500" placeholder="Chia sẻ cảm xúc, trải nghiệm hoặc mẹo du lịch của bạn..." oninput="updateQcCharCounter()"></textarea>
                                 
                                 <!-- Thêm nhanh hashtag -->
                                 <div class="mt-2 pt-1">
@@ -1286,6 +1307,7 @@
                                         <div class="d-flex flex-wrap gap-1 mb-2" id="qcDurationPills">
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '2N1Đ')">2N1Đ</span>
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '3N2Đ')">3N2Đ</span>
+                                            <span class="qc-pill-item" onclick="selectQcDurationPill(this, '4N3Đ')">4N3Đ</span>
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '1 tuần')">1 tuần</span>
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '2 tuần')">2 tuần</span>
                                             <span class="qc-pill-item" onclick="selectQcDurationPill(this, '1 tháng')">1 tháng</span>
@@ -1353,7 +1375,7 @@
                                     <button type="button" class="btn btn-outline-secondary w-100 py-2 rounded-3 small fw-semibold d-flex align-items-center justify-content-center gap-2" style="font-size: 0.82rem; border-style: dashed;" onclick="document.getElementById('qcAttachmentInput').click()">
                                         <i class="bi bi-file-earmark-arrow-up"></i> Tải lên tệp lịch trình (.pdf, .xlsx, .docx, .pptx)
                                     </button>
-                                    <div class="small text-success mt-2 d-none" id="qcAttachModeNote"><i class="bi bi-check-circle-fill me-1"></i>Đã đính kèm tệp: không cần điền ngày, chặng hoạt động và nơi lưu trú.</div>
+                                    <div class="small text-success mt-2 d-none" id="qcAttachModeNote"><i class="bi bi-check-circle-fill me-1"></i>Đã đính kèm tệp: bạn có thể bỏ trống ngày, chặng hoạt động và nơi lưu trú (hoặc vẫn điền thêm nếu muốn).</div>
                                 </div>
 
                                 <!-- PHẦN 4: LỊCH TRÌNH CHI TIẾT TỪNG NGÀY & CÁC CHẶNG -->
@@ -1418,7 +1440,7 @@
                                                             </div>
                                                             <div class="col-4">
                                                                 <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giờ ghé</label>
-                                                                <input type="time" name="stop_time_1[]" class="form-control form-control-sm qc-input-field">
+                                                                <input type="text" name="stop_time_1[]" data-qc-time inputmode="numeric" autocomplete="off" maxlength="5" placeholder="--:--" class="form-control form-control-sm qc-input-field">
                                                             </div>
                                                         </div>
                                                         <div class="mb-2">
@@ -1565,7 +1587,7 @@
         let qcDataTransfer = new DataTransfer();
         let currentQcDay = 1;
         let qcDaysCount = 1;
-        let qcMaxDays = 30; // Chưa chọn thời lượng: tối đa 30 ngày (khớp giới hạn server); chọn pill/ngày sẽ thu hẹp lại
+        let qcMaxDays = 60; // Chưa chọn thời lượng: tối đa 60 ngày (khớp MAX_DAYS ở server); chọn loại chuyến/ngày sẽ thu hẹp lại
         let qcDurationLabel = 'này';
         let qcStopCounts = { 1: 1 };
         let qcLodgingCount = 1;
@@ -1836,7 +1858,7 @@
                         </div>
                         <div class="col-4">
                             <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giờ ghé</label>
-                            <input type="time" name="stop_time_${day}[]" class="form-control form-control-sm qc-input-field">
+                            <input type="text" name="stop_time_${day}[]" data-qc-time inputmode="numeric" autocomplete="off" maxlength="5" placeholder="--:--" class="form-control form-control-sm qc-input-field">
                         </div>
                     </div>
                     <div class="row g-2 mb-2">
@@ -1846,7 +1868,7 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giờ mở cửa</label>
-                            <input type="text" name="stop_open_hours_${day}[]" class="form-control form-control-sm qc-input-field" placeholder="09:00 - 22:00">
+                            <input type="text" name="stop_open_hours_${day}[]" data-qc-hours inputmode="numeric" autocomplete="off" maxlength="17" placeholder="--:-- - --:--" class="form-control form-control-sm qc-input-field">
                         </div>
                     </div>
                     <div class="mb-2">
@@ -1894,7 +1916,7 @@
                         </div>
                         <div class="col-4">
                             <label class="form-label text-muted small mb-1" style="font-size: 0.7rem;">Giờ ghé</label>
-                            <input type="time" name="stop_time_${day}[]" class="form-control form-control-sm qc-input-field">
+                            <input type="text" name="stop_time_${day}[]" data-qc-time inputmode="numeric" autocomplete="off" maxlength="5" placeholder="--:--" class="form-control form-control-sm qc-input-field">
                         </div>
                     </div>
                     <div class="mb-2">
@@ -2197,34 +2219,18 @@
                     return `${p[2]}/${p[1]}/${p[0]}`;
                 };
                 label.innerText = `${formatDate(start)} — ${formatDate(end)}`;
-
-                const s = new Date(start);
-                const e = new Date(end);
-                const diff = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
-                if (diff > 0) {
-                    qcMaxDays = diff;
-                    qcDurationLabel = `${diff} ngày`;
-                    updateQcDaysHeaderBadge();
-                }
             } else if (label) {
                 label.innerText = 'Chưa chọn ngày';
             }
+            qcRecalcMaxDays();
         }
 
         function selectQcDurationPill(el, val) {
             const pills = document.querySelectorAll('#qcDurationPills .qc-pill-item');
             pills.forEach(p => p.classList.remove('active'));
             el.classList.add('active');
-            qcDurationLabel = val;
-
-            if (val === '2N1Đ') qcMaxDays = 2;
-            else if (val === '3N2Đ') qcMaxDays = 3;
-            else if (val === '1 tuần') qcMaxDays = 7;
-            else if (val === '2 tuần') qcMaxDays = 14;
-            else if (val === '1 tháng') qcMaxDays = 30;
-
-            updateQcDaysHeaderBadge();
             syncQcTripType();
+            qcRecalcMaxDays();          // 2N1Đ/3N2Đ/4N3Đ/1 tuần: tối đa T+1 ngày; 2 tuần, 1 tháng: không khóa
         }
 
         function selectQcStylePill(el, val) {
@@ -2273,6 +2279,313 @@
                 syncQcTripType();
             });
         }
+
+        // ===== Loại chuyến đi: chỉ KHÓA 2N1Đ, 3N2Đ, 4N3Đ, 1 tuần (cho T đến T+1 ngày, ngày dư là ngày đi đường). 2 tuần, 1 tháng, "+ Thêm" không khóa =====
+        const QC_LOCKED_TRIPS = { '2N1Đ': [2, 3], '3N2Đ': [3, 4], '4N3Đ': [4, 5], '1 tuần': [7, 8] };
+        const QC_ABS_MAX_DAYS = 60;                                   // khớp MAX_DAYS ở server
+        function qcTripCode() { const i = document.getElementById('qcTripTypeInput'); return ((i && i.value) || '').split(' - ')[0].trim(); }
+        function qcTripRange() { return QC_LOCKED_TRIPS[qcTripCode()] || null; }
+        function qcRecalcMaxDays() {
+            const r = qcTripRange();
+            const s = (document.getElementById('qcPlanStartDate') || {}).value, e = (document.getElementById('qcPlanEndDate') || {}).value;
+            const diff = (s && e) ? Math.round((new Date(e) - new Date(s)) / 86400000) + 1 : 0;
+            let m = diff > 0 ? diff : (r ? r[1] : QC_ABS_MAX_DAYS);
+            if (r) m = Math.min(m, r[1]);
+            qcMaxDays = Math.max(1, Math.min(m, QC_ABS_MAX_DAYS));
+            qcDurationLabel = qcTripCode() || (diff > 0 ? diff + ' ngày' : 'này');
+            updateQcDaysHeaderBadge();
+        }
+
+        // ===== Ô giờ thông minh (giờ ghé / giờ mở cửa): gõ tắt "2-4" thành "02:00 - 04:00", tự chèn ":" và " - " =====
+        function qcParseClock(tok, allow24) {
+            const t = String(tok || '').trim().toLowerCase().replace(/h/g, ':').replace(/\s+/g, '');
+            if (!t) return null;
+            let h, m;
+            if (t.indexOf(':') >= 0) {
+                const p = t.split(':');
+                if (p.length !== 2 || !/^\d{1,2}$/.test(p[0]) || !/^\d{0,2}$/.test(p[1])) return null;
+                h = parseInt(p[0], 10);
+                m = p[1] === '' ? 0 : (p[1].length === 1 ? parseInt(p[1], 10) * 10 : parseInt(p[1], 10));
+            } else {
+                if (!/^\d{1,4}$/.test(t)) return null;
+                if (t.length <= 2) { h = parseInt(t, 10); m = 0; }
+                else if (t.length === 3) { h = parseInt(t[0], 10); m = parseInt(t.slice(1), 10); }
+                else { h = parseInt(t.slice(0, 2), 10); m = parseInt(t.slice(2), 10); }
+            }
+            if (m > 59) return null;
+            if (h === 24 && m === 0 && allow24) return { h: 0, m: 0 };
+            if (h > 23) return null;
+            return { h: h, m: m };
+        }
+        function qcPad2(n) { return (n < 10 ? '0' : '') + n; }
+        function qcFmtClock(c) { return qcPad2(c.h) + ':' + qcPad2(c.m); }
+        function qcFinalTime(raw) {
+            raw = String(raw || '').trim();
+            if (!raw) return '';
+            const c = qcParseClock(raw, false);
+            return c ? qcFmtClock(c) : null;
+        }
+        function qcFinalHours(raw) {
+            raw = String(raw || '').trim();
+            if (!raw) return '';
+            const parts = raw.split(/\s*(?:[-–—~]|đến|den)\s*/i);
+            if (parts.length !== 2) return null;
+            const a = qcParseClock(parts[0], false), b = qcParseClock(parts[1], true);
+            return (a && b) ? qcFmtClock(a) + ' - ' + qcFmtClock(b) : null;
+        }
+        function qcLiveClock(raw, fwd) {
+            let s = String(raw || '').toLowerCase().replace(/h/g, ':').replace(/[^\d:]/g, '');
+            if (s.indexOf(':') < 0) {
+                if (s.length <= 1) return s;
+                if (s.length === 2) { if (!fwd) return s; return parseInt(s, 10) <= 23 ? s + ':' : s[0] + ':' + s[1]; }
+                const hl = parseInt(s.slice(0, 2), 10) <= 23 ? 2 : 1;
+                s = s.slice(0, hl) + ':' + s.slice(hl);
+            }
+            const p = s.split(':');
+            const h = p[0].slice(0, 2);
+            let m = p.slice(1).join('').slice(0, 2);
+            if (m.length === 1 && parseInt(m, 10) > 5) m = '0' + m;
+            if (m.length === 2 && parseInt(m, 10) > 59) m = '59';
+            return h + ':' + m;
+        }
+        function qcLiveHours(raw, fwd) {
+            raw = String(raw || '');
+            const sep = /[-–—~]/.test(raw);
+            const parts = raw.split(/\s*[-–—~]\s*/);
+            const a = parts[0], b = parts.slice(1).join('');
+            if (!sep) {
+                const t = qcLiveClock(a, fwd);
+                return (fwd && /^\d{1,2}:\d{2}$/.test(t)) ? t + ' - ' : t;
+            }
+            if (!a.replace(/\D/g, '')) return '';
+            const fa = qcParseClock(qcLiveClock(a, true), false);
+            const left = fa ? qcFmtClock(fa) : qcLiveClock(a, false);
+            if (!b.replace(/\D/g, '') && !/[:h]/i.test(b)) return fwd ? left + ' - ' : left;
+            return left + ' - ' + qcLiveClock(b, fwd);
+        }
+        function qcHoursHint(norm) {
+            const m = /^(\d{2}):(\d{2}) - (\d{2}):(\d{2})$/.exec(norm || '');
+            if (!m) return null;
+            const s = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+            let e = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
+            if (e === s) return { text: 'Mở cả ngày (24 giờ).', warn: false };
+            const overnight = e < s;
+            if (e <= s) e += 1440;
+            const dur = e - s, h = Math.floor(dur / 60), mi = dur % 60;
+            const durTxt = h + ' giờ' + (mi ? ' ' + mi + ' phút' : '');
+            const night = overnight && (m[3] + m[4]) !== '0000';
+            let text = 'Mở ' + m[1] + ':' + m[2] + ' → ' + m[3] + ':' + m[4] + ' (' + durTxt + (night ? ', qua nửa đêm' : '') + ')';
+            const warn = dur < 120;
+            if (warn) text += ' — quán chỉ mở rất ngắn, bạn kiểm tra lại nhé?';
+            return { text: text, warn: warn };
+        }
+        function qcShowHoursHint(el) {
+            if (!el.parentElement) return;
+            let h = el.parentElement.querySelector('.qc-hours-hint');
+            if (!h) {
+                h = document.createElement('div');
+                h.className = 'qc-hours-hint';
+                h.style.cssText = 'font-size:.72rem;margin-top:3px;';
+                el.insertAdjacentElement('afterend', h);
+            }
+            const f = qcFinalHours(el.value), info = f ? qcHoursHint(f) : null;
+            if (el.classList.contains('is-invalid')) { h.textContent = 'Giờ chưa hợp lệ. Thử gõ: 8-22 hoặc 08:30 - 21:00.'; h.style.color = '#dc3545'; }
+            else if (info) { h.textContent = info.text; h.style.color = info.warn ? '#b45309' : '#6c757d'; }
+            else h.textContent = '';
+        }
+        function qcSettleClock(el) {
+            const isH = el.hasAttribute('data-qc-hours');
+            const f = isH ? qcFinalHours(el.value) : qcFinalTime(el.value);
+            if (f === null) el.classList.add('is-invalid');
+            else { el.value = f; el.classList.remove('is-invalid'); }
+            if (isH) qcShowHoursHint(el);
+        }
+        document.addEventListener('input', function (e) {
+            const el = e.target;
+            if (!el || !el.matches) return;
+            const isH = el.matches('[data-qc-hours]'), isT = el.matches('[data-qc-time]');
+            if (!isH && !isT) return;
+            const del = /^delete/.test(e.inputType || '');
+            if (el.selectionStart === el.value.length) {                 // chỉ tự định dạng khi đang gõ ở cuối ô
+                const v = isH ? qcLiveHours(el.value, !del) : qcLiveClock(el.value, !del);
+                if (v !== el.value) { el.value = v; try { el.setSelectionRange(v.length, v.length); } catch (_) {} }
+            }
+            el.classList.remove('is-invalid');
+            if (isH) qcShowHoursHint(el);
+        });
+        document.addEventListener('focusout', function (e) {
+            const el = e.target;
+            if (el && el.matches && el.matches('[data-qc-hours], [data-qc-time]')) qcSettleClock(el);
+        });
+
+        // ===== Enter / mũi tên để chuyển ô trong form Đăng lịch trình và Đăng bài =====
+        function qcNavFields(form) {
+            return Array.from(form.querySelectorAll('input, select, textarea')).filter(function (el) {
+                const t = (el.type || '').toLowerCase();
+                if (el.disabled || el.readOnly) return false;
+                if (t === 'hidden' || t === 'file' || t === 'checkbox' || t === 'radio' || t === 'button' || t === 'submit') return false;
+                return el.offsetParent !== null;                          // chỉ ô đang hiển thị (tab ngày khác bị ẩn thì bỏ qua)
+            });
+        }
+        function qcNavMove(form, el, dir) {
+            const list = qcNavFields(form), t = list[list.indexOf(el) + dir];
+            if (list.indexOf(el) < 0 || !t) return false;
+            t.focus();
+            if (t.tagName === 'INPUT' && /^(text|search|tel|url|email|number)$/.test((t.type || 'text').toLowerCase())) { try { t.select(); } catch (_) {} }
+            if (t.scrollIntoView) t.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return true;
+        }
+        function qcNavFinish(form) {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (form.id === 'qcPlanForm') {
+                const ok = validateQcPlanForm({ target: form, preventDefault: function () {} }, true);   // chạy thử: thiếu ô nào thì tự nhảy lên ô đó
+                if (ok !== false && submitBtn) { submitBtn.focus(); submitBtn.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+            } else if (form.id === 'qcPostForm') {
+                if (typeof qcDataTransfer !== 'undefined' && qcDataTransfer.files.length === 0) {
+                    const z = document.getElementById('qcDropZone');
+                    if (z) { z.scrollIntoView({ block: 'center', behavior: 'smooth' }); z.classList.add('dragover'); setTimeout(function () { z.classList.remove('dragover'); }, 1500); }
+                    return;
+                }
+                if (submitBtn) { submitBtn.focus(); submitBtn.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+            }
+        }
+        document.addEventListener('focusin', function (e) { if (e.target && e.target.type === 'date') e.target._qcDigits = 0; });
+        document.addEventListener('keydown', function (e) {
+            if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+            const k = e.key, el = e.target;
+            const form = el && el.closest ? el.closest('#qcPlanForm, #qcPostForm') : null;
+            if (!form || !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;     // nút, link, chip...: giữ hành vi mặc định
+            const type = (el.type || '').toLowerCase();
+            if (type === 'checkbox' || type === 'radio' || type === 'file' || type === 'button' || type === 'submit') return;
+            if (type === 'date' && /^\d$/.test(k)) {                                  // gõ đủ 8 số (ddmmyyyy) thì tự sang ô kế
+                el._qcDigits = (el._qcDigits || 0) + 1;
+                if (el._qcDigits >= 8) setTimeout(function () { if (el.value) { el._qcDigits = 0; qcNavMove(form, el, 1); } }, 0);
+                return;
+            }
+            const isText = el.tagName === 'INPUT' && /^(text|search|tel|url|email|password)$/.test(type || 'text');
+            if (k === 'Enter') {
+                if (el.tagName === 'TEXTAREA' && !e.shiftKey) {                         // ô nhiều dòng: Enter là xuống dòng...
+                    const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+                    if (!(atEnd && (el.value === '' || /\n$/.test(el.value)))) return;  // ...trừ khi ô trống / Enter lần 2 ở cuối: thoát sang ô kế
+                    e.preventDefault();
+                    el.value = el.value.replace(/\n+$/, '');
+                    if (!qcNavMove(form, el, 1)) qcNavFinish(form);
+                    return;
+                }
+                e.preventDefault();
+                const dir = e.shiftKey ? -1 : 1;
+                if (!qcNavMove(form, el, dir) && dir === 1) qcNavFinish(form);         // ô cuối: nhảy tới nút Đăng hoặc ô còn thiếu
+                return;
+            }
+            if (k === 'ArrowDown' || k === 'ArrowUp') {
+                const dir = k === 'ArrowDown' ? 1 : -1;
+                if (isText) { e.preventDefault(); if (!qcNavMove(form, el, dir) && dir === 1) qcNavFinish(form); }
+                else if (el.tagName === 'TEXTAREA' && el.selectionStart === el.selectionEnd) {
+                    const v = el.value, p = el.selectionStart;
+                    if (dir === 1 && v.indexOf('\n', p) < 0) { e.preventDefault(); qcNavMove(form, el, 1); }
+                    else if (dir === -1 && v.lastIndexOf('\n', p - 1) < 0) { e.preventDefault(); qcNavMove(form, el, -1); }
+                }
+                return;                                                                // ô ngày, ô chọn, ô số: ↑/↓ giữ chức năng gốc (đổi giá trị)
+            }
+            if ((k === 'ArrowRight' || k === 'ArrowLeft') && isText && el.selectionStart === el.selectionEnd) {
+                if (k === 'ArrowRight' && el.selectionStart === el.value.length) { e.preventDefault(); qcNavMove(form, el, 1); }
+                else if (k === 'ArrowLeft' && el.selectionStart === 0) { e.preventDefault(); qcNavMove(form, el, -1); }
+            }
+        });
+
+        // Avatar hỏng (Google chặn, link chết, file mất): thay bằng ảnh mặc định thay vì hiện khung vỡ/ô đen
+        document.addEventListener('error', function (e) {
+            const im = e.target;
+            if (!im || im.tagName !== 'IMG' || im.dataset.gesFb) return;
+            if (!/googleusercontent\.com|ui-avatars\.com|\/static\/uploads\/avatars\//.test(im.currentSrc || im.src || '')) return;
+            im.dataset.gesFb = '1';
+            im.removeAttribute('onerror');
+            im.referrerPolicy = 'no-referrer';
+            im.src = '/static/images/default_avatar.svg';
+        }, true);
+
+    // ===== Gắn thẻ @: gõ @ -> gợi ý người (ưu tiên người đang theo dõi), chọn -> chèn @username. Dùng cho bình luận VÀ ô nội dung bài đăng (data-mention) =====
+    (function () {
+        var box = null, users = [], active = -1, input = null, timer = null, seq = 0;
+        function ensureBox() {
+            if (box) return box;
+            box = document.createElement('div'); box.className = 'mention-box'; box.setAttribute('role', 'listbox');
+            box.addEventListener('mousedown', function (e) { e.preventDefault(); });     // không làm ô nhập mất focus
+            document.body.appendChild(box); return box;
+        }
+        function closeBox() { if (box) box.style.display = 'none'; users = []; active = -1; }
+        function token(el) {
+            var pos = el.selectionStart, before = el.value.slice(0, pos);
+            var m = /(^|\s)@([^\s@]{0,64})$/.exec(before);
+            return m ? { start: pos - m[2].length - 1, end: pos, query: m[2] } : null;
+        }
+        function place() {
+            if (!input || !box) return;
+            var r = input.getBoundingClientRect();
+            box.style.display = 'block'; box.style.left = r.left + 'px'; box.style.width = Math.max(r.width, 240) + 'px';
+            var h = box.offsetHeight;
+            box.style.top = (r.bottom + h + 8 > window.innerHeight && r.top > h + 8 ? r.top - h - 4 : r.bottom + 4) + 'px';
+        }
+        function render() {
+            var b = ensureBox(); b.textContent = '';
+            if (!users.length) { var e = document.createElement('div'); e.className = 'mention-empty'; e.textContent = 'Không tìm thấy người dùng'; b.appendChild(e); place(); return; }
+            users.forEach(function (u, i) {
+                var row = document.createElement('div'); row.className = 'mention-item' + (i === active ? ' active' : ''); row.setAttribute('role', 'option');
+                var av;
+                if (u.avatar) { av = document.createElement('img'); av.className = 'mention-av'; av.alt = ''; av.src = u.avatar; av.onerror = function () { var d = document.createElement('div'); d.className = 'mention-av'; d.textContent = (u.display || u.username).charAt(0).toUpperCase(); av.replaceWith(d); }; }
+                else { av = document.createElement('div'); av.className = 'mention-av'; av.textContent = (u.display || u.username).charAt(0).toUpperCase(); }
+                var t = document.createElement('div');
+                var n = document.createElement('div'); n.className = 'mention-name'; n.textContent = u.display;
+                var s = document.createElement('div'); s.className = 'mention-user'; s.textContent = '@' + u.username + (u.following ? ' · đang theo dõi' : '');
+                t.appendChild(n); t.appendChild(s); row.appendChild(av); row.appendChild(t);
+                row.addEventListener('click', function () { pick(u); });
+                b.appendChild(row);
+            });
+            place();
+            var act = b.querySelector('.mention-item.active'); if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest' });   // ↑/↓ cuộn theo mục đang chọn
+        }
+        function highlight() {          // chỉ đổi dòng đang chọn (không dựng lại cả danh sách để giữ vị trí cuộn)
+            if (!box) return;
+            var rows = box.querySelectorAll('.mention-item');
+            rows.forEach(function (r, i) { r.classList.toggle('active', i === active); });
+            if (rows[active] && rows[active].scrollIntoView) rows[active].scrollIntoView({ block: 'nearest' });
+        }
+        function pick(u) {
+            var t = input && token(input); if (!t) return closeBox();
+            var v = input.value, ins = '@' + u.username + ' ';
+            input.value = v.slice(0, t.start) + ins + v.slice(t.end);
+            var caret = t.start + ins.length; input.setSelectionRange(caret, caret);
+            closeBox(); input.focus();
+        }
+        function fetchUsers(q, postId) {
+            var my = ++seq;
+            fetch('/locations/mentions/suggest?q=' + encodeURIComponent(q) + (postId ? '&post_id=' + postId : ''), { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : { users: [] }; })
+                .then(function (d) { if (my !== seq || !input) return; users = d.users || []; active = users.length ? 0 : -1; render(); })
+                .catch(function () {});
+        }
+        function isCommentInput(el) { return el && el.tagName === 'INPUT' && /^comment-input-\d+$/.test(el.id || ''); }
+        function isMentionInput(el) { return isCommentInput(el) || (el && el.hasAttribute && el.hasAttribute('data-mention') && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')); }
+        document.addEventListener('input', function (e) {
+            if (!isMentionInput(e.target)) return;
+            input = e.target; var t = token(input);
+            if (!t) return closeBox();
+            clearTimeout(timer);
+            timer = setTimeout(function () { fetchUsers(t.query, isCommentInput(input) ? input.id.replace('comment-input-', '') : ''); }, 150);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (!box || box.style.display !== 'block' || !isMentionInput(e.target)) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!users.length) return; e.preventDefault();
+                active = (active + (e.key === 'ArrowDown' ? 1 : -1) + users.length) % users.length; highlight();
+            } else if ((e.key === 'Enter' || e.key === 'Tab') && users.length && active >= 0) {
+                e.preventDefault(); e.stopPropagation(); pick(users[active]);
+            } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeBox(); }   // Esc chỉ đóng danh sách gợi ý, không đóng cả hộp đăng bài
+        }, true);
+        document.addEventListener('focusout', function (e) { if (isMentionInput(e.target)) setTimeout(closeBox, 120); });
+        window.addEventListener('resize', closeBox);
+        window.addEventListener('scroll', function (e) { if (box && e.target && box.contains(e.target)) return; closeBox(); }, true);   // cuộn BÊN TRONG khung gợi ý thì không đóng
+    })();
 
         // ===== Địa chỉ Google Maps trong form đăng bài (tối đa 2) / đăng lịch trình (tối đa 5) =====
         // Giao diện chỉ là lớp tiện ích: server (app/locations/maplinks.py) kiểm tra lại toàn bộ.
@@ -2425,19 +2738,14 @@
             });
         });
 
-        // Đã đính kèm tệp lịch trình (PDF/Word/Excel...) thì không cần điền ngày, chặng, nơi lưu trú
+        // Đã đính kèm tệp lịch trình (PDF/Word/Excel...) thì được bỏ trống ngày, chặng, nơi lưu trú (vẫn cho điền)
         function qcHasAttachment() {
             const i = document.getElementById('qcAttachmentInput');
             return !!(i && i.files && i.files.length);
         }
         function qcApplyAttachMode() {
             const on = qcHasAttachment();
-            ['qcDaysSection', 'qcLodgingSection'].forEach(function (id) {
-                const el = document.getElementById(id);
-                if (!el) return;
-                el.classList.toggle('d-none', on);
-                el.querySelectorAll('input, select, textarea').forEach(function (f) { f.disabled = on; });   // ô bị tắt thì không gửi lên server
-            });
+            // Có tệp: KHÔNG ẩn/khóa phần ngày, chặng, nơi lưu trú. Vẫn điền được, chỉ là được phép bỏ trống (hỏi xác nhận khi đăng)
             const note = document.getElementById('qcAttachModeNote');
             if (note) note.classList.toggle('d-none', !on);
         }
@@ -2557,13 +2865,13 @@
         }
 
         // Đăng lịch trình: mọi trường BẮT BUỘC trừ tệp đính kèm (server kiểm tra lại, đây chỉ để báo sớm cho người dùng)
-        function validateQcPlanForm(e) {
+        function validateQcPlanForm(e, dry) {
             const $ = (id) => document.getElementById(id);
             const fail = (msg, focusId) => {
                 e.preventDefault();
                 const box = $('qcPlanError');
                 if (box) { box.textContent = msg; box.classList.remove('d-none'); }
-                const t = focusId && $(focusId);
+                const t = focusId && (typeof focusId === 'string' ? $(focusId) : focusId);
                 if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (t.focus) t.focus({ preventScroll: true }); }
                 return false;
             };
@@ -2578,16 +2886,8 @@
             const maxYear = qcMaxPlanYear();
             if ((sd && parseInt(sd.split('-')[0], 10) > maxYear) || (ed && parseInt(ed.split('-')[0], 10) > maxYear)) return fail('Chỉ được chọn ngày đi và về trong vòng đến năm ' + maxYear + '.', 'qcPlanStartDate');
             if (!$('qcTripTypeInput').value.trim()) return fail('Vui lòng chọn loại chuyến đi (2N1Đ, 3N2Đ, 1 tuần...).', 'qcDurationPills');
-                        // Loại chuyến đi phải khớp số ngày trên lịch (trừ hao +1 ngày; 1 tháng: 28-31 ngày)
-            const tripRange = (function (t) {
-                const code = (t || '').split(' - ')[0].trim().toLowerCase();
-                let m = code.match(/^(\d+)\s*n\s*(\d+)\s*[đd]$/);
-                if (m) { const n = parseInt(m[1], 10); return [n, n + 1]; }
-                m = code.match(/^(\d+)\s*tuần$/);
-                if (m) { const n = parseInt(m[1], 10) * 7; return [n, n + 1]; }
-                if (code === '1 tháng') return [28, 31];
-                return null;
-            })($('qcTripTypeInput').value);
+            // Loại chuyến đi phải khớp số ngày trên lịch: chỉ khóa 2N1Đ, 3N2Đ, 4N3Đ, 1 tuần (T đến T+1 ngày, ngày dư là ngày đi đường)
+            const tripRange = qcTripRange();
             if (tripRange && sd && ed) {
                 const tripDays = Math.round((new Date(ed) - new Date(sd)) / 86400000) + 1;
                 const tripCode = $('qcTripTypeInput').value.split(' - ')[0].trim();
@@ -2598,18 +2898,52 @@
             if (!people || people < 1) return fail('Vui lòng nhập số người tham gia.', 'qcParticipantsInput');
             const budget = parseFloat(($('qcBudgetInput').value || '').replace(/[^0-9.]/g, ''));
             if (!budget || budget <= 0) return fail('Vui lòng nhập dự toán ngân sách.', 'qcBudgetInput');
-            if (!hasAttach) {
-            const rangeDays = Math.round((new Date(ed) - new Date(sd)) / 86400000) + 1;
+            const badClock = Array.from(document.querySelectorAll('#qcPlanForm [data-qc-time], #qcPlanForm [data-qc-hours]')).find(function (x) {
+                if (!x.value.trim()) return false;
+                return (x.hasAttribute('data-qc-hours') ? qcFinalHours(x.value) : qcFinalTime(x.value)) === null;
+            });
+            if (badClock) {
+                const pane = badClock.closest('[id^="qcDayContent_"]');
+                if (pane && typeof switchQcDay === 'function') switchQcDay(parseInt(pane.id.replace('qcDayContent_', ''), 10));
+                badClock.classList.add('is-invalid');
+                return fail(badClock.hasAttribute('data-qc-hours') ? 'Giờ mở cửa chưa hợp lệ (ví dụ 08:00 - 22:00, hoặc gõ tắt 8-22).' : 'Giờ ghé chưa hợp lệ (ví dụ 08:30, hoặc gõ tắt 8h30).', badClock);
+            }
+            document.querySelectorAll('#qcPlanForm [data-qc-time], #qcPlanForm [data-qc-hours]').forEach(qcSettleClock);   // chuẩn hóa trước khi gửi
+            const rangeDays = (sd && ed) ? Math.round((new Date(ed) - new Date(sd)) / 86400000) + 1 : 1;
             const have = parseInt($('qcSubmittedDaysCount').value, 10) || 1;
             const need = Math.max(rangeDays, have);
-            if (need > have) return fail('Bạn chọn ' + rangeDays + ' ngày nên cần thêm đủ ' + rangeDays + ' ngày trong lịch trình (hiện có ' + have + ').', 'qcAddDayBtn');
+            if (need > have && !hasAttach && !(tripRange && need === tripRange[0] + 1 && have >= tripRange[0])) return fail('Bạn chọn ' + rangeDays + ' ngày nên cần thêm đủ ' + rangeDays + ' ngày trong lịch trình (hiện có ' + have + ').', 'qcAddDayBtn');
+            let missingStops = false;
             for (let d = 1; d <= need; d++) {
                 const names = Array.from(document.querySelectorAll('[name="stop_name_' + d + '[]"]')).filter(x => x.value.trim());
                 if (!names.length) {
+                    if (tripRange && d > tripRange[0]) continue;                // ngày dư (đi đường) không bắt buộc có chặng
+                    if (hasAttach) { missingStops = true; continue; }          // có tệp thì được bỏ trống chặng (hỏi xác nhận bên dưới)
                     if (typeof switchQcDay === 'function') switchQcDay(d);
                     return fail('Ngày ' + d + ' cần có ít nhất 1 điểm ghé.', 'qcDayContent_' + d);
                 }
             }
+            if (dry) return true;                                               // chạy thử (Enter ở ô cuối): không bật hộp thoại, không gửi
+            const missingLodging = !Array.from(document.querySelectorAll('[name="hotel_name[]"]')).some(x => x.value.trim());
+            const planForm = e.target.closest ? e.target.closest('form') : e.target;
+            const confirmedSkip = !!(planForm && planForm.dataset.attOk === '1');
+            if (planForm) delete planForm.dataset.attOk;                      // chỉ có hiệu lực đúng 1 lần gửi
+            if (hasAttach && (missingStops || missingLodging) && !confirmedSkip) {
+                e.preventDefault();
+                const miss = [];
+                if (missingStops) miss.push('chặng hoạt động');
+                if (missingLodging) miss.push('nơi lưu trú');
+                const fname = (($('qcAttachmentInput').files[0] || {}).name) || 'đã chọn';
+                geAsk({
+                    title: 'Bạn có chắc chắn không chọn ' + miss.join(' và ') + '?',
+                    note: 'Bạn đã đính kèm tệp lịch trình "' + fname + '" nên có thể bỏ trống ' + miss.join(' và ') + '. Người xem sẽ đọc chi tiết trong tệp.',
+                    fields: [], confirmText: 'Vẫn đăng', cancelText: 'Quay lại điền'
+                }).then(function (v) {
+                    if (!v || !planForm) return;
+                    planForm.dataset.attOk = '1';
+                    if (planForm.requestSubmit) planForm.requestSubmit(); else planForm.submit();
+                });
+                return false;
             }
             $('qcPlanError')?.classList.add('d-none');
             return qcMapGuard(e, 'plan', '#qcPlanDestination', 'qcPlanMapJson');
@@ -3885,4 +4219,4 @@
 })();
 </script>
 </body>
-</html>
+</html>

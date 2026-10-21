@@ -35,7 +35,7 @@ def save_uploaded_file(file_storage, subfolder):
 
 
 # ---- Giới hạn + kiểm tra dữ liệu chặng / khách sạn gửi từ form "Đăng lịch trình" (kiểm tra Ở SERVER) ----
-MAX_DAYS = 30
+MAX_DAYS = 60
 MAX_STOPS_PER_DAY = 15
 MAX_LODGINGS = 10
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -43,6 +43,59 @@ _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 def _at(lst, i):
     return lst[i] if i < len(lst) else ''
+
+
+def _parse_clock(tok, allow24=False):
+    """"8", "08", "830", "8:30", "8h30", "8h" -> (giờ, phút) hoặc None. Cùng luật với ô giờ ở trình duyệt."""
+    t = (tok or '').strip().lower().replace('h', ':').replace(' ', '')
+    if not t:
+        return None
+    if ':' in t:
+        p = t.split(':')
+        if len(p) != 2 or not re.fullmatch(r'\d{1,2}', p[0]) or not re.fullmatch(r'\d{0,2}', p[1]):
+            return None
+        h = int(p[0])
+        m = 0 if p[1] == '' else (int(p[1]) * 10 if len(p[1]) == 1 else int(p[1]))
+    else:
+        if not re.fullmatch(r'\d{1,4}', t):
+            return None
+        if len(t) <= 2:
+            h, m = int(t), 0
+        elif len(t) == 3:
+            h, m = int(t[0]), int(t[1:])
+        else:
+            h, m = int(t[:2]), int(t[2:])
+    if m > 59:
+        return None
+    if h == 24 and m == 0 and allow24:
+        return 0, 0
+    return (h, m) if h <= 23 else None
+
+
+def _norm_time(raw):
+    """Giờ ghé -> "HH:MM"; rỗng -> ""; sai định dạng -> None."""
+    raw = (raw or '').strip()
+    if not raw:
+        return ''
+    c = _parse_clock(raw)
+    return None if c is None else f"{c[0]:02d}:{c[1]:02d}"
+
+
+_HOURS_SPLIT = re.compile(r'\s*(?:[-–—~]|đến|den)\s*', re.I)
+
+
+def _norm_hours(raw):
+    """Giờ mở cửa -> "HH:MM - HH:MM" (cho gõ tắt "2-4", "8h30-21h"); rỗng -> ""; sai -> None."""
+    raw = (raw or '').strip()
+    if not raw:
+        return ''
+    parts = _HOURS_SPLIT.split(raw)
+    if len(parts) != 2:
+        return None
+    a, b = _parse_clock(parts[0]), _parse_clock(parts[1], allow24=True)
+    if a is None or b is None:
+        return None
+    return f"{a[0]:02d}:{a[1]:02d} - {b[0]:02d}:{b[1]:02d}"
 
 
 def _parse_trip_details(total_days):
@@ -67,12 +120,14 @@ def _parse_trip_details(total_days):
             if len(rows) >= MAX_STOPS_PER_DAY:
                 return None, None, f"Mỗi ngày tối đa {MAX_STOPS_PER_DAY} chặng (Ngày {d})."
             stype = 'food' if _at(types, i) == 'food' else 'travel'
-            stime = clean_text(_at(times, i), 5)
-            if stime and not _TIME_RE.match(stime):
-                return None, None, f"Giờ ghé của \"{name}\" không hợp lệ (dạng HH:MM)."
+            stime = _norm_time(clean_text(_at(times, i), 20))
+            if stime is None:
+                return None, None, f"Giờ ghé của \"{name}\" không hợp lệ (ví dụ 08:30)."
             desc = clean_text(_at(descs, i), 500, keep_newlines=True)
             sfood = clean_text(_at(foods, i), 80)
-            sopen = clean_text(_at(opens, i), 40)
+            sopen = _norm_hours(clean_text(_at(opens, i), 40))
+            if sopen is None:
+                return None, None, f"Giờ mở cửa của \"{name}\" không hợp lệ (ví dụ 08:00 - 22:00)."
             sloc = clean_text(_at(locs, i), 501)
 
             address = link = None
@@ -428,26 +483,17 @@ def repost(plan_id):
     if Share.query.filter_by(user_id=current_user.id, itinerary_id=plan.id).first():
         return jsonify({"message": "Bạn đã đăng lại lịch trình này rồi", "reposted": True, "already": True})
     db.session.add(Share(user_id=current_user.id, itinerary_id=plan.id, share_type="repost"))
-    notify(plan.user_id, current_user.id, "share", itinerary_id=plan.id)
+    notify(plan.user_id, current_user.id, "repost", itinerary_id=plan.id)
     db.session.commit()
     return jsonify({"message": "Đã đăng lại lịch trình", "reposted": True, "already": False})
 
 
 def _trip_days_range(trip_type):
-    """Loại chuyến đi -> (ít nhất, nhiều nhất) số ngày trên lịch; None nếu loại không có số ngày cố định.
-    Trừ hao +1 ngày (đi đêm hôm trước, sáng hôm sau mới tới). 1 tháng: 28-31 ngày."""
-    code = (trip_type or '').split(' - ')[0].strip().lower()
-    m = re.match(r'^(\d+)\s*n\s*(\d+)\s*[đd]$', code)          # 2N1Đ, 3N2Đ...
-    if m:
-        d = int(m.group(1))
-        return d, d + 1
-    m = re.match(r'^(\d+)\s*tuần$', code)                        # 1 tuần, 2 tuần
-    if m:
-        d = int(m.group(1)) * 7
-        return d, d + 1
-    if code == '1 tháng':
-        return 28, 31
-    return None                                                   # Đi phượt, Nghỉ dưỡng, Gia đình...
+    """Loại chuyến đi -> (ít nhất, nhiều nhất) số ngày trên lịch. CHỈ khóa 2N1Đ, 3N2Đ, 4N3Đ, 1 tuần
+    (T đến T+1 ngày: ngày dư là ngày đi đường). 2 tuần, 1 tháng, phong cách tự thêm... không khóa -> None."""
+    code = (trip_type or '').split(' - ')[0].strip().lower().replace('đ', 'd')
+    base = {'2n1d': 2, '3n2d': 3, '4n3d': 4, '1 tuần': 7}.get(code)
+    return (base, base + 1) if base else None
 
 
 def _required_error(title, destination, trip_type, start, end, participants, budget, has_attachment=False):
@@ -482,6 +528,11 @@ def _required_error(title, destination, trip_type, start, end, participants, bud
     if not budget or budget <= 0:
         return "Vui lòng nhập dự toán ngân sách."
     return None
+
+
+def _back_to_compose():
+    """Lỗi khi đăng từ hộp "Tạo mới": quay lại hộp (flash đã báo lỗi), không nhảy sang trang tạo cũ."""
+    return redirect(url_for('locations.feed', compose='plan'))
 
 
 @plans_bp.route('/create', methods=['GET', 'POST'])
@@ -565,7 +616,7 @@ def create():
         map_links, map_error = parse_map_links(request.form.get('map_links'), PLAN_LIMIT)
         if map_error:
             flash(map_error, "danger")
-            return render_template('plans/create.html', form=form), 400
+            return _back_to_compose()
 
         # Số ngày: theo khoảng ngày hoặc số ngày form gửi lên — luôn bị chặn ở MAX_DAYS (chống form độc hại)
         raw_sub_days = request.form.get('submitted_days_count', '').strip()
@@ -578,7 +629,7 @@ def create():
         stops_by_day, lodging_rows, detail_error = _parse_trip_details(total_days)
         if detail_error:
             flash(detail_error, "danger")
-            return render_template('plans/create.html', form=form), 400
+            return _back_to_compose()
 
         # Bắt buộc: mọi trường trừ tệp đính kèm; ảnh bìa; mỗi ngày >= 1 chặng
         pc_raw = form.participants_count.data or (int(request.form.get('participants_count')) if request.form.get('participants_count', '').isdigit() else None)
@@ -587,8 +638,11 @@ def create():
                                   form.start_date.data, form.end_date.data, pc_raw, form.estimated_budget.data, has_attach)
         if not req_err and not (form.cover_image.data and getattr(form.cover_image.data, 'filename', '')):
             req_err = "Vui lòng chọn ảnh bìa cho chuyến đi."
+        trip_rng = _trip_days_range(form.trip_type.data or request.form.get('trip_type'))
         if not req_err and not has_attach:                        # có tệp đính kèm thì không bắt buộc chặng hoạt động
             for d in range(1, total_days + 1):
+                if trip_rng and d > trip_rng[0]:                  # ngày dư (đi đường) không bắt buộc có chặng
+                    continue
                 if not stops_by_day.get(d):
                     req_err = f"Ngày {d} cần có ít nhất 1 điểm ghé."
                     break
@@ -599,7 +653,7 @@ def create():
                 req_err = "Vui lòng chọn địa điểm."
         if req_err:
             flash(req_err, "danger")
-            return render_template('plans/create.html', form=form), 400
+            return _back_to_compose()
 
         cover_url = save_uploaded_file(form.cover_image.data, 'plans')
         attach_url = save_uploaded_file(form.attachment_file.data, 'attachments')
@@ -681,10 +735,14 @@ def create():
             ))
 
         db.session.commit()
-        flash(f"Đã tạo thành công lịch trình '{plan.title}'! Hãy thêm các điểm đến chi tiết.", "success")
-        return redirect(url_for('plans.detail', plan_id=plan.id))
+        flash(f"Đã đăng lịch trình '{plan.title}'.", "success")
+        # Đăng xong thì mở luôn cửa sổ chi tiết ngay trên trang Lịch trình (không sang trang chi tiết cũ)
+        return redirect(url_for('plans.index', open=plan.id))
 
-    return render_template('plans/create.html', form=form)
+    # Form không hợp lệ (vd ngân sách không phải số): báo lỗi rồi quay lại hộp "Tạo mới", không còn trang tạo riêng
+    msgs = [m for errs in form.errors.values() for m in errs]
+    flash(msgs[0] if msgs else "Không đăng được lịch trình, vui lòng kiểm tra lại.", "danger")
+    return _back_to_compose()
 
 
 @plans_bp.route('/<int:plan_id>', methods=['GET'])
@@ -861,4 +919,4 @@ def delete_stop(stop_id):
         return jsonify({"message": "Đã xóa điểm dừng"}), 200
 
     flash("Đã xóa điểm dừng.", "info")
-    return redirect(url_for('plans.detail', plan_id=plan.id))
+    return redirect(url_for('plans.detail', plan_id=plan.id))

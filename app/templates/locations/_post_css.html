@@ -1,22 +1,5 @@
 <style>
     /* ----- Gắn thẻ @ trong bình luận ----- */
-    a.mention { color: #0284c7; font-weight: 600; text-decoration: none; }
-    a.mention:hover { text-decoration: underline; }
-    [data-bs-theme="dark"] a.mention { color: #38bdf8; }
-    .mention-box {
-        position: fixed; z-index: 2000; display: none; max-height: 260px; overflow-y: auto;
-        background: #fff; border: 1px solid #dbe4ee; border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.18); padding: 4px;
-    }
-    [data-bs-theme="dark"] .mention-box { background: #1e2733; border-color: #2d3a4b; }
-    .mention-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; cursor: pointer; }
-    .mention-item.active, .mention-item:hover { background: #e0f2fe; }
-    [data-bs-theme="dark"] .mention-item.active, [data-bs-theme="dark"] .mention-item:hover { background: #26435a; }
-    .mention-av { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: none; background: #0ea5e9; color: #fff;
-        display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; }
-    .mention-name { font-weight: 600; font-size: .85rem; line-height: 1.1; color: #0f172a; }
-    [data-bs-theme="dark"] .mention-name { color: #e2e8f0; }
-    .mention-user { font-size: .72rem; color: #64748b; }
-    .mention-empty { padding: 8px 12px; font-size: .8rem; color: #64748b; }
     .share-opt-btn {
         transition: all 0.2s ease;
         background: #f8fafc;
@@ -61,6 +44,35 @@
         height: 100%;
         object-fit: cover;
     }
+    /* ----- Ảnh nhiều tấm kiểu Facebook ----- */
+    .post-media-container.is-collage { aspect-ratio: auto; max-height: none; display: block; background: transparent; }
+    .ges-collage { display: grid; gap: 2px; width: 100%; aspect-ratio: 4 / 3; max-height: 620px; background: #fff; }
+    .ges-collage .ges-cell { position: relative; display: block; padding: 0; border: 0; margin: 0; overflow: hidden; background: #0f172a; cursor: pointer; min-width: 0; min-height: 0; }
+    .ges-collage .ges-cell img, .ges-collage .ges-cell video { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; pointer-events: none; }
+    .ges-collage .ges-cell:hover img, .ges-collage .ges-cell:hover video { transform: scale(1.03); }
+    .ges-collage .ges-cell:focus-visible { outline: 3px solid #38bdf8; outline-offset: -3px; }
+    .ges-collage.c2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; aspect-ratio: 2 / 1; }
+    .ges-collage.c3 { grid-template-columns: 1fr 1fr; grid-template-rows: 2fr 1fr; }
+    .ges-collage.c3 .ges-cell:first-child { grid-column: 1 / 3; }
+    .ges-collage.c4 { grid-template-columns: repeat(3, 1fr); grid-template-rows: 2fr 1fr; }
+    .ges-collage.c4 .ges-cell:first-child { grid-column: 1 / 4; }
+    .ges-collage.c5 { grid-template-columns: repeat(6, 1fr); grid-template-rows: 3fr 2fr; }
+    .ges-collage.c5 .ges-cell:nth-child(1), .ges-collage.c5 .ges-cell:nth-child(2) { grid-column: span 3; }
+    .ges-collage.c5 .ges-cell:nth-child(n+3) { grid-column: span 2; }
+    .ges-cell-more { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, .6); color: #fff; font-size: 2rem; font-weight: 700; pointer-events: none; }
+    .ges-cell-play { position: absolute; right: 10px; bottom: 10px; width: 34px; height: 34px; border-radius: 50%; background: rgba(15, 23, 42, .7); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; pointer-events: none; }
+    @media (max-width: 575.98px) { .ges-cell-more { font-size: 1.5rem; } }
+    /* Lightbox xem ảnh/video */
+    .ges-lb { position: fixed; inset: 0; z-index: 2000; background: rgba(2, 6, 23, .94); display: none; align-items: center; justify-content: center; user-select: none; }
+    .ges-lb.show { display: flex; }
+    .ges-lb-stage { max-width: 94vw; max-height: 88vh; display: flex; align-items: center; justify-content: center; }
+    .ges-lb-stage img, .ges-lb-stage video { max-width: 94vw; max-height: 88vh; object-fit: contain; border-radius: 6px; }
+    .ges-lb button { position: absolute; border: 0; background: rgba(255, 255, 255, .14); color: #fff; width: 44px; height: 44px; border-radius: 50%; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .ges-lb button:hover { background: rgba(255, 255, 255, .28); }
+    .ges-lb .lb-close { top: 16px; right: 16px; }
+    .ges-lb .lb-prev { left: 16px; top: 50%; transform: translateY(-50%); }
+    .ges-lb .lb-next { right: 16px; top: 50%; transform: translateY(-50%); }
+    .ges-lb .lb-count { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); color: #e2e8f0; font-size: .9rem; background: rgba(0, 0, 0, .35); padding: 2px 12px; border-radius: 999px; }
     .carousel-indicators [data-bs-target] {
         width: 8px;
         height: 8px;

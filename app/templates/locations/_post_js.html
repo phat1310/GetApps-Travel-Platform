@@ -292,82 +292,78 @@
         }
     }
 
-    // ===== Gắn thẻ @ trong bình luận: gõ @ -> gợi ý người, chọn -> chèn @username =====
-    (function () {
-        var box = null, users = [], active = -1, input = null, timer = null, seq = 0;
-        function ensureBox() {
-            if (box) return box;
-            box = document.createElement('div'); box.className = 'mention-box'; box.setAttribute('role', 'listbox');
-            box.addEventListener('mousedown', function (e) { e.preventDefault(); });     // không làm ô nhập mất focus
-            document.body.appendChild(box); return box;
-        }
-        function closeBox() { if (box) box.style.display = 'none'; users = []; active = -1; }
-        function token(el) {
-            var pos = el.selectionStart, before = el.value.slice(0, pos);
-            var m = /(^|\s)@([^\s@]{0,64})$/.exec(before);
-            return m ? { start: pos - m[2].length - 1, end: pos, query: m[2] } : null;
-        }
-        function place() {
-            if (!input || !box) return;
-            var r = input.getBoundingClientRect();
-            box.style.display = 'block'; box.style.left = r.left + 'px'; box.style.width = Math.max(r.width, 240) + 'px';
-            var h = box.offsetHeight;
-            box.style.top = (r.bottom + h + 8 > window.innerHeight && r.top > h + 8 ? r.top - h - 4 : r.bottom + 4) + 'px';
-        }
-        function render() {
-            var b = ensureBox(); b.textContent = '';
-            if (!users.length) { var e = document.createElement('div'); e.className = 'mention-empty'; e.textContent = 'Không tìm thấy người dùng'; b.appendChild(e); place(); return; }
-            users.forEach(function (u, i) {
-                var row = document.createElement('div'); row.className = 'mention-item' + (i === active ? ' active' : ''); row.setAttribute('role', 'option');
-                var av;
-                if (u.avatar) { av = document.createElement('img'); av.className = 'mention-av'; av.alt = ''; av.src = u.avatar; av.onerror = function () { var d = document.createElement('div'); d.className = 'mention-av'; d.textContent = (u.display || u.username).charAt(0).toUpperCase(); av.replaceWith(d); }; }
-                else { av = document.createElement('div'); av.className = 'mention-av'; av.textContent = (u.display || u.username).charAt(0).toUpperCase(); }
-                var t = document.createElement('div');
-                var n = document.createElement('div'); n.className = 'mention-name'; n.textContent = u.display;
-                var s = document.createElement('div'); s.className = 'mention-user'; s.textContent = '@' + u.username;
-                t.appendChild(n); t.appendChild(s); row.appendChild(av); row.appendChild(t);
-                row.addEventListener('click', function () { pick(u); });
-                b.appendChild(row);
-            });
-            place();
-        }
-        function pick(u) {
-            var t = input && token(input); if (!t) return closeBox();
-            var v = input.value, ins = '@' + u.username + ' ';
-            input.value = v.slice(0, t.start) + ins + v.slice(t.end);
-            var caret = t.start + ins.length; input.setSelectionRange(caret, caret);
-            closeBox(); input.focus();
-        }
-        function fetchUsers(q, postId) {
-            var my = ++seq;
-            fetch('/locations/mentions/suggest?q=' + encodeURIComponent(q) + (postId ? '&post_id=' + postId : ''), { credentials: 'same-origin' })
-                .then(function (r) { return r.ok ? r.json() : { users: [] }; })
-                .then(function (d) { if (my !== seq || !input) return; users = d.users || []; active = users.length ? 0 : -1; render(); })
-                .catch(function () {});
-        }
-        function isCommentInput(el) { return el && el.tagName === 'INPUT' && /^comment-input-\d+$/.test(el.id || ''); }
-        document.addEventListener('input', function (e) {
-            if (!isCommentInput(e.target)) return;
-            input = e.target; var t = token(input);
-            if (!t) return closeBox();
-            clearTimeout(timer);
-            timer = setTimeout(function () { fetchUsers(t.query, input.id.replace('comment-input-', '')); }, 150);
-        });
-        document.addEventListener('keydown', function (e) {
-            if (!box || box.style.display !== 'block' || !isCommentInput(e.target)) return;
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                if (!users.length) return; e.preventDefault();
-                active = (active + (e.key === 'ArrowDown' ? 1 : -1) + users.length) % users.length; render();
-            } else if ((e.key === 'Enter' || e.key === 'Tab') && users.length && active >= 0) {
-                e.preventDefault(); e.stopPropagation(); pick(users[active]);
-            } else if (e.key === 'Escape') { e.preventDefault(); closeBox(); }
-        }, true);
-        document.addEventListener('focusout', function (e) { if (isCommentInput(e.target)) setTimeout(closeBox, 120); });
-        window.addEventListener('resize', closeBox);
-        window.addEventListener('scroll', closeBox, true);
-    })();
-
     function escapeHtml(str) {
         return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
+
+    // ----- Lightbox cho ảnh nhiều tấm (collage) -----
+    (function () {
+        let box = null, items = [], idx = 0;
+        function build() {
+            box = document.createElement('div');
+            box.className = 'ges-lb';
+            box.setAttribute('role', 'dialog');
+            box.setAttribute('aria-modal', 'true');
+            box.innerHTML = '<button type="button" class="lb-close" aria-label="Đóng"><i class="bi bi-x-lg"></i></button>' +
+                '<button type="button" class="lb-prev" aria-label="Ảnh trước"><i class="bi bi-chevron-left"></i></button>' +
+                '<div class="ges-lb-stage"></div>' +
+                '<button type="button" class="lb-next" aria-label="Ảnh sau"><i class="bi bi-chevron-right"></i></button>' +
+                '<div class="lb-count"></div>';
+            document.body.appendChild(box);
+            box.addEventListener('click', function (e) {
+                if (e.target === box || e.target.classList.contains('ges-lb-stage')) close();
+            });
+            box.querySelector('.lb-close').onclick = close;
+            box.querySelector('.lb-prev').onclick = function () { go(-1); };
+            box.querySelector('.lb-next').onclick = function () { go(1); };
+        }
+        function render() {
+            const it = items[idx], stage = box.querySelector('.ges-lb-stage');
+            stage.textContent = '';
+            const el = document.createElement(it.type === 'video' ? 'video' : 'img');
+            if (it.type === 'video') { el.controls = true; el.autoplay = true; el.playsInline = true; }
+            el.src = it.src;
+            if (it.type !== 'video') el.alt = 'Ảnh ' + (idx + 1);
+            stage.appendChild(el);
+            box.querySelector('.lb-count').textContent = (idx + 1) + ' / ' + items.length;
+            const multi = items.length > 1;
+            box.querySelector('.lb-prev').style.display = multi ? 'flex' : 'none';
+            box.querySelector('.lb-next').style.display = multi ? 'flex' : 'none';
+        }
+        function go(d) { idx = (idx + d + items.length) % items.length; render(); }
+        function open(list, i) {
+            if (!box) build();
+            items = list; idx = i; render();
+            box.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        function close() {
+            if (!box) return;
+            box.classList.remove('show');
+            box.querySelector('.ges-lb-stage').textContent = '';   // dừng video đang phát
+            document.body.style.overflow = '';
+        }
+        document.addEventListener('click', function (e) {
+            const cell = e.target.closest ? e.target.closest('.ges-collage .ges-cell') : null;
+            if (!cell) return;
+            const wrap = cell.closest('[data-collage]');
+            const list = Array.prototype.map.call(wrap.querySelectorAll('[data-src]'), function (n) {
+                return { src: n.getAttribute('data-src'), type: n.getAttribute('data-type') };
+            });
+            open(list, list.findIndex(function (x) { return x.src === cell.getAttribute('data-src'); }));
+        });
+        document.addEventListener('keydown', function (e) {
+            if (!box || !box.classList.contains('show')) return;
+            if (e.key === 'Escape') close();
+            else if (e.key === 'ArrowLeft') go(-1);
+            else if (e.key === 'ArrowRight') go(1);
+        });
+        let sx = null;
+        document.addEventListener('touchstart', function (e) { if (box && box.classList.contains('show')) sx = e.touches[0].clientX; }, { passive: true });
+        document.addEventListener('touchend', function (e) {
+            if (sx === null) return;
+            const dx = e.changedTouches[0].clientX - sx; sx = null;
+            if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+        }, { passive: true });
+    })();
 </script>

@@ -9,7 +9,9 @@ Luật chung:
 from app.extensions import db
 from app.models.notification import Notification
 
-KINDS = ("like", "comment", "share", "follow", "mention")
+# "share" chỉ còn để đọc dữ liệu cũ: chia sẻ bằng cách khác (copy link, tải về) KHÔNG còn báo cho chủ bài.
+# Chỉ "repost" (đăng lại) mới báo, và trỏ tới bài đăng lại của người đó.
+KINDS = ("like", "comment", "repost", "follow", "mention")
 
 
 def notify(user_id, actor_id, kind, post_id=None, itinerary_id=None):
@@ -28,4 +30,7 @@ def notify(user_id, actor_id, kind, post_id=None, itinerary_id=None):
 
 
 def unread_count(user_id):
-    return Notification.query.filter_by(user_id=user_id, is_read=False).count()
+    return Notification.query.filter(
+        Notification.user_id == user_id, Notification.is_read.is_(False),
+        Notification.notification_type != "share",           # thông báo "chia sẻ" kiểu cũ không còn hiển thị -> không đếm
+    ).count()

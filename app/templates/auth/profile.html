@@ -178,6 +178,34 @@
     [data-bs-theme="dark"] .ges-pm-me { border-color: #1e293b; }
 </style>
 {% include "locations/_post_css.html" %}
+<style>
+    /* Thanh StoryBook: viền 7 màu chạy ngang (đỏ-cam-vàng-lục-ngọc-lam-tím), nền tối ở trong */
+    .storybook-bar {
+        display: block; width: 100%; margin-bottom: .6rem; padding: 3px; border: 0; border-radius: 14px; cursor: pointer;
+        background: linear-gradient(100deg, #ff4d6d, #ff9f1c, #ffe14d, #3ddc84, #2fd0ff, #5a7bff, #b44dff, #ff4d6d);
+        background-size: 200% 100%;
+        box-shadow: 0 0 16px rgba(180, 120, 255, .4), 0 0 10px rgba(47, 208, 255, .3);
+        animation: storybookFlow 6s linear infinite;
+        transition: transform .15s ease, box-shadow .2s ease;
+    }
+    .storybook-bar:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(180, 120, 255, .6), 0 0 14px rgba(47, 208, 255, .45); }
+    .storybook-bar:active { transform: translateY(0) scale(.99); }
+    .storybook-bar:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+    .storybook-inner {
+        display: flex; align-items: center; justify-content: center; gap: .5rem; height: 38px; border-radius: 11px;
+        background: #0e1a33; color: #fff; font-weight: 800; font-size: 1rem; letter-spacing: .4px;
+    }
+    /* Nút "Đang theo dõi" nằm trên ảnh bìa tối: nền kính mờ + chữ trắng (trước đây trắng-trên-trắng nên mất chữ) */
+    #follow-btn.btn-light {
+        background: rgba(15, 30, 60, .72) !important; color: #fff !important;
+        border: 1px solid rgba(255, 255, 255, .55) !important; font-weight: 700;
+        backdrop-filter: blur(4px);
+    }
+    #follow-btn.btn-light:hover { background: rgba(15, 30, 60, .9) !important; }
+    #follow-btn.btn-light .bi, #follow-btn.btn-light span { color: #fff !important; }
+    @keyframes storybookFlow { to { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .storybook-bar { animation: none; } }
+</style>
 {% include "plans/_plan_css.html" %}
 {% endblock %}
 
@@ -250,6 +278,13 @@
                         <span class="stats-label">Following</span>
                     </button>
                 </div>
+
+                {% if current_user.is_authenticated and current_user.id == profile_user.id %}
+                    <!-- Thanh StoryBook (viền 7 màu kiểu Switch 2) — mới là nút bấm, chưa gán chức năng -->
+                    <button type="button" class="storybook-bar" id="storybook-btn" title="StoryBook">
+                        <span class="storybook-inner"><i class="bi bi-book-fill"></i> StoryBook</span>
+                    </button>
+                {% endif %}
 
                 <div class="d-flex gap-2 flex-wrap">
                     {% if current_user.is_authenticated and current_user.id == profile_user.id %}

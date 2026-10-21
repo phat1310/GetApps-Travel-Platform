@@ -133,28 +133,45 @@ def _norm(s):
 
 
 def suggest(me_id, query, limit=8, extra_ids=()):
-    """Gợi ý người để @: người mình theo dõi / theo dõi mình / vừa bình luận ở bài này lên trước, rồi tới mọi tài khoản khớp tên."""
+    """Gợi ý người để @ — TẤT CẢ tài khoản trên web đều tag được, thứ tự ưu tiên:
+         1. người MÌNH ĐANG THEO DÕI  2. người theo dõi mình / vừa bình luận ở bài này  3. mọi người còn lại.
+    Trong mỗi nhóm: trùng đúng username > bắt đầu bằng từ khóa > có chứa. q rỗng (vừa gõ '@'): vẫn hiện tất cả theo thứ tự trên.
+    Chỉ đọc vài cột nhẹ (không nạp cả hàng User) nên quét hết được bảng người dùng; so khớp bỏ dấu, không phân biệt hoa/thường."""
     from app.models import User, Follow
     q = _norm((query or "").lstrip("@"))[:64]
-    following = {f.followed_id for f in Follow.query.filter_by(follower_id=me_id).all()}
-    followers = {f.follower_id for f in Follow.query.filter_by(followed_id=me_id).all()}
-    warm = following | followers | set(extra_ids)
-    users = User.query.filter(User.id != me_id).order_by(User.id.desc()).limit(1000).all()
+    following = {r[0] for r in db.session.query(Follow.followed_id).filter(Follow.follower_id == me_id).all()}
+    followers = {r[0] for r in db.session.query(Follow.follower_id).filter(Follow.followed_id == me_id).all()}
+    warm = followers | set(extra_ids)
+    rows = db.session.query(User.id, User.username, User.nickname, User.full_name, User.avatar_url).filter(User.id != me_id).all()
     scored = []
-    for u in users:
-        names = [_norm(u.username), _norm(u.nickname), _norm(u.full_name)]
+    for uid, uname, nick, full, avatar in rows:
+        names = [_norm(uname), _norm(nick), _norm(full)]
+        tier = 0 if uid in following else (1 if uid in warm else 2)
         if q:
             if not any(q in n for n in names if n):
                 continue
             rank = 0 if names[0] == q else (1 if any(n.startswith(q) for n in names if n) else 2)
         else:
-            if u.id not in warm:
-                continue
-            rank = 0
-        scored.append((rank, 0 if u.id in warm else 1, u.username.lower(), u))
+            rank = 0                      # vừa gõ '@': hiện tất cả, người đang theo dõi xếp đầu rồi tới A-Z
+        scored.append((tier, rank, (uname or "").lower(), uname, nick, full, avatar))
     scored.sort(key=lambda t: t[:3])
     return [{
-        "username": u.username,
-        "display": display_name(u),
-        "avatar": u.avatar_url or "",
-    } for _r, _w, _n, u in scored[:limit]]
+        "username": uname,
+        "display": nick or full or uname,
+        "avatar": avatar or "",
+        "following": tier == 0,
+    } for tier, _r, _n, uname, nick, full, avatar in scored[:limit]]
+
+
+def notify_new_mentions(old_text, new_text, actor_id, post=None, itinerary=None):
+    """Khi SỬA nội dung: chỉ báo cho người MỚI được tag (đã tag từ trước thì không báo lại)."""
+    before = {u.id for u in mentioned_users(old_text)}
+    from app.notifications import notify
+    done = set()
+    for u in mentioned_users(new_text):
+        if u.id in before or u.id == actor_id or not can_view_for(u.id, post=post, itinerary=itinerary):
+            continue
+        notify(u.id, actor_id, "mention", post_id=post.id if post is not None else None,
+               itinerary_id=itinerary.id if itinerary is not None else None)
+        done.add(u.id)
+    return done
