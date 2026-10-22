@@ -46,7 +46,7 @@ from app.locations.discovery import (following_ids, can_view_post, can_view_itin
 from app.presence import presence_state
 from app.timeutil import relative_label
 from app.notifications import notify
-from app.extensions import db, csrf
+from app.extensions import db, csrf, limiter
 import app.locations.places as places
 from app.models import (
     Comment,
@@ -175,6 +175,7 @@ def find_users(q, limit=None):
 
 
 @auth_bp.route('/search', methods=['GET'])
+@limiter.limit('45 per minute')
 def search_page():
     """Trang kết quả tìm kiếm đa đối tượng: User, Bài viết, Lịch trình, Địa điểm.
     Sắp xếp theo độ tương tác (Engagement Score: Like, Comment, Share).
@@ -402,6 +403,7 @@ def search_page():
 
 
 @auth_bp.route('/search/suggest', methods=['GET'])
+@limiter.limit('60 per minute')
 def search_suggest():
     """API gợi ý nhanh khi người dùng gõ tìm kiếm ở Topbar."""
     q = (request.args.get('q') or '').strip()
@@ -460,6 +462,7 @@ def search_suggest():
 # =========================================================
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@limiter.limit('10 per minute; 30 per hour', methods=['POST'])
 def register():
     """Đăng ký tài khoản người dùng mới (hỗ trợ song song HTML Form và JSON API)."""
     if current_user.is_authenticated:
@@ -543,6 +546,7 @@ def register():
 # =========================================================
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit('10 per minute; 30 per hour', methods=['POST'])
 def login():
     """Đăng nhập tài khoản người dùng — hỗ trợ linh hoạt Username, Email (không phân biệt chữ hoa/thường) hoặc Số điện thoại."""
     if request.method == 'GET':
@@ -1316,6 +1320,7 @@ def csrf_token():
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @auth_bp.route('/settings/password', methods=['GET', 'POST'])
 @login_required
+@limiter.limit('10 per minute', methods=['POST'])
 def change_password():
     """Đổi mật khẩu người dùng (hỗ trợ cả Web Form và JSON API)."""
     form = ChangePasswordForm()
@@ -1364,6 +1369,7 @@ def change_password():
 # =========================================================
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit('5 per minute; 20 per hour', methods=['POST'])
 def forgot_password():
     """Yêu cầu khôi phục mật khẩu qua Email hoặc Số điện thoại (SĐT)."""
     if current_user.is_authenticated:
@@ -1442,6 +1448,7 @@ def forgot_password():
 
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
+@limiter.limit('10 per minute', methods=['POST'])
 def reset_password():
     """Xác thực mã OTP và Đặt lại mật khẩu mới."""
     if current_user.is_authenticated:
@@ -1530,6 +1537,7 @@ def reset_password():
 
 
 @auth_bp.route('/resend-otp', methods=['POST'])
+@limiter.limit('3 per minute; 10 per hour')
 def resend_otp():
     """Gửi lại mã xác nhận OTP mới."""
     user_id = session.get('reset_user_id')

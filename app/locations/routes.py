@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 from app.locations import locations_bp
 from app.notifications import notify
 from app.mentions import notify_mentions, notify_new_mentions, render_mentions, suggest as suggest_mentions
-from app.extensions import db
+from app.extensions import db, limiter
 from app.models import (
     Post, Photo, Like, Comment, Share, SavedPost, Location, User,
     Itinerary, ItineraryDay, ItineraryStop, ItineraryLodging, ItineraryAttachment,
@@ -79,6 +79,7 @@ def visible_itinerary_or_404(itinerary_id):
 
 @locations_bp.route("/upload", methods=["GET", "POST"])
 @login_required
+@limiter.limit("15 per minute", methods=["POST"])
 def create_post():
     if request.method == "GET":
         # Trang riêng đã bỏ: mở hộp "Tạo mới" (nút máy bay) ở tab Đăng bài

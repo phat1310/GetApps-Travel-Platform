@@ -3,6 +3,17 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+
+def get_client_ip():
+    """Lấy IP thực của client, hỗ trợ Cloudflare (CF-Connecting-IP) và Nginx (X-Forwarded-For)."""
+    from flask import request
+    if request.headers.get("CF-Connecting-IP"):
+        return request.headers.get("CF-Connecting-IP").strip()
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "127.0.0.1"
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -12,6 +23,12 @@ login_manager.login_message_category = "warning"
 migrate = Migrate()
 jwt = JWTManager()
 csrf = CSRFProtect()
+limiter = Limiter(
+    key_func=get_client_ip,
+    default_limits=["200 per minute", "2000 per hour"],
+    storage_uri="memory://",
+    strategy="fixed-window",
+)
 
 @login_manager.unauthorized_handler
 def unauthorized():

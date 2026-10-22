@@ -13,6 +13,11 @@ class Config:
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 
+    # Rate Limiting (Phòng chống DDoS / Brute-force)
+    RATELIMIT_ENABLED = os.environ.get("RATELIMIT_ENABLED", "true").lower() in ("true", "1", "yes")
+    RATELIMIT_DEFAULT = os.environ.get("RATELIMIT_DEFAULT", "200 per minute; 2000 per hour")
+    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_STRATEGY = "fixed-window"
 
 
 """
