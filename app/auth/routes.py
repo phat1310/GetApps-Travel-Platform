@@ -82,24 +82,6 @@ def index():
     return redirect(url_for('locations.feed'))
 
 
-@auth_bp.route('/explore', methods=['GET'])
-def explore():
-    """Trang Khám phá địa điểm & trải nghiệm du lịch cộng đồng."""
-    locations = Location.query.all()
-    viewer_id = current_user.id if current_user.is_authenticated else None
-    viewer_follow = viewer_follow_set(viewer_id)
-    recent_posts = [p for p in Post.query.order_by(Post.created_at.desc()).limit(60).all()
-                    if can_view_post(p, viewer_id, viewer_follow)][:9]
-    featured_plans = [it for it in Itinerary.query.filter_by(visibility='public').order_by(Itinerary.created_at.desc()).limit(60).all()
-                      if can_view_itinerary(it, viewer_id, viewer_follow)][:6]
-    return render_template(
-        'explore.html',
-        locations=locations,
-        recent_posts=recent_posts,
-        featured_plans=featured_plans
-    )
-
-
 # =========================================================
 # TÌM KIẾM TOÀN DIỆN (UNIVERSAL SEARCH) — CHUẨN FACEBOOK FEED
 # =========================================================

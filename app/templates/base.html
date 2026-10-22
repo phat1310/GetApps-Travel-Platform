@@ -3083,7 +3083,7 @@
 
     {% if current_user.is_authenticated %}
     <!-- ==================== CHAT KIỂU MESSENGER ==================== -->
-    {% set chat_hidden = request.endpoint in ['auth.explore', 'auth.settings', 'auth.settings_page'] %}
+    {% set chat_hidden = request.endpoint in ['auth.settings', 'auth.settings_page'] %}
     <div class="gc-root {% if chat_hidden %}gc-hide{% endif %}" id="gcRoot">
         <div class="gc-list" id="gcList" hidden>
             <div class="gc-list-head">

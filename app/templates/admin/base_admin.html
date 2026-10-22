@@ -45,6 +45,9 @@
             <a href="{{ url_for('admin.posts') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.posts') or request.endpoint == 'admin.delete_post' }}">
                 <i class="bi bi-images"></i> Quản lý Post
             </a>
+            <a href="{{ url_for('admin.security_logs') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.security_logs') or request.endpoint == 'admin.clear_security_logs' }}">
+                <i class="bi bi-shield-exclamation"></i> Nhật ký An ninh
+            </a>
         </div>
     </nav>
     <div class="flex-grow-1">
@@ -54,7 +57,7 @@
                 Đăng nhập: <strong>{{ current_user.username }}</strong>
                 <span class="badge badge-admin ms-1">ADMIN</span>
             </div>
-            <a href="{{ url_for('auth.explore') }}" class="btn-exit-admin">
+            <a href="{{ url_for('locations.feed') }}" class="btn-exit-admin">
                 <i class="bi bi-box-arrow-left"></i> Về trang người dùng
             </a>
         </div>
