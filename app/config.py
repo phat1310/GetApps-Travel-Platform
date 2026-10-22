@@ -20,9 +20,14 @@ class Config:
     # xem app/admin/decorators.py và README_SECURITY.md.
     DEMO_BAC_VULNERABLE = os.environ.get("DEMO_BAC_VULNERABLE", "0") == "1"
 
+    # Rate Limiting (Phòng chống DDoS / Brute-force) — Phát (Dev commit ad98923)
+    RATELIMIT_ENABLED = os.environ.get("RATELIMIT_ENABLED", "true").lower() in ("true", "1", "yes")
+    RATELIMIT_DEFAULT = os.environ.get("RATELIMIT_DEFAULT", "200 per minute; 2000 per hour")
+    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_STRATEGY = "fixed-window"
 
 
 """
 Config — đọc secret key và cấu hình từ file .env, tập trung 1 chỗ.
 KHÔNG hardcode giá trị thật ở đây, luôn lấy qua os.environ.get().
-"""
+"""

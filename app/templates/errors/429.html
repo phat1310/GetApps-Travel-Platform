@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}429 — Quá nhiều yêu cầu — GetApps (GEs){% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-6 text-center">
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5" style="background: var(--ges-card-bg, #ffffff);">
+                <!-- Animated Shield / Speedometer Icon -->
+                <div class="mb-4">
+                    <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-warning bg-opacity-10 text-warning p-4 shadow-sm" style="width: 96px; height: 96px;">
+                        <i class="bi bi-shield-exclamation display-4"></i>
+                    </span>
+                </div>
+
+                <div class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill fw-bold mb-3 d-inline-block mx-auto" style="font-size: 0.85rem;">
+                    <i class="bi bi-speedometer2 me-1"></i> HTTP 429 · Rate Limit Exceeded
+                </div>
+
+                <h3 class="fw-bold mb-3 text-dark">Tần suất gửi yêu cầu quá nhanh</h3>
+
+                <p class="text-muted small mb-4" style="line-height: 1.6;">
+                    {{ description or "Để bảo vệ an toàn máy chủ và chống tấn công từ chối dịch vụ (DDoS/Brute-force), hệ thống tạm thời giới hạn tần suất yêu cầu từ thiết bị của bạn." }}
+                    <br>Vui lòng đợi giây lát trước khi thực hiện thao tác tiếp theo.
+                </p>
+
+                {% if retry_after %}
+                <div class="alert alert-light border py-2 px-3 small rounded-3 mb-4 text-secondary d-inline-flex align-items-center justify-content-center gap-2">
+                    <i class="bi bi-hourglass-split text-warning"></i>
+                    <span>Thời gian chờ đề xuất: <strong>{{ retry_after }} giây</strong></span>
+                </div>
+                {% endif %}
+
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <a href="{{ url_for('locations.feed') }}" class="btn btn-primary rounded-pill px-4 fw-semibold">
+                        <i class="bi bi-house-door-fill me-1"></i> Về Bảng tin
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="window.location.reload();">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Tải lại trang
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,13 +1,13 @@
 """
 Application Factory — nơi "ráp" toàn bộ ứng dụng lại thành 1 app Flask chạy được.
-Mọi extension (db, login, migrate, jwt, csrf) và mọi Blueprint (auth, locations, api)
+Mọi extension (db, login, migrate, jwt, csrf, limiter) và mọi Blueprint (auth, locations, api...)
 đều được gắn vào app TẠI ĐÂY, không gắn ở đâu khác.
 Nếu thêm Blueprint mới, nhớ import + register_blueprint() thêm 1 dòng ở đây.
 """
 
 from flask import Flask
 from app.config import Config
-from app.extensions import db, login_manager, migrate, jwt, csrf
+from app.extensions import db, login_manager, migrate, jwt, csrf, limiter
 
 
 def create_app(config_override=None):
@@ -23,6 +23,7 @@ def create_app(config_override=None):
     migrate.init_app(app, db)
     jwt.init_app(app)
     csrf.init_app(app)
+    limiter.init_app(app)
 
     with app.app_context():
         from app import models  # để Flask-Migrate thấy được model
@@ -205,4 +206,27 @@ def create_app(config_override=None):
 
     csrf.exempt(api_bp)
 
-    return app
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        from flask import request, jsonify, render_template
+        desc = getattr(e, "description", None) or "Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút."
+        retry_after = getattr(e, "retry_after", None)
+        is_ajax = (
+            request.is_json
+            or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            or request.path.startswith("/api/")
+            or request.accept_mimetypes.best == "application/json"
+        )
+        if is_ajax:
+            resp = {
+                "error": "Quá nhiều yêu cầu (HTTP 429 - Rate Limit Exceeded)",
+                "message": desc,
+                "status": 429
+            }
+            if retry_after:
+                resp["retry_after"] = retry_after
+            return jsonify(resp), 429
+
+        return render_template("errors/429.html", description=desc, retry_after=retry_after), 429
+
+    return app
