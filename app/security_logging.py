@@ -24,7 +24,7 @@ Cách dùng (ví dụ cho từng người):
 
     # Khánh — đã gọi sẵn trong app/admin/decorators.py khi admin_required chặn 403.
 """
-from flask import request
+from flask import request, has_request_context
 from flask_login import current_user
 
 from app.extensions import db
@@ -46,25 +46,37 @@ def log_security_event(event_type, severity="WARNING", status_code=403,
     từ request context — người gọi chỉ cần truyền phần đặc thù của sự kiện.
     Không bao giờ raise exception ra ngoài (an toàn gọi từ error handler) — lỗi ghi log
     không được phép làm sập request chính."""
-    try:
-        from app.extensions import get_client_ip
-        ip = get_client_ip()
-    except Exception:
-        ip = request.remote_addr or "0.0.0.0"
+    ip = "0.0.0.0"
+    endpoint = "/internal"
+    http_method = "INTERNAL"
+    user_agent = None
+    user_id = None
+
+    if has_request_context():
+        try:
+            from app.extensions import get_client_ip
+            ip = get_client_ip()
+        except Exception:
+            ip = request.remote_addr or "0.0.0.0"
+        endpoint = request.path
+        http_method = request.method
+        user_agent = (request.headers.get("User-Agent") or "")[:255] or None
+        if getattr(current_user, "is_authenticated", False):
+            user_id = getattr(current_user, "id", None)
 
     try:
         entry = SecurityLog(
             ip_address=ip,
-            user_id=current_user.id if getattr(current_user, "is_authenticated", False) else None,
+            user_id=user_id,
             event_type=event_type if event_type in VALID_EVENT_TYPES else "UNKNOWN",
             severity=severity if severity in VALID_SEVERITIES else "WARNING",
-            endpoint=request.path,
-            http_method=request.method,
+            endpoint=endpoint,
+            http_method=http_method,
             status_code=status_code,
             # Cắt ngắn + không bao giờ log mật khẩu/token — payload_snippet chỉ nên
             # chứa phần input nghi vấn (vd query string lạ), KHÔNG log nguyên request.form.
             payload_snippet=(payload_snippet or "")[:500] or None,
-            user_agent=(request.headers.get("User-Agent") or "")[:255] or None,
+            user_agent=user_agent,
             action_taken=action_taken,
         )
         db.session.add(entry)

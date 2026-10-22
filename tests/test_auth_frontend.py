@@ -197,13 +197,9 @@ def test_logout_get_redirect(client):
 
 
 def test_explore_page_get(client):
-    """GET /explore hiển thị giao diện Khám phá 200 OK."""
+    """GET /explore đã được dọn dẹp theo thiết kế mới -> trả về 404 Not Found."""
     res = client.get("/explore")
-    assert res.status_code == 200
-    html = res.data.decode("utf-8")
-    assert "Khám phá" in html
-    assert "Điểm đến xu hướng" in html
-    assert "Đà Lạt" in html
+    assert res.status_code == 404
 
 
 def test_change_password_requires_login(client):

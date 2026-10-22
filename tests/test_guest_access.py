@@ -50,7 +50,7 @@ def test_guest_can_view_public_post_not_private(client, users, post, private_pos
 
 
 def test_guest_browse_search_plans_itineraries(client, users):
-    for url in ("/plans", "/search?q=hue", "/explore", "/locations/itineraries/feed", "/locations/search?q=hue"):
+    for url in ("/plans", "/search?q=hue", "/locations/itineraries/feed", "/locations/search?q=hue"):
         assert client.get(url).status_code == 200, url
     assert client.get("/locations/itineraries/999999").status_code == 404
 
