@@ -17,6 +17,7 @@ from app.admin.decorators import admin_required
 from app.extensions import db
 from app.models.user import User
 from app.models.post import Post
+from app.models.security_log import SecurityLog
 
 
 # ---------------------------------------------------------------- Dashboard
@@ -136,3 +137,68 @@ def delete_post(post_id):
     db.session.commit()
     flash(f"Đã xóa bài viết #{post_id}.", "success")
     return redirect(request.referrer or url_for("admin.posts"))
+
+
+# ------------------------------------------------------ Nhật ký An ninh (Phát)
+EVENT_TYPE_LABELS = {
+    "DDOS_RATE_LIMIT": "DDoS / Rate Limit",
+    "BRUTE_FORCE_AUTH": "Brute-force đăng nhập",
+    "SQLI_DETECTED": "SQL Injection",
+    "XSS_DETECTED": "XSS",
+    "ACCESS_DENIED_403": "Truy cập bị từ chối (403)",
+}
+
+
+@admin_bp.route("/security-logs")
+@login_required
+@admin_required
+def security_logs():
+    from datetime import datetime, timedelta
+
+    event_type = request.args.get("event_type", "").strip()
+    query = SecurityLog.query
+    if event_type in EVENT_TYPE_LABELS:
+        query = query.filter_by(event_type=event_type)
+
+    page = request.args.get("page", 1, type=int)
+    pagination = query.order_by(SecurityLog.timestamp.desc()).paginate(page=page, per_page=25, error_out=False)
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_q = SecurityLog.query.filter(SecurityLog.timestamp >= today_start)
+    kpi = {
+        "total_today": today_q.count(),
+        "rate_limit_today": today_q.filter_by(event_type="DDOS_RATE_LIMIT").count(),
+        "suspicious_today": today_q.filter(
+            SecurityLog.event_type.in_(["SQLI_DETECTED", "XSS_DETECTED"])
+        ).count(),
+    }
+    top_ips = (
+        db.session.query(SecurityLog.ip_address, db.func.count(SecurityLog.id).label("cnt"))
+        .filter(SecurityLog.timestamp >= today_start)
+        .group_by(SecurityLog.ip_address)
+        .order_by(db.text("cnt DESC"))
+        .limit(3)
+        .all()
+    )
+
+    return render_template(
+        "admin/security_logs.html",
+        logs=pagination.items,
+        pagination=pagination,
+        kpi=kpi,
+        top_ips=top_ips,
+        event_type=event_type,
+        event_labels=EVENT_TYPE_LABELS,
+    )
+
+
+@admin_bp.route("/security-logs/clear", methods=["POST"])
+@login_required
+@admin_required
+def clear_security_logs():
+    """Xóa nhật ký DEMO — dùng để dọn sạch log trước khi chạy lại kịch bản tấn công mẫu
+    trước mặt giảng viên (đề xuất của Phát, mục 4.3). KHÔNG dùng để xóa bằng chứng thật."""
+    count = SecurityLog.query.delete()
+    db.session.commit()
+    flash(f"Đã xóa {count} dòng nhật ký (demo reset).", "success")
+    return redirect(url_for("admin.security_logs"))

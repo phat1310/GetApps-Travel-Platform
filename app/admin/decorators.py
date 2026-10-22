@@ -31,8 +31,21 @@ def admin_required(f):
         if not current_user.is_authenticated:
             abort(403)
         if not getattr(current_user, "is_admin", False):
+            _log_denied()
             abort(403)
         if getattr(current_user, "is_banned", False):
+            _log_denied()
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def _log_denied():
+    """Ghi lại mọi lần bị 403 ở khu vực admin vào bảng security_logs — đây chính là
+    nguồn dữ liệu ACCESS_DENIED_403 hiển thị ở /admin/security-logs (phần của Phát)."""
+    try:
+        from app.security_logging import log_security_event
+        log_security_event(event_type="ACCESS_DENIED_403", severity="WARNING",
+                            status_code=403, action_taken="BLOCKED")
+    except Exception:
+        pass

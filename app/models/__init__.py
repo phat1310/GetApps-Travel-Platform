@@ -22,3 +22,4 @@ from app.models.map_link import MapLink
 from app.models.notification import Notification
 from app.models.chat import Conversation, Message, MessageReaction
 from app.models.ges_place import GesPlace
+from app.models.security_log import SecurityLog
