@@ -1,0 +1,40 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Dashboard — Admin{% endblock %}
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-speedometer2"></i> Tổng quan hệ thống</h3>
+<div class="row g-3">
+    <div class="col-6 col-md-3">
+        <div class="adm-stat">
+            <div class="text-secondary small">Tổng số user</div>
+            <div class="fs-2 fw-bold">{{ stats.total_users }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="adm-stat">
+            <div class="text-secondary small">Admin</div>
+            <div class="fs-2 fw-bold text-danger">{{ stats.total_admins }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="adm-stat">
+            <div class="text-secondary small">Tài khoản bị khóa</div>
+            <div class="fs-2 fw-bold text-warning">{{ stats.total_banned }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="adm-stat">
+            <div class="text-secondary small">Tổng số bài viết</div>
+            <div class="fs-2 fw-bold text-info">{{ stats.total_posts }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="adm-card p-3 mt-4">
+    <h6><i class="bi bi-info-circle"></i> Ghi chú bảo mật khu vực admin</h6>
+    <ul class="small text-secondary mb-0">
+        <li>Mọi route <code>/admin/*</code> đều bắt buộc <code>@login_required</code> + <code>@admin_required</code> (kiểm tra ở server, không dựa vào việc ẩn/hiện giao diện).</li>
+        <li>Hành động đổi dữ liệu (cấp quyền, khóa, xóa) chỉ nhận <code>POST</code> kèm CSRF token — không có route GET nào thực hiện thay đổi.</li>
+        <li>Admin không thể tự gỡ quyền/khóa/xóa chính tài khoản đang đăng nhập (tránh tự khóa quyền truy cập toàn hệ thống).</li>
+    </ul>
+</div>
+{% endblock %}

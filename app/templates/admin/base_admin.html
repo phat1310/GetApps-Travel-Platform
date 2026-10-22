@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin — {{ config.APP_NAME }}{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        /* Giao diện admin CỐ Ý khác hẳn site chính (nền tối, sidebar riêng) để
+           phân biệt rõ "đang ở khu vực quản trị" — vừa yêu cầu đồ án, vừa
+           giảm rủi ro người dùng thường nhầm lẫn khu vực. */
+        body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .adm-sidebar { background: #111827; min-height: 100vh; border-right: 1px solid #1f2937; }
+        .adm-brand { color: #f8fafc; font-weight: 800; font-size: 1.1rem; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 8px; }
+        .adm-brand .bi { color: #ef4444; }
+        .adm-nav a { display: flex; align-items: center; gap: 10px; padding: 0.65rem 1.25rem; color: #94a3b8; text-decoration: none; font-weight: 600; font-size: 0.92rem; border-left: 3px solid transparent; }
+        .adm-nav a:hover { background: #1f2937; color: #f1f5f9; }
+        .adm-nav a.active { background: #1f2937; color: #38bdf8; border-left-color: #38bdf8; }
+        .adm-topbar { background: #111827; border-bottom: 1px solid #1f2937; padding: 0.85rem 1.5rem; }
+        .adm-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+        .adm-stat { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.1rem; }
+        .adm-table { color: #e2e8f0; }
+        .adm-table thead th { color: #94a3b8; border-bottom-color: #334155; font-size: 0.78rem; text-transform: uppercase; }
+        .adm-table td, .adm-table th { border-color: #334155; vertical-align: middle; }
+        .badge-admin { background: #ef4444; }
+        .badge-banned { background: #78716c; }
+        .btn-exit-admin { color: #94a3b8; text-decoration: none; font-size: 0.85rem; }
+        .btn-exit-admin:hover { color: #f1f5f9; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="d-flex">
+    <nav class="adm-sidebar" style="width: 230px; flex-shrink: 0;">
+        <div class="adm-brand"><i class="bi bi-shield-lock-fill"></i> GetApps Admin</div>
+        <div class="adm-nav d-flex flex-column mt-2">
+            <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.endpoint == 'admin.dashboard' }}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a href="{{ url_for('admin.users') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.users') or request.endpoint in ['admin.toggle_admin','admin.toggle_ban','admin.delete_user'] }}">
+                <i class="bi bi-people-fill"></i> Quản lý User
+            </a>
+            <a href="{{ url_for('admin.posts') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.posts') or request.endpoint == 'admin.delete_post' }}">
+                <i class="bi bi-images"></i> Quản lý Post
+            </a>
+        </div>
+    </nav>
+    <div class="flex-grow-1">
+        <div class="adm-topbar d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-person-circle"></i>
+                Đăng nhập: <strong>{{ current_user.username }}</strong>
+                <span class="badge badge-admin ms-1">ADMIN</span>
+            </div>
+            <a href="{{ url_for('auth.explore') }}" class="btn-exit-admin">
+                <i class="bi bi-box-arrow-left"></i> Về trang người dùng
+            </a>
+        </div>
+        <div class="p-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category in ['error','danger'] else category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

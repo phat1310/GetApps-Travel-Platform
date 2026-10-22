@@ -130,5 +130,14 @@
             if (c) c.textContent = parseInt(c.textContent || '0', 10) + 1;
         }
     });
+    // Vừa đăng xong (?open=<id>): mở luôn cửa sổ chi tiết của lịch trình mới, rồi bỏ tham số khỏi thanh địa chỉ
+    try {
+        const q = new URLSearchParams(location.search), oid = q.get('open');
+        if (oid && /^\d+$/.test(oid)) {
+            openPanel(oid);
+            q.delete('open');
+            history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
+        }
+    } catch (e) {}
 })();
 </script>

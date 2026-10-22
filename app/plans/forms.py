@@ -4,6 +4,18 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, TextAreaField, DateField, FloatField, SelectField, SubmitField, IntegerField
 from wtforms.validators import DataRequired, Length, Optional
+import re
+
+
+class MoneyField(FloatField):
+    """Số tiền VND: chấp nhận cả kiểu có dấu phân cách hàng nghìn như "10.000.000" hoặc "10,000,000"."""
+    def process_formdata(self, valuelist):
+        if valuelist:
+            raw = str(valuelist[0]).strip().replace(' ', '')
+            if re.fullmatch(r'\d{1,3}([.,]\d{3})+', raw):
+                raw = re.sub(r'[.,]', '', raw)
+            valuelist = [raw]
+        super().process_formdata(valuelist)
 
 
 class PlanCreateForm(FlaskForm):
@@ -40,7 +52,7 @@ class PlanCreateForm(FlaskForm):
         "Số người tham gia",
         validators=[Optional()]
     )
-    estimated_budget = FloatField(
+    estimated_budget = MoneyField(
         "Dự toán ngân sách (VNĐ)",
         validators=[Optional()]
     )
