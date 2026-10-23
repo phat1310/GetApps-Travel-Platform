@@ -582,23 +582,19 @@ def feed():
         })
 
     # 2. Render Template HTML cho Trình duyệt Web
+    # Bài CÔNG KHAI của bất kỳ ai cũng hiện trong bảng tin (không bắt buộc phải follow mới thấy),
+    # cộng thêm bài RIÊNG TƯ của người mình đang follow (và của chính mình) -> can_view_post lọc lại lần cuối cho chắc.
     follow_set = following_ids(current_user.id)
     feed_user_ids = list(follow_set | {current_user.id})
 
     posts = (
-        Post.query.filter(Post.user_id.in_(feed_user_ids))
+        Post.query.filter(
+            db.or_(Post.visibility == "public", Post.user_id.in_(feed_user_ids))
+        )
         .order_by(Post.created_at.desc())
         .all()
     )
     posts = [p for p in posts if can_view_post(p, current_user.id, follow_set)]
-
-    if not posts:
-        # Chưa follow ai: gợi ý bài CÔNG KHAI mới nhất (không bao giờ lộ bài riêng tư của người lạ)
-        cand = (
-            Post.query.filter(Post.visibility == "public")
-            .order_by(Post.created_at.desc()).limit(40).all()
-        )
-        posts = [p for p in cand if can_view_post(p, current_user.id, follow_set)][:20]
 
     post_cards = build_post_cards(posts, current_user.id)
 
