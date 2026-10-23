@@ -156,7 +156,11 @@ def _permissions(conv, other_id, sets=None):
     is_request = (st == "pending" and conv.initiated_by != me and not mutual)
     perms = {"can_send": False, "can_attach": False, "note": "", "is_request": is_request,
              "awaiting": False, "status": st}
-    if mutual or st == "accepted":
+    if st == "declined":
+        # Đã từ chối thì chặn tuyệt đối, kể cả khi 2 người đang follow nhau (mutual không được "lách" qua declined)
+        perms["note"] = ("Người này chưa thể nhận tin nhắn từ bạn." if conv.initiated_by == me
+                         else "Bạn đã từ chối cuộc trò chuyện này.")
+    elif mutual or st == "accepted":
         perms.update(can_send=True, can_attach=True)
     elif st == "pending":
         if conv.initiated_by == me:
@@ -168,9 +172,6 @@ def _permissions(conv, other_id, sets=None):
                 perms["note"] = "Đang chờ người kia chấp nhận. Bạn chỉ gửi được 1 tin trước khi được chấp nhận."
         else:
             perms.update(can_send=True, can_attach=True)   # người nhận trả lời = chấp nhận
-    elif st == "declined":
-        perms["note"] = ("Người này chưa thể nhận tin nhắn từ bạn." if conv.initiated_by == me
-                         else "Bạn đã từ chối cuộc trò chuyện này.")
     else:  # "mutual" nhưng không còn follow nhau
         perms["note"] = "Hai bạn cần follow nhau để nhắn tin."
     return perms
@@ -192,16 +193,18 @@ def _hearts_for(message_ids):
 
 
 def _message_dict(msg, hearts=None):
+    deleted = bool(msg.is_deleted)
     data = {
         "id": msg.id,
         "mine": msg.sender_id == current_user.id,
-        "body": msg.body or "",
+        "body": "Tin nhắn đã được thu hồi" if deleted else (msg.body or ""),
         "read": bool(msg.is_read),
         "at": _iso(msg.created_at),
         "file": None,
+        "deleted": deleted,
         "hearts": (hearts or {}).get(msg.id, {"count": 0, "mine": False}),
     }
-    if msg.file_path:
+    if msg.file_path and not deleted:
         data["file"] = {
             "url": url_for("chat.download_file", message_id=msg.id),
             "name": msg.file_name or "tệp",
@@ -219,7 +222,9 @@ def _serialize_messages(msgs):
 def _last_preview(msg):
     if not msg:
         return None
-    if msg.body:
+    if msg.is_deleted:
+        text = "Tin nhắn đã được thu hồi"
+    elif msg.body:
         text = msg.body
     elif msg.file_path:
         text = {"image": "[Ảnh]", "video": "[Video]"}.get(msg.file_kind) or f"[Tệp] {msg.file_name}"
@@ -502,6 +507,42 @@ def conversation_hearts(conv_id):
     conv = _get_conv_or_404(conv_id)
     ids = [m_id for (m_id,) in db.session.query(Message.id).filter_by(conversation_id=conv.id).all()]
     return jsonify({"hearts": {str(k): v for k, v in _hearts_for(ids).items()}})
+
+
+# =========================================================
+# XÓA (THU HỒI) TIN NHẮN — chỉ người gửi, giữ lại dòng tin nhắn (tombstone), không xóa hẳn khỏi lịch sử
+# =========================================================
+
+@chat_bp.route("/api/messages/<int:message_id>", methods=["DELETE"])
+@login_required
+def delete_message(message_id):
+    msg = db.session.get(Message, message_id)
+    if not msg:
+        abort(404)
+    conv = db.session.get(Conversation, msg.conversation_id)
+    if not conv or not conv.has_member(current_user.id):
+        abort(404)
+    if msg.sender_id != current_user.id:
+        return jsonify({"error": "Bạn chỉ có thể thu hồi tin nhắn của chính mình"}), 403
+    if msg.is_deleted:
+        return jsonify({"message": _message_dict(msg)})
+
+    if msg.file_path:
+        path = os.path.join(_upload_dir(), msg.file_path)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        msg.file_path = None
+        msg.file_name = None
+        msg.file_kind = None
+        msg.file_size = None
+
+    msg.body = None
+    msg.is_deleted = True
+    db.session.commit()
+    return jsonify({"message": _message_dict(msg)})
 
 
 # =========================================================

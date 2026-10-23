@@ -55,6 +55,7 @@ class Message(db.Model):
     file_size = db.Column(db.Integer, nullable=True)
 
     is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    is_deleted = db.Column(db.Boolean, nullable=True, default=False)   # người gửi tự thu hồi tin nhắn của mình
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     reactions = db.relationship(

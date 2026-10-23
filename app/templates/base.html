@@ -901,6 +901,11 @@
         .gc-heart-btn.on { color: #e41e3f; }
         .gc-heart-btn:hover { transform: scale(1.18); }
         @media (hover: none) { .gc-heart-btn { opacity: .55; } .gc-heart-btn.on { opacity: 1; } }
+        .gc-del-btn { border: 0; background: none; padding: 2px 4px; color: var(--gc-muted); font-size: 0.9rem; line-height: 1; border-radius: 50%; cursor: pointer; opacity: 0; transition: opacity .12s, transform .12s; flex: none; }
+        .gc-line:hover .gc-del-btn, .gc-del-btn:focus-visible { opacity: 1; }
+        .gc-del-btn:hover { transform: scale(1.12); color: #e41e3f; }
+        @media (hover: none) { .gc-del-btn { opacity: .55; } }
+        .gc-bubble.gc-deleted { font-style: italic; opacity: .65; background: transparent !important; border: 1px dashed var(--gc-border) !important; color: var(--gc-muted) !important; }
         .gc-heart-badge { position: absolute; bottom: -10px; right: 6px; background: var(--gc-bg); border: 1px solid var(--gc-border); border-radius: 12px; padding: 0 5px; font-size: 0.7rem; line-height: 1.35; box-shadow: 0 1px 3px rgba(0,0,0,.15); color: var(--gc-text); white-space: nowrap; }
         .gc-msg.other .gc-heart-badge { right: auto; left: 6px; }
         .gc-heart-badge[hidden] { display: none; }
@@ -3326,6 +3331,17 @@
             attachBtn.addEventListener('click', function () { w.fileInput.click(); });
             w.fileInput.addEventListener('change', function () { setFile(w, w.fileInput.files[0] || null); });
             w.ta = el('textarea'); w.ta.rows = 1; w.ta.placeholder = 'Aa'; w.ta.maxLength = 4000;
+            w.ta.addEventListener('paste', function (e) {
+                // Ctrl+V dán ảnh trực tiếp từ clipboard -> đính kèm như bấm nút paperclip, không chèn vào ô chữ
+                var items = (e.clipboardData && e.clipboardData.items) || [];
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type && items[i].type.indexOf('image/') === 0) {
+                        var file = items[i].getAsFile();
+                        if (file && !w.attachBtn.disabled) { e.preventDefault(); setFile(w, file); }
+                        break;
+                    }
+                }
+            });
             w.ta.addEventListener('input', function () { w.ta.style.height = 'auto'; w.ta.style.height = Math.min(w.ta.scrollHeight, 96) + 'px'; });
             w.ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(w); } });
             var emojiBtn = el('button', 'gc-icon-btn'); emojiBtn.type = 'button'; emojiBtn.title = 'Biểu tượng cảm xúc'; emojiBtn.appendChild(icon('emoji-smile'));
@@ -3413,7 +3429,7 @@
             wrap.dataset.id = m.id;
             var line = el('div', 'gc-line');
             var content = el('div', 'gc-content');
-            if (m.file) {
+            if (m.file && !m.deleted) {
                 if (m.file.kind === 'image') {
                     var a = el('a'); a.href = m.file.url; a.target = '_blank'; a.rel = 'noopener';
                     var img = el('img', 'gc-media'); img.src = m.file.url; img.alt = m.file.name; img.loading = 'lazy'; a.appendChild(img); content.appendChild(a);
@@ -3426,16 +3442,42 @@
                     f.appendChild(tx); content.appendChild(f);
                 }
             }
-            if (m.body) content.appendChild(el('div', 'gc-bubble', m.body));   // textContent => không bị chèn HTML/script
-            var hb = el('button', 'gc-heart-btn'); hb.type = 'button'; hb.title = 'Thả tim';
-            hb.addEventListener('click', function () { toggleHeart(w, m, wrap); });
-            var badge = el('span', 'gc-heart-badge'); badge.hidden = true;
-            content.appendChild(badge);
-            if (m.mine) { line.appendChild(hb); line.appendChild(content); } else { line.appendChild(content); line.appendChild(hb); }
+            if (m.body) content.appendChild(el('div', 'gc-bubble' + (m.deleted ? ' gc-deleted' : ''), m.body));   // textContent => không bị chèn HTML/script
+            if (!m.deleted) {
+                var hb = el('button', 'gc-heart-btn'); hb.type = 'button'; hb.title = 'Thả tim';
+                hb.addEventListener('click', function () { toggleHeart(w, m, wrap); });
+                var badge = el('span', 'gc-heart-badge'); badge.hidden = true;
+                content.appendChild(badge);
+                wrap._hb = hb; wrap._badge = badge;
+            }
+            var delBtn = null;
+            if (m.mine && !m.deleted) {
+                delBtn = el('button', 'gc-del-btn'); delBtn.type = 'button'; delBtn.title = 'Thu hồi tin nhắn';
+                delBtn.appendChild(icon('trash'));
+                delBtn.addEventListener('click', function () { deleteMsg(w, m, wrap); });
+            }
+            if (m.mine) {
+                if (wrap._hb) line.appendChild(wrap._hb);
+                if (delBtn) line.appendChild(delBtn);
+                line.appendChild(content);
+            } else {
+                line.appendChild(content);
+                if (wrap._hb) line.appendChild(wrap._hb);
+            }
             wrap.appendChild(line);
-            wrap._hb = hb; wrap._badge = badge;
-            paintHeart(wrap, m);
+            if (wrap._hb) paintHeart(wrap, m);
             return wrap;
+        }
+        function deleteMsg(w, m, wrap) {
+            if (!confirm('Thu hồi tin nhắn này? Người kia sẽ thấy tin nhắn đã bị thu hồi.')) return;
+            api('/messages/' + m.id, { method: 'DELETE' }).then(function (res) {
+                var fresh = res.message;
+                m.body = fresh.body; m.file = fresh.file; m.deleted = fresh.deleted; m.hearts = fresh.hearts;
+                var idx = w.msgs.findIndex(function (x) { return x.id === m.id; });
+                if (idx !== -1) w.msgs[idx] = m;
+                var newWrap = buildMsg(m, w);
+                if (wrap && wrap.parentNode) wrap.parentNode.replaceChild(newWrap, wrap);
+            }).catch(function (err) { showNote(w, err.message); });
         }
         function paintHeart(wrap, m) {
             var h = m.hearts || { count: 0, mine: false };
