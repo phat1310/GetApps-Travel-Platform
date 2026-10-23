@@ -106,6 +106,8 @@ class ItineraryDay(db.Model):
     date = db.Column(db.Date, nullable=True)
     title = db.Column(db.String(150), nullable=True)  # Vd: "Khám phá trung tâm & Chợ đêm"
     note = db.Column(db.Text, nullable=True)
+    distance_km = db.Column(db.Float, nullable=True)        # Khoảng cách di chuyển trong ngày (người dùng tự nhập)
+    estimated_duration = db.Column(db.String(50), nullable=True)  # Thời gian dự kiến trong ngày, vd "~ 6 giờ"
 
     # Relationships
     stops = db.relationship("ItineraryStop", backref="day", lazy="select",
@@ -121,6 +123,8 @@ class ItineraryDay(db.Model):
             "date": self.date.isoformat() if self.date else None,
             "title": self.title,
             "note": self.note,
+            "distance_km": self.distance_km,
+            "estimated_duration": self.estimated_duration,
             "stops": [s.to_dict() for s in self.stops],
             "lodgings": [l.to_dict() for l in self.lodgings]
         }
@@ -149,6 +153,9 @@ class ItineraryStop(db.Model):
     image_path = db.Column(db.String(255), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     note = db.Column(db.Text, nullable=True)
+    stop_type = db.Column(db.String(20), nullable=True)      # "food" | "sight" | "rest" | None (mặc định tham quan)
+    suggested_food = db.Column(db.String(200), nullable=True)  # Món gợi ý (chỉ khi stop_type == "food")
+    open_hours = db.Column(db.String(50), nullable=True)       # Giờ mở cửa dạng "07:00 - 22:00" (chỉ khi stop_type == "food")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -183,8 +190,23 @@ class ItineraryStop(db.Model):
             "estimated_cost": self.estimated_cost or self.price or 0.0,
             "transportation": self.transportation,
             "image_path": self.image_path,
-            "notes": self.notes or self.note
+            "notes": self.notes or self.note,
+            "stop_type": self.stop_type,
+            "suggested_food": self.suggested_food,
+            "open_hours": self.open_hours
         }
+
+    @property
+    def type_label(self):
+        return {"food": "Ăn uống", "sight": "Tham quan", "rest": "Nghỉ ngơi"}.get(self.stop_type, "Tham quan")
+
+    @property
+    def type_badge_class(self):
+        return {"food": "pp-badge-food", "sight": "pp-badge-sight", "rest": "pp-badge-rest"}.get(self.stop_type, "pp-badge-sight")
+
+    @property
+    def type_icon_class(self):
+        return {"food": "bi-cup-hot-fill", "sight": "bi-camera-fill", "rest": "bi-moon-stars-fill"}.get(self.stop_type, "bi-geo-alt-fill")
 
 
 PlanStop = ItineraryStop
@@ -202,6 +224,8 @@ class ItineraryLodging(db.Model):
     name = db.Column(db.String(200), nullable=True)
     address = db.Column(db.String(255), nullable=True)
     check_in_time = db.Column(db.String(20), nullable=True)
+    check_out_time = db.Column(db.String(20), nullable=True)
+    guest_count = db.Column(db.Integer, nullable=True)
     price_per_night = db.Column(db.Float, default=0.0)
     booking_reference = db.Column(db.String(100), nullable=True)
     booking_link = db.Column(db.String(500), nullable=True)
@@ -257,6 +281,8 @@ class ItineraryLodging(db.Model):
             "name": self.name or self.hotel_name,
             "address": self.address,
             "check_in_time": self.check_in_time,
+            "check_out_time": self.check_out_time,
+            "guest_count": self.guest_count,
             "price_per_night": self.price_per_night,
             "booking_reference": self.booking_reference or self.booking_link,
             "booking_link": self.booking_link or self.booking_reference,

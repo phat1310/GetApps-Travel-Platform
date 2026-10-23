@@ -852,6 +852,21 @@
         .gc-attach-prev { display: none; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--gc-border); font-size: 0.8rem; background: var(--gc-soft); }
         .gc-attach-prev.show { display: flex; }
         .gc-attach-prev .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gc-reply-prev { display: none; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--gc-border); font-size: 0.78rem; background: var(--gc-soft); border-left: 3px solid var(--ges-primary, #2563eb); }
+        .gc-reply-prev.show { display: flex; }
+        .gc-reply-prev .rp-body { flex: 1; min-width: 0; }
+        .gc-reply-prev .rp-who { font-weight: 700; color: var(--ges-primary, #2563eb); }
+        .gc-reply-prev .rp-txt { color: var(--gc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .gc-reply-btn { border: 0; background: none; padding: 2px 4px; color: var(--gc-muted); font-size: 0.88rem; line-height: 1; border-radius: 50%; cursor: pointer; opacity: 0; transition: opacity .12s, transform .12s; flex: none; }
+        .gc-line:hover .gc-reply-btn, .gc-reply-btn:focus-visible { opacity: 1; }
+        .gc-reply-btn:hover { transform: scale(1.12); color: var(--ges-primary, #2563eb); }
+        @media (hover: none) { .gc-reply-btn { opacity: .55; } }
+        .gc-quote { font-size: 0.78rem; padding: 4px 8px; margin-bottom: 3px; border-left: 3px solid rgba(255,255,255,.55); border-radius: 4px; background: rgba(255,255,255,.14); max-width: 100%; cursor: pointer; }
+        .gc-msg.other .gc-quote { border-left-color: var(--ges-primary, #2563eb); background: rgba(37,99,235,.08); }
+        .gc-quote .q-who { font-weight: 700; display: block; }
+        .gc-quote .q-txt { display: block; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gc-msg.flash .gc-bubble { animation: gcFlash 1.1s ease; }
+        @keyframes gcFlash { 0%, 100% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px rgba(37,99,235,.45); } }
         .gc-input { display: flex; align-items: flex-end; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--gc-border); position: relative; }
         .gc-input textarea {
             flex: 1; resize: none; border: 0; outline: 0; background: var(--gc-soft); color: var(--gc-text);
@@ -2396,6 +2411,7 @@
             if (!el || !el.matches) return;
             const isH = el.matches('[data-qc-hours]'), isT = el.matches('[data-qc-time]');
             if (!isH && !isT) return;
+            if (e.isComposing) return;   // đang gõ dấu tiếng Việt (IME) -> đừng can thiệp giữa chừng, kẻo vỡ chữ
             const del = /^delete/.test(e.inputType || '');
             if (el.selectionStart === el.value.length) {                 // chỉ tự định dạng khi đang gõ ở cuối ô
                 const v = isH ? qcLiveHours(el.value, !del) : qcLiveClock(el.value, !del);
@@ -3287,7 +3303,7 @@
 
         function createWin(id) {
             var c = convs[id];
-            var w = { id: id, heartSig: null, msgs: [], lastId: 0, seenId: 0, hasMore: false, loadingOlder: false, file: null, sending: false, statusEl: null };
+            var w = { id: id, heartSig: null, msgs: [], lastId: 0, seenId: 0, hasMore: false, loadingOlder: false, file: null, sending: false, statusEl: null, replyTo: null };
             w.el = el('div', 'gc-win');
 
             var head = el('div', 'gc-win-head');
@@ -3314,6 +3330,14 @@
             w.prevName = el('span', 'nm'); var prevX = el('button', 'gc-icon-btn'); prevX.type = 'button'; prevX.appendChild(icon('x-lg'));
             w.prev.appendChild(icon('paperclip')); w.prev.appendChild(w.prevName); w.prev.appendChild(prevX);
             prevX.addEventListener('click', function () { setFile(w, null); });
+
+            w.replyPrev = el('div', 'gc-reply-prev');
+            var rpBody = el('div', 'rp-body');
+            w.replyPrevWho = el('span', 'rp-who'); w.replyPrevTxt = el('span', 'rp-txt');
+            rpBody.appendChild(w.replyPrevWho); rpBody.appendChild(w.replyPrevTxt);
+            var rpX = el('button', 'gc-icon-btn'); rpX.type = 'button'; rpX.appendChild(icon('x-lg'));
+            rpX.addEventListener('click', function () { setReplyTo(w, null); });
+            w.replyPrev.appendChild(icon('reply-fill')); w.replyPrev.appendChild(rpBody); w.replyPrev.appendChild(rpX);
 
             var inputRow = el('div', 'gc-input');
             var attachBtn = w.attachBtn = el('button', 'gc-icon-btn'); attachBtn.type = 'button'; attachBtn.title = 'Đính kèm ảnh, video hoặc tệp'; attachBtn.appendChild(icon('paperclip'));
@@ -3352,7 +3376,7 @@
             inputRow.appendChild(attachBtn); inputRow.appendChild(w.fileInput); inputRow.appendChild(w.ta);
             inputRow.appendChild(emojiBtn); inputRow.appendChild(w.sendBtn); inputRow.appendChild(w.emojiPop);
 
-            w.el.appendChild(head); w.el.appendChild(w.body); w.el.appendChild(w.reqBar); w.el.appendChild(w.info); w.el.appendChild(w.note); w.el.appendChild(w.prev); w.el.appendChild(inputRow);
+            w.el.appendChild(head); w.el.appendChild(w.body); w.el.appendChild(w.reqBar); w.el.appendChild(w.info); w.el.appendChild(w.note); w.el.appendChild(w.replyPrev); w.el.appendChild(w.prev); w.el.appendChild(inputRow);
             w.body.addEventListener('scroll', function () { if (w.body.scrollTop < 30 && w.hasMore && !w.loadingOlder) loadOlder(w); });
             w.el.addEventListener('click', function (e) { if (!e.target.closest('.gc-emoji-pop') && !e.target.closest('.gc-input .gc-icon-btn')) w.emojiPop.classList.remove('show'); });
             wins[id] = w;
@@ -3419,13 +3443,28 @@
                     f.appendChild(tx); content.appendChild(f);
                 }
             }
-            if (m.body) content.appendChild(el('div', 'gc-bubble' + (m.deleted ? ' gc-deleted' : ''), m.body));   // textContent => không bị chèn HTML/script
+            if (m.body) {
+                var bubble = el('div', 'gc-bubble' + (m.deleted ? ' gc-deleted' : ''));
+                if (m.reply_to) {
+                    var q = el('div', 'gc-quote');
+                    q.appendChild(el('span', 'q-who', m.reply_to.mine ? 'Bạn' : (m.reply_to.sender_name || '')));
+                    q.appendChild(el('span', 'q-txt', m.reply_to.text || ''));
+                    q.addEventListener('click', function () { jumpToMsg(w, m.reply_to.id); });
+                    bubble.appendChild(q);
+                }
+                bubble.appendChild(document.createTextNode(m.body));   // textContent => không bị chèn HTML/script
+                content.appendChild(bubble);
+            }
+            var replyBtn = null;
             if (!m.deleted) {
                 var hb = el('button', 'gc-heart-btn'); hb.type = 'button'; hb.title = 'Thả tim';
                 hb.addEventListener('click', function () { toggleHeart(w, m, wrap); });
                 var badge = el('span', 'gc-heart-badge'); badge.hidden = true;
                 content.appendChild(badge);
                 wrap._hb = hb; wrap._badge = badge;
+                replyBtn = el('button', 'gc-reply-btn'); replyBtn.type = 'button'; replyBtn.title = 'Trả lời';
+                replyBtn.appendChild(icon('reply-fill'));
+                replyBtn.addEventListener('click', function () { setReplyTo(w, m); });
             }
             var delBtn = null;
             if (m.mine && !m.deleted) {
@@ -3436,10 +3475,12 @@
             if (m.mine) {
                 if (wrap._hb) line.appendChild(wrap._hb);
                 if (delBtn) line.appendChild(delBtn);
+                if (replyBtn) line.appendChild(replyBtn);
                 line.appendChild(content);
             } else {
                 line.appendChild(content);
                 if (wrap._hb) line.appendChild(wrap._hb);
+                if (replyBtn) line.appendChild(replyBtn);
             }
             wrap.appendChild(line);
             if (wrap._hb) paintHeart(wrap, m);
@@ -3466,6 +3507,24 @@
             wrap.classList.toggle('has-heart', h.count > 0);
         }
         function nodeOf(w, id) { return w.body.querySelector('.gc-msg[data-id="' + id + '"]'); }
+        function setReplyTo(w, m) {
+            if (!m) {
+                w.replyTo = null; w.replyPrev.classList.remove('show');
+                return;
+            }
+            w.replyTo = { id: m.id, text: m.deleted ? '' : (m.body || (m.file ? '[Tệp đính kèm]' : '')), mine: m.mine };
+            w.replyPrevWho.textContent = m.mine ? 'Đang trả lời chính bạn' : 'Đang trả lời ' + (w.nameEl ? w.nameEl.textContent : '');
+            w.replyPrevTxt.textContent = w.replyTo.text;
+            w.replyPrev.classList.add('show');
+            w.ta.focus();
+        }
+        function jumpToMsg(w, id) {
+            var n = nodeOf(w, id);
+            if (!n) return;
+            n.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            n.classList.add('flash');
+            setTimeout(function () { n.classList.remove('flash'); }, 1200);
+        }
         function toggleHeart(w, m, wrap) {
             var before = m.hearts || { count: 0, mine: false };
             m.hearts = { count: Math.max(0, before.count + (before.mine ? -1 : 1)), mine: !before.mine };
@@ -3553,8 +3612,9 @@
             if (!text && !file) return;
             w.sending = true; w.sendBtn.disabled = true;
             var fd = new FormData(); fd.append('body', text); if (file) fd.append('file', file);
+            if (w.replyTo) fd.append('reply_to_id', w.replyTo.id);
             api('/conversations/' + w.id + '/messages', { method: 'POST', body: fd }).then(function (res) {
-                w.ta.value = ''; w.ta.style.height = 'auto'; setFile(w, null);
+                w.ta.value = ''; w.ta.style.height = 'auto'; setFile(w, null); setReplyTo(w, null);
                 appendMsgs(w, [res.message]);
                 mergeConv(w.id, res.permissions);
                 var c = convs[w.id]; if (c) { c.last_id = res.message.id; c.last = { text: res.message.body || '[Tệp]', mine: true, at: res.message.at }; }
@@ -4208,6 +4268,7 @@
   document.addEventListener("input", function (e) {
     const el = e.target;
     if (!el.matches || !el.matches(SEL)) return;
+    if (e.isComposing) return;   // đang gõ dấu tiếng Việt (IME) -> đừng can thiệp giữa chừng, kẻo vỡ chữ
     const SUF = suffixOf(el);
     const digits = el.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
     if (!digits) { el.value = ""; return; }

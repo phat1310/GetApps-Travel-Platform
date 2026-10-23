@@ -47,6 +47,7 @@ class Message(db.Model):
     conversation_id = db.Column(db.Integer, db.ForeignKey("conversations.id"), nullable=False, index=True)
     sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     body = db.Column(db.Text, nullable=True)
+    reply_to_id = db.Column(db.Integer, db.ForeignKey("messages.id"), nullable=True)  # Trả lời đúng 1 tin nhắn cụ thể
 
     # Tệp đính kèm (tùy chọn)
     file_path = db.Column(db.String(255), nullable=True)   # tên file ngẫu nhiên trên đĩa

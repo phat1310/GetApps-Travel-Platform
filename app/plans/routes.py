@@ -444,10 +444,9 @@ def panel(plan_id):
     likes, cmts, shares, liked, saved = _social_state([plan.id], uid)
     stops_total = sum(len(d.stops) for d in plan.days)
     from app.models import Comment
-    from app.mentions import render_mentions
+    from app.locations.routes import build_comments_tree
     rows = Comment.query.filter_by(itinerary_id=plan.id).order_by(Comment.created_at.asc()).limit(200).all()
-    users = {u.id: u for u in User.query.filter(User.id.in_(list({c.user_id for c in rows}) or [0])).all()}
-    comment_list = [dict(user=users.get(c.user_id), html=render_mentions(c.content), at=c.created_at) for c in rows if users.get(c.user_id)]
+    comment_list = build_comments_tree(rows, uid)
     return render_template(
         'plans/_panel.html', plan=plan, comment_list=comment_list, is_owner=(uid == plan.user_id),
         cover=(plan.cover_image or '').replace('static/', '', 1) or DEFAULT_COVER,

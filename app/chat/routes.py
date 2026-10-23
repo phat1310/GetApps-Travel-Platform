@@ -190,6 +190,30 @@ def _hearts_for(message_ids):
     return out
 
 
+def _reply_preview(msg):
+    """Trích dẫn gọn tin nhắn gốc mà `msg` đang trả lời (nếu có)."""
+    if not msg.reply_to_id:
+        return None
+    orig = db.session.get(Message, msg.reply_to_id)
+    if not orig:
+        return None
+    if orig.is_deleted:
+        text = "Tin nhắn đã được thu hồi"
+    elif orig.body:
+        text = orig.body
+    elif orig.file_path:
+        text = {"image": "[Ảnh]", "video": "[Video]"}.get(orig.file_kind) or f"[Tệp] {orig.file_name}"
+    else:
+        text = ""
+    sender = db.session.get(User, orig.sender_id)
+    return {
+        "id": orig.id,
+        "text": text[:140],
+        "sender_name": (sender.nickname or sender.username) if sender else "",
+        "mine": orig.sender_id == current_user.id,
+    }
+
+
 def _message_dict(msg, hearts=None):
     deleted = bool(msg.is_deleted)
     data = {
@@ -201,6 +225,7 @@ def _message_dict(msg, hearts=None):
         "file": None,
         "deleted": deleted,
         "hearts": (hearts or {}).get(msg.id, {"count": 0, "mine": False}),
+        "reply_to": None if deleted else _reply_preview(msg),
     }
     if msg.file_path and not deleted:
         data["file"] = {
@@ -413,7 +438,13 @@ def send_message(conv_id):
     if not body and not has_file:
         return jsonify({"error": "Tin nhắn trống"}), 400
 
-    msg = Message(conversation_id=conv.id, sender_id=current_user.id, body=body or None)
+    reply_to_id = request.form.get("reply_to_id", type=int)
+    if reply_to_id:
+        orig = db.session.get(Message, reply_to_id)
+        if not orig or orig.conversation_id != conv.id:
+            reply_to_id = None  # chỉ cho reply tin nhắn thật sự nằm trong đúng hội thoại này
+
+    msg = Message(conversation_id=conv.id, sender_id=current_user.id, body=body or None, reply_to_id=reply_to_id)
 
     if has_file:
         original = _clean_filename(upload.filename)

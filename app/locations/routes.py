@@ -13,11 +13,13 @@ from app.locations import locations_bp
 from app.notifications import notify
 from app.mentions import notify_mentions, notify_new_mentions, render_mentions, suggest as suggest_mentions
 from app.extensions import db
+from sqlalchemy.exc import IntegrityError
 from app.models import (
     Post, Photo, Like, Comment, Share, SavedPost, Location, User,
     Itinerary, ItineraryDay, ItineraryStop, ItineraryLodging, ItineraryAttachment,
     Notification,
 )
+from app.models.comment import CommentLike
 from app.locations.utils import get_or_create_location, normalize_location_name
 import app.locations.places as places
 from app.locations.places import resolve_location
@@ -474,6 +476,83 @@ def delete_photo(photo_id):
 # FEED
 # =========================================================
 
+def comment_like_map(comment_ids, viewer_id):
+    """{comment_id: {"count": n, "mine": bool}} — dùng chung cho comment bài đăng lẫn lịch trình."""
+    if not comment_ids:
+        return {}
+    rows = CommentLike.query.filter(CommentLike.comment_id.in_(comment_ids)).all()
+    out = {}
+    for r in rows:
+        d = out.setdefault(r.comment_id, {"count": 0, "mine": False})
+        d["count"] += 1
+        if r.user_id == viewer_id:
+            d["mine"] = True
+    return out
+
+
+@locations_bp.route("/api/comments/<int:comment_id>/like", methods=["POST"])
+@login_required
+def toggle_comment_like(comment_id):
+    """Thả / bỏ tim 1 bình luận (bài đăng hoặc lịch trình đều dùng chung route này)."""
+    c = db.session.get(Comment, comment_id)
+    if not c:
+        abort(404)
+    existing = CommentLike.query.filter_by(comment_id=c.id, user_id=current_user.id).first()
+    if existing:
+        db.session.delete(existing)
+    else:
+        db.session.add(CommentLike(comment_id=c.id, user_id=current_user.id))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+    lk = comment_like_map([c.id], current_user.id).get(c.id, {"count": 0, "mine": False})
+    return jsonify({"likes_count": lk["count"], "is_liked": lk["mine"]})
+
+
+def build_comments_tree(comments, viewer_id):
+    """Cây bình luận (name/content tách dòng, @mention reply, thả tim) — dùng chung cho bài đăng VÀ lịch trình."""
+    cmt_likes = comment_like_map([c.id for c in comments], viewer_id)
+
+    def _fmt(c, c_author, reply_to_author=None):
+        lk = cmt_likes.get(c.id, {"count": 0, "mine": False})
+        return {
+            "id": c.id,
+            "user_id": c.user_id,
+            "parent_id": c.parent_id,
+            "reply_to_id": c.reply_to_id,
+            "reply_to_name": reply_to_author.username if reply_to_author else None,
+            "author_name": c_author.username if c_author else f"User #{c.user_id}",
+            "author_username": c_author.username if c_author else None,
+            "author_avatar": c_author.avatar_url if c_author else None,
+            "content": c.content,
+            "created_at": to_vn(c.created_at).strftime("%H:%M %d/%m/%Y") if c.created_at else "",
+            "created_dt": c.created_at,
+            "can_delete": (c.user_id == viewer_id),
+            "likes_count": lk["count"],
+            "is_liked": lk["mine"],
+            "replies": [],
+        }
+
+    by_id = {}
+    top_level = []
+    for c in comments:
+        c_author = db.session.get(User, c.user_id)
+        reply_to_author = None
+        if c.reply_to_id:
+            reply_to_comment = db.session.get(Comment, c.reply_to_id)
+            if reply_to_comment:
+                reply_to_author = db.session.get(User, reply_to_comment.user_id)
+        by_id[c.id] = _fmt(c, c_author, reply_to_author)
+    for c in comments:
+        node = by_id[c.id]
+        if c.parent_id and c.parent_id in by_id:
+            by_id[c.parent_id]["replies"].append(node)
+        else:
+            top_level.append(node)
+    return top_level
+
+
 def build_post_cards(posts, viewer_id):
     """Dữ liệu thẻ bài viết (bảng tin + tab "Bài viết" ở trang cá nhân dùng chung 1 mẫu: locations/_post_card.html).
     `posts` đã được lọc quyền xem ở nơi gọi. `is_mine` / `edit_data` chỉ bật cho chủ bài."""
@@ -491,41 +570,7 @@ def build_post_cards(posts, viewer_id):
         comments_count = len(comments)
         is_saved = bool(SavedPost.query.filter_by(user_id=viewer_id, post_id=p.id).first())
         shares_count = Share.query.filter_by(post_id=p.id).count()
-
-        def _fmt_comment(c, c_author, reply_to_author=None):
-            return {
-                "id": c.id,
-                "user_id": c.user_id,
-                "parent_id": c.parent_id,
-                "reply_to_id": c.reply_to_id,
-                "reply_to_name": reply_to_author.username if reply_to_author else None,
-                "author_name": c_author.username if c_author else f"User #{c.user_id}",
-                "author_username": c_author.username if c_author else None,
-                "author_avatar": c_author.avatar_url if c_author else None,
-                "content": c.content,
-                "created_at": to_vn(c.created_at).strftime("%H:%M %d/%m/%Y") if c.created_at else "",
-                "created_dt": c.created_at,
-                "can_delete": (c.user_id == viewer_id),
-                "replies": [],
-            }
-
-        by_id = {}
-        top_level = []
-        for c in comments:
-            c_author = db.session.get(User, c.user_id)
-            reply_to_author = None
-            if c.reply_to_id:
-                reply_to_comment = db.session.get(Comment, c.reply_to_id)
-                if reply_to_comment:
-                    reply_to_author = db.session.get(User, reply_to_comment.user_id)
-            by_id[c.id] = _fmt_comment(c, c_author, reply_to_author)
-        for c in comments:
-            node = by_id[c.id]
-            if c.parent_id and c.parent_id in by_id:
-                by_id[c.parent_id]["replies"].append(node)
-            else:
-                top_level.append(node)
-        formatted_comments = top_level
+        formatted_comments = build_comments_tree(comments, viewer_id)
 
         post_cards.append({
             "id": p.id,
@@ -1575,18 +1620,58 @@ def like_itinerary(itinerary_id):
 @login_required
 def create_itinerary_comment(itinerary_id):
     plan = visible_itinerary_or_404(itinerary_id)
-    data = request.get_json()
-    content = data.get("content", "").strip() if data else ""
+    data = request.get_json() or {}
+    content = (data.get("content") or "").strip()
     if not content:
         return jsonify({"error": "Nội dung bình luận không được rỗng"}), 400
-    comment = Comment(user_id=current_user.id, itinerary_id=itinerary_id, content=content)
+
+    parent_id = data.get("parent_id")
+    parent = None
+    reply_to = None  # reply cụ thể đang được trả lời (nếu có) — khác parent khi trả lời-của-trả lời
+    if parent_id:
+        parent = db.session.get(Comment, int(parent_id))
+        if not parent or parent.itinerary_id != itinerary_id:
+            return jsonify({"error": "Bình luận gốc không hợp lệ"}), 400
+        if parent.parent_id:
+            reply_to = parent
+            parent_id = parent.parent_id
+            parent = db.session.get(Comment, parent_id)
+
+    comment = Comment(
+        user_id=current_user.id,
+        itinerary_id=itinerary_id,
+        parent_id=parent.id if parent else None,
+        reply_to_id=reply_to.id if reply_to else None,
+        content=content,
+    )
     db.session.add(comment)
     tagged = notify_mentions(content, current_user.id, plan.user_id, itinerary=plan)
     if plan.user_id not in tagged:
         notify(plan.user_id, current_user.id, "comment", itinerary_id=plan.id)
+    notify_target = reply_to or parent
+    if notify_target and notify_target.user_id != current_user.id and notify_target.user_id not in tagged and notify_target.user_id != plan.user_id:
+        notify(notify_target.user_id, current_user.id, "comment", itinerary_id=plan.id)
     db.session.commit()
-    return jsonify({"message": "Đã bình luận", "comment_id": comment.id,
-                    "content_html": str(render_mentions(content))}), 201
+
+    reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
+
+    return jsonify({
+        "message": "Đã bình luận",
+        "comment": {
+            "id": comment.id,
+            "user_id": comment.user_id,
+            "parent_id": comment.parent_id,
+            "reply_to_id": comment.reply_to_id,
+            "reply_to_name": reply_to_author.username if reply_to_author else None,
+            "author_username": current_user.username,
+            "author_avatar": current_user.avatar_url,
+            "content": comment.content,
+            "content_html": str(render_mentions(comment.content)),
+            "likes_count": 0,
+            "is_liked": False,
+            "created_at": comment.created_at.isoformat(),
+        },
+    }), 201
 
 
 @locations_bp.route("/itineraries/<int:itinerary_id>/comments", methods=["GET"])

@@ -254,6 +254,20 @@
         }
     }
 
+    // ---------- Thả tim bình luận ----------
+    async function toggleCommentLike(btn) {
+        const cid = btn.dataset.cid;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        try {
+            const res = await fetch(`/locations/api/comments/${cid}/like`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            if (!res.ok) return;
+            const data = await res.json();
+            btn.classList.toggle('on', !!data.is_liked);
+            btn.querySelector('i').className = 'bi ' + (data.is_liked ? 'bi-heart-fill' : 'bi-heart');
+            btn.querySelector('span').textContent = data.likes_count || '';
+        } catch (e) {}
+    }
+
     // ---------- Trả lời bình luận ----------
     const replyContext = {};   // postId -> { parentId, username }
 
@@ -354,6 +368,7 @@
                                 <div class="comment-text">${mentionHtml}${c.content_html || escapeHtml(c.content)}</div>
                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                     <span>Vừa xong</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 cmt-like-btn" data-cid="${c.id}" onclick="toggleCommentLike(this)"><i class="bi bi-heart"></i> <span></span></button>
                                     <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
                                 </div>
                             </div>
@@ -384,6 +399,7 @@
                                     <div class="comment-text">${c.content_html || escapeHtml(c.content)}</div>
                                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                         <span>Vừa xong</span>
+                                        <button type="button" class="btn btn-sm btn-link p-0 cmt-like-btn" data-cid="${c.id}" onclick="toggleCommentLike(this)"><i class="bi bi-heart"></i> <span></span></button>
                                         <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
                                     </div>
                                 </div>

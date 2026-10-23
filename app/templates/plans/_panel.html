@@ -114,16 +114,58 @@
             </div>
         </div>
 
+        {% macro cmt_avatar(c) %}
+            {% if c.author_avatar %}<img src="{{ c.author_avatar }}" class="pp-cmt-av" alt="">
+            {% else %}<span class="pp-cmt-av pp-av-ph">{{ (c.author_name or '?')[0]|upper }}</span>{% endif %}
+        {% endmacro %}
+        {% macro cmt_row(c, is_reply=False) %}
+        <div class="pp-cmt-item{{ ' pp-cmt-reply-item' if is_reply }}" data-cid="{{ c.id }}">
+            <div class="d-flex gap-2">
+                {{ cmt_avatar(c) }}
+                <div class="flex-grow-1" style="min-width:0;">
+                    <div class="pp-cmt-box">
+                        <div class="comment-name">
+                            {% if c.author_username %}<a href="{{ url_for('auth.profile', username=c.author_username) }}" class="text-decoration-none fw-bold">{{ c.author_name }}</a>{% else %}<b>{{ c.author_name }}</b>{% endif %}
+                        </div>
+                        <div class="comment-text">
+                            {% if c.reply_to_name %}<a class="reply-mention">@{{ c.reply_to_name }}</a> {% endif %}{{ c.content }}
+                        </div>
+                    </div>
+                    <div class="pp-cmt-actions">
+                        <span class="pp-muted">{{ c.created_at }}</span>
+                        {% if current_user.is_authenticated %}
+                        <button type="button" class="pp-cmt-like{{ ' on' if c.is_liked }}" data-act="cmt-like" data-cid="{{ c.id }}">
+                            <i class="bi {{ 'bi-heart-fill' if c.is_liked else 'bi-heart' }}"></i> <span>{{ c.likes_count or '' }}</span>
+                        </button>
+                        <button type="button" class="pp-cmt-reply-btn" data-act="cmt-reply" data-cid="{{ c.id }}" data-name="{{ c.author_name }}">Trả lời</button>
+                        {% elif c.likes_count %}
+                        <span class="pp-cmt-like on"><i class="bi bi-heart-fill"></i> <span>{{ c.likes_count }}</span></span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endmacro %}
         <h6 class="pp-h" id="ppComments"><i class="bi bi-chat-dots me-1"></i>Bình luận <span class="pp-muted fw-normal">({{ comments }})</span></h6>
         <div class="pp-cmts" id="ppCmtList">
             {% for c in comment_list %}
-            <div class="pp-cmt"><b>{{ c.user.username }}</b> <span>{{ c.html }}</span></div>
+            {{ cmt_row(c) }}
+            {% if c.replies %}
+            <div class="pp-cmt-replies">
+                {% for r in c.replies %}{{ cmt_row(r, is_reply=True) }}{% endfor %}
+            </div>
+            {% endif %}
             {% else %}
             <div class="pp-muted small" id="ppNoCmt">Chưa có bình luận nào.</div>
             {% endfor %}
         </div>
         {% if current_user.is_authenticated %}
+        <div class="pp-reply-prev" id="ppReplyPrev" hidden>
+            <span>Đang trả lời <b id="ppReplyName"></b></span>
+            <button type="button" class="btn-close btn-close-sm" id="ppReplyCancel" aria-label="Hủy"></button>
+        </div>
         <form class="pp-cmt-form" data-pp-form="comment">
+            <input type="hidden" name="parent_id" value="">
             <input type="text" class="form-control form-control-sm rounded-pill" maxlength="500" placeholder="Viết bình luận..." aria-label="Bình luận">
             <button class="btn btn-primary btn-sm rounded-pill px-3" type="submit">Gửi</button>
         </form>

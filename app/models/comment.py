@@ -45,3 +45,17 @@ class Comment(db.Model):
             name="chk_comment_target"
         ),
     )
+
+
+class CommentLike(db.Model):
+    """Lượt thả tim của 1 người vào 1 bình luận (mỗi người tối đa 1 tim / bình luận)."""
+    __tablename__ = "comment_likes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey("comments.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint("comment_id", "user_id", name="unique_comment_like"),
+    )

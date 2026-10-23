@@ -182,6 +182,9 @@
                                                     <div class="comment-text">{{ comment.content | mentions }}</div>
                                                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                                         <span>{{ time_tag(comment.created_dt) }}</span>
+                                                        <button type="button" class="btn btn-sm btn-link p-0 cmt-like-btn{{ ' on' if comment.is_liked }}" data-cid="{{ comment.id }}" onclick="toggleCommentLike(this)">
+                                                            <i class="bi {{ 'bi-heart-fill' if comment.is_liked else 'bi-heart' }}"></i> <span>{{ comment.likes_count or '' }}</span>
+                                                        </button>
                                                         <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment({{ post.id }}, {{ comment.id }}, '{{ comment.author_username or comment.author_name }}')">Trả lời</button>
                                                     </div>
                                                 </div>
@@ -208,6 +211,9 @@
                                                                 </div>
                                                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                                                     <span>{{ time_tag(reply.created_dt) }}</span>
+                                                                    <button type="button" class="btn btn-sm btn-link p-0 cmt-like-btn{{ ' on' if reply.is_liked }}" data-cid="{{ reply.id }}" onclick="toggleCommentLike(this)">
+                                                                        <i class="bi {{ 'bi-heart-fill' if reply.is_liked else 'bi-heart' }}"></i> <span>{{ reply.likes_count or '' }}</span>
+                                                                    </button>
                                                                     <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment({{ post.id }}, {{ reply.id }}, '{{ reply.author_username or reply.author_name }}')">Trả lời</button>
                                                                 </div>
                                                             </div>

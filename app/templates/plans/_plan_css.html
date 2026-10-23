@@ -100,6 +100,21 @@
     .pp-av-ph { background: var(--ges-primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
     .pp-cmt { font-size: .88rem; padding: 4px 0; overflow-wrap: anywhere; }
     .pp-cmt-form { display: flex; gap: 8px; margin-top: 8px; }
+    .pp-cmt-item { padding: 6px 0; }
+    .pp-cmt-reply-item { margin-left: 2rem; padding-left: .6rem; border-left: 2px solid var(--bs-border-color); margin-top: 4px; }
+    .pp-cmt-av { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: none; }
+    .pp-cmt-reply-item .pp-cmt-av { width: 26px; height: 26px; }
+    span.pp-cmt-av.pp-av-ph { display: flex; align-items: center; justify-content: center; background: var(--ges-primary, #2563eb); color: #fff; font-weight: 700; font-size: .8rem; }
+    .pp-cmt-box { background: var(--bs-tertiary-bg, #f8fafc); border-radius: 10px; padding: .45rem .7rem; font-size: .88rem; }
+    .pp-cmt-box .comment-name { font-size: .86rem; line-height: 1.2; }
+    .pp-cmt-box .comment-text { font-size: .88rem; color: var(--ges-text-secondary, #475569); line-height: 1.35; margin-top: 1px; word-break: break-word; }
+    .pp-cmt-box .reply-mention { font-weight: 600; color: var(--ges-primary, #2563eb); }
+    .pp-cmt-actions { display: flex; align-items: center; gap: 12px; margin: 2px 0 0 .3rem; font-size: .76rem; }
+    .pp-cmt-like, .pp-cmt-reply-btn { border: 0; background: none; padding: 0; color: var(--bs-secondary-color); font-weight: 600; font-size: .76rem; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+    .pp-cmt-like:hover, .pp-cmt-reply-btn:hover { color: var(--ges-primary, #2563eb); text-decoration: underline; }
+    .pp-cmt-like.on { color: #e41e3f; }
+    .pp-cmt-like.on:hover { color: #e41e3f; }
+    .pp-reply-prev { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .8rem; padding: 5px 10px; margin-top: 8px; background: var(--bs-tertiary-bg, #f8fafc); border-left: 3px solid var(--ges-primary, #2563eb); border-radius: 6px; }
     @media (max-width: 640px) { .pp-stats { grid-template-columns: repeat(2, 1fr); } .pp-hero { height: 210px; } }
 
     /* ===== Cửa sổ chia sẻ ===== */
