@@ -292,8 +292,8 @@
         const url = {{ current_user.avatar_url | tojson }};
         const initial = {{ current_user.username[0]|upper|tojson }};
         return url
-            ? `<img src="${url}" alt="" class="avatar avatar-xs flex-shrink-0">`
-            : `<span class="avatar-placeholder avatar-xs flex-shrink-0">${initial}</span>`;
+            ? `<img src="${url}" alt="" class="avatar avatar-sm flex-shrink-0">`
+            : `<span class="avatar-placeholder avatar-sm flex-shrink-0">${initial}</span>`;
     }
 
     // AJAX: Thêm bình luận (Comment) — hỗ trợ cả bình luận gốc lẫn trả lời (1 cấp)
@@ -348,8 +348,10 @@
                         <div class="comment-box comment-reply d-flex align-items-start gap-2" id="comment-item-${c.id}">
                             ${avatarHtml}
                             <div class="flex-grow-1">
-                                <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}:</strong></a>
-                                ${mentionHtml}<span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
+                                <div class="comment-name">
+                                    <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}</strong></a>
+                                </div>
+                                <div class="comment-text">${mentionHtml}${c.content_html || escapeHtml(c.content)}</div>
                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                     <span>Vừa xong</span>
                                     <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
@@ -376,8 +378,10 @@
                             <div class="comment-box d-flex align-items-start gap-2" id="comment-item-${c.id}">
                                 ${avatarHtml}
                                 <div class="flex-grow-1">
-                                    <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}:</strong></a>
-                                    <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
+                                    <div class="comment-name">
+                                        <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}</strong></a>
+                                    </div>
+                                    <div class="comment-text">${c.content_html || escapeHtml(c.content)}</div>
                                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                         <span>Vừa xong</span>
                                         <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
