@@ -118,23 +118,23 @@ def _parse_trip_details(total_days):
             if not name:
                 continue
             if len(rows) >= MAX_STOPS_PER_DAY:
-                return None, None, f"Mỗi ngày tối đa {MAX_STOPS_PER_DAY} chặng (Ngày {d})."
+                return None, None, None, f"Mỗi ngày tối đa {MAX_STOPS_PER_DAY} chặng (Ngày {d})."
             stype = 'food' if _at(types, i) == 'food' else 'travel'
             stime = _norm_time(clean_text(_at(times, i), 20))
             if stime is None:
-                return None, None, f"Giờ ghé của \"{name}\" không hợp lệ (ví dụ 08:30)."
+                return None, None, None, f"Giờ ghé của \"{name}\" không hợp lệ (ví dụ 08:30)."
             desc = clean_text(_at(descs, i), 500, keep_newlines=True)
             sfood = clean_text(_at(foods, i), 80)
             sopen = _norm_hours(clean_text(_at(opens, i), 40))
             if sopen is None:
-                return None, None, f"Giờ mở cửa của \"{name}\" không hợp lệ (ví dụ 08:00 - 22:00)."
+                return None, None, None, f"Giờ mở cửa của \"{name}\" không hợp lệ (ví dụ 08:00 - 22:00)."
             sloc = clean_text(_at(locs, i), 501)
 
             address = link = None
             if sloc and looks_like_link(sloc):
                 link, err = check_map_url(sloc)
                 if err:
-                    return None, None, f"Chặng \"{name}\": {err}"
+                    return None, None, None, f"Chặng \"{name}\": {err}"
                 address = link if len(link) <= 255 else None
             elif sloc:
                 address = sloc[:255]
@@ -156,8 +156,16 @@ def _parse_trip_details(total_days):
             _digits = re.sub(r"\D", "", clean_text(_at(prices, i), 40))
             if _digits:
                 sprice = min(int(_digits), 2000000000)
-            rows.append(dict(name=name, activity=activity, time=stime or None, address=address, link=link, note=note or None, price=sprice))
+            rows.append(dict(name=name, activity=activity, time=stime or None, address=address, link=link, note=note or None, price=sprice,
+                              stop_type=stype, suggested_food=(sfood or None), open_hours=(sopen or None)))
         stops_by_day[d] = rows
+
+    day_extra = {}
+    for d in range(1, total_days + 1):
+        dk_raw = re.sub(r"[^\d.]", "", clean_text(f.get(f'day_distance_km_{d}', ''), 20))
+        dist_km = float(dk_raw) if dk_raw else None
+        dur = clean_text(f.get(f'day_duration_{d}', ''), 50) or None
+        day_extra[d] = dict(distance_km=dist_km, estimated_duration=dur)
 
     lodgings = []
     h_names = f.getlist('hotel_name[]')[:MAX_LODGINGS * 4]
@@ -168,12 +176,14 @@ def _parse_trip_details(total_days):
     maps = f.getlist('lodging_map_link[]')
     notes = f.getlist('lodging_note[]')
     days = f.getlist('lodging_day[]')
+    checkouts = f.getlist('lodging_checkout[]')
+    guests = f.getlist('lodging_guests[]')
     for i, raw_name in enumerate(h_names):
         hname = clean_text(raw_name, 200)
         if not hname:
             continue
         if len(lodgings) >= MAX_LODGINGS:
-            return None, None, f"Tối đa {MAX_LODGINGS} nơi lưu trú cho mỗi lịch trình."
+            return None, None, None, f"Tối đa {MAX_LODGINGS} nơi lưu trú cho mỗi lịch trình."
         price = 0.0
         raw_price = re.sub(r"[.,\sđ₫]|vnd|vnđ", "", clean_text(_at(prices, i), 40), flags=re.I)
         if raw_price.isdigit() and len(raw_price) <= 11:
@@ -184,7 +194,7 @@ def _parse_trip_details(total_days):
         if braw and looks_like_link(braw):
             booking_link, err = check_web_url(braw)
             if err:
-                return None, None, f"Link đặt phòng của \"{hname}\": {err}"
+                return None, None, None, f"Link đặt phòng của \"{hname}\": {err}"
             booking_ref = (re.sub(r"^https://", "", booking_link).split('/')[0])[:100]
         elif braw:
             booking_link = braw[:100]            # dạng chữ ("Đặt qua Agoda")
@@ -195,7 +205,7 @@ def _parse_trip_details(total_days):
         if mraw:
             map_link, err = check_map_url(mraw)
             if err:
-                return None, None, f"Link Google Maps của \"{hname}\": {err}"
+                return None, None, None, f"Link Google Maps của \"{hname}\": {err}"
 
         dval = _at(days, i).strip()
         if dval.isdigit() and 1 <= int(dval) <= total_days:
@@ -204,10 +214,12 @@ def _parse_trip_details(total_days):
             day_no = None                         # toàn bộ chuyến đi
         else:
             day_no = 1
+        guest_raw = re.sub(r"\D", "", clean_text(_at(guests, i), 10))
         lodgings.append(dict(name=hname, price=price, booking_link=booking_link, booking_ref=booking_ref,
                              map_link=map_link, note=clean_text(_at(notes, i), 1000, keep_newlines=True) or None,
-                             day_no=day_no))
-    return stops_by_day, lodgings, None
+                             day_no=day_no, check_out_time=clean_text(_at(checkouts, i), 20) or None,
+                             guest_count=(int(guest_raw) if guest_raw else None)))
+    return stops_by_day, lodgings, day_extra, None
 
 
 
@@ -436,6 +448,39 @@ def _attachment_path(plan):
     return full
 
 
+def _fmt_suggestion(p):
+    """Thẻ gợi ý gọn (ảnh/caption/tác giả/điểm đến) cho 1 bài đăng thật — không bịa nội dung."""
+    from app.models import Photo, Location
+    photo = Photo.query.filter_by(post_id=p.id).order_by(Photo.id.asc()).first()
+    loc = db.session.get(Location, p.location_id) if p.location_id else None
+    author = db.session.get(User, p.user_id)
+    return dict(
+        id=p.id,
+        caption=(p.caption or '')[:70],
+        photo_url=(photo.file_path or '').replace('static/', '', 1) if photo else None,
+        author_name=(author.username if author else ''),
+        location_name=(loc.name if loc else ''),
+    )
+
+
+def _suggest_posts(plan):
+    """Gợi ý tối đa 2 bài đăng thật: 1 bài cùng điểm đến + 1 bài ngẫu nhiên điểm đến khác. Không có thì để trống."""
+    from app.models import Post
+    base = Post.query.filter(Post.visibility == 'public', Post.original_post_id.is_(None), Post.user_id != plan.user_id)
+    picked = []
+    if plan.location_id:
+        same = base.filter(Post.location_id == plan.location_id).order_by(db.func.random()).first()
+        if same:
+            picked.append(same)
+    other_q = base.filter(~Post.id.in_([p.id for p in picked])) if picked else base
+    if plan.location_id:
+        other_q = other_q.filter(db.or_(Post.location_id != plan.location_id, Post.location_id.is_(None)))
+    other = other_q.order_by(db.func.random()).first()
+    if other:
+        picked.append(other)
+    return [_fmt_suggestion(p) for p in picked]
+
+
 @plans_bp.route('/<int:plan_id>/panel', methods=['GET'])
 def panel(plan_id):
     """Nội dung HTML của cửa sổ chi tiết (modal) — cùng quyền xem với trang chi tiết."""
@@ -454,6 +499,7 @@ def panel(plan_id):
         likes=likes.get(plan.id, 0), comments=cmts.get(plan.id, 0), shares=shares.get(plan.id, 0),
         liked=(plan.id in liked), saved=(plan.id in saved), has_attach=bool(_attachment_path(plan)),
         private=((plan.visibility or 'public') == 'private'),
+        suggestions=_suggest_posts(plan),
     )
 
 
@@ -625,7 +671,7 @@ def create():
             total_days = max((form.end_date.data - form.start_date.data).days + 1, 1)
         total_days = min(max(total_days, submitted_days_count, 1), MAX_DAYS)
 
-        stops_by_day, lodging_rows, detail_error = _parse_trip_details(total_days)
+        stops_by_day, lodging_rows, day_extra, detail_error = _parse_trip_details(total_days)
         if detail_error:
             flash(detail_error, "danger")
             return _back_to_compose()
@@ -682,10 +728,13 @@ def create():
         # Tạo các ngày (đã bị chặn tối đa MAX_DAYS ở trên)
         day_map = {}
         for i in range(1, total_days + 1):
+            extra = day_extra.get(i, {}) if day_extra else {}
             day = ItineraryDay(
                 itinerary_id=plan.id,
                 day_number=i,
-                title=f"Ngày {i}: Khám phá {plan.destination}" if i > 1 else f"Ngày 1: Khởi hành & Đến {plan.destination}"
+                title=f"Ngày {i}: Khám phá {plan.destination}" if i > 1 else f"Ngày 1: Khởi hành & Đến {plan.destination}",
+                distance_km=extra.get('distance_km'),
+                estimated_duration=extra.get('estimated_duration'),
             )
             db.session.add(day)
             day_map[i] = day
@@ -706,6 +755,9 @@ def create():
                     location_link=st['link'],
                     notes=st['note'],
                     price=st.get('price'),
+                    stop_type=('food' if st.get('stop_type') == 'food' else 'sight'),
+                    suggested_food=st.get('suggested_food'),
+                    open_hours=st.get('open_hours'),
                 ))
                 any_stops_added = True
 
@@ -731,6 +783,8 @@ def create():
                 booking_reference=lg['booking_ref'],
                 map_link=lg['map_link'],
                 note=lg['note'],
+                check_out_time=lg.get('check_out_time'),
+                guest_count=lg.get('guest_count'),
             ))
 
         db.session.commit()

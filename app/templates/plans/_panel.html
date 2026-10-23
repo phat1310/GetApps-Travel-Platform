@@ -47,60 +47,123 @@
             <div class="pp-card pp-muted">Người đăng chưa thêm địa chỉ Google Maps.</div>
         {% endif %}
 
-        {% set stay_all = plan.lodgings|list %}
-        {% if stay_all %}
-        <h6 class="pp-h"><i class="bi bi-building me-1"></i>Nơi lưu trú</h6>
-        <div class="pp-stays">
-            {% for l in stay_all %}
-            <div class="pp-card">
-                <div class="d-flex justify-content-between flex-wrap gap-2">
-                    <b><i class="bi bi-house-door-fill text-primary me-1"></i>{{ l.hotel_name }}</b>
-                    {% if l.price_per_night and l.price_per_night > 0 %}<span class="text-success fw-semibold small">{{ money(l.price_per_night) }} / đêm</span>{% endif %}
-                </div>
-                {% if l.day_id %}{% for d in plan.days if d.id == l.day_id %}<div class="small pp-muted">Đêm Ngày {{ d.day_number }}</div>{% endfor %}{% else %}<div class="small pp-muted">Toàn bộ chuyến đi</div>{% endif %}
-                <div class="d-flex flex-wrap gap-3 small mt-1">
-                    {% if l.safe_map_url %}<a href="{{ l.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Mở trên Google Maps</a>{% endif %}
-                    {% if l.safe_booking_url %}<a href="{{ l.safe_booking_url }}" target="_blank" rel="noopener noreferrer nofollow"><i class="bi bi-link-45deg me-1"></i>Link đặt phòng</a>
-                    {% elif l.booking_text %}<span class="pp-muted"><i class="bi bi-link-45deg me-1"></i>{{ l.booking_text }}</span>{% endif %}
-                </div>
-                {% if l.note %}<div class="small pp-muted mt-1">{{ l.note }}</div>{% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
         <h6 class="pp-h"><i class="bi bi-signpost-split me-1"></i>Lộ trình từng ngày</h6>
         {% if plan.days %}
         <div class="pp-daytabs" role="tablist">
             {% for day in plan.days %}<button type="button" class="pp-daytab{{ ' active' if loop.first }}" data-day="{{ day.id }}">Ngày {{ day.day_number }}</button>{% endfor %}
         </div>
-        {% for day in plan.days %}
-        <div class="pp-day{{ ' active' if loop.first }}" data-day-pane="{{ day.id }}">
-            {% if day.title %}<div class="pp-daytitle">{{ day.title }}</div>{% endif %}
-            {% if day.note %}<div class="small pp-muted mb-2"><i class="bi bi-chat-left-quote me-1"></i>{{ day.note }}</div>{% endif %}
-            {% for stop in day.stops %}
-            <div class="pp-stop">
-                <div class="pp-dot">{{ loop.index }}</div>
-                <div class="pp-stop-body">
-                    <div class="d-flex justify-content-between gap-2 flex-wrap">
-                        <b>{{ stop.location_name }}</b>
-                        {% set cost = stop.estimated_cost or stop.price or 0 %}
-                        {% if cost and cost > 0 %}<span class="text-success fw-semibold small">~{{ money(cost) }}</span>{% endif %}
+        <div class="pp-plan-wrap">
+            <div class="pp-plan-left">
+            {% for day in plan.days %}
+            <div class="pp-day{{ ' active' if loop.first }}" data-day-pane="{{ day.id }}">
+                {% if day.title %}<div class="pp-daytitle">{{ day.title }}</div>{% endif %}
+                {% if day.note %}<div class="small pp-muted mb-2"><i class="bi bi-chat-left-quote me-1"></i>{{ day.note }}</div>{% endif %}
+                <div class="pp-timeline">
+                {% for stop in day.stops %}
+                <div class="pp-stop2">
+                    <div class="pp-stop2-rail">
+                        <div class="pp-dot2">{{ loop.index }}</div>
+                        {% if not loop.last %}<div class="pp-rail-line"></div>{% endif %}
                     </div>
-                    <div class="small pp-muted d-flex flex-wrap gap-3 mt-1">
-                        {% if stop.arrival_time %}<span><i class="bi bi-clock me-1"></i>{{ stop.arrival_time }}</span>{% endif %}
-                        {% if stop.transportation %}<span><i class="bi bi-bicycle me-1"></i>{{ stop.transportation }}</span>{% endif %}
-                        {% if stop.address and not stop.safe_map_url %}<span><i class="bi bi-geo-alt me-1"></i>{{ stop.address }}</span>{% endif %}
+                    <div class="pp-stop2-main">
+                        {% if stop.arrival_time %}<div class="pp-stop2-time">{{ stop.arrival_time }}</div>{% endif %}
+                        <div class="pp-stop2-card">
+                            <div class="pp-stop2-icon pp-icon-{{ stop.stop_type or 'sight' }}"><i class="bi {{ stop.type_icon_class }}"></i></div>
+                            <div class="pp-stop2-body">
+                                <div class="pp-stop2-top">
+                                    <b>{{ stop.location_name }}</b>
+                                    <span class="pp-type-badge {{ stop.type_badge_class }}">{{ stop.type_label }}</span>
+                                </div>
+                                {% if stop.address and not stop.safe_map_url %}<div class="pp-stop2-loc"><i class="bi bi-geo-alt-fill"></i> {{ stop.address }}</div>{% endif %}
+                                {% if stop.safe_map_url %}<a class="pp-stop2-loc" href="{{ stop.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow"><i class="bi bi-geo-alt-fill"></i> Mở trên Google Maps</a>{% endif %}
+                                {% if stop.stop_type == 'food' %}
+                                    {% if stop.suggested_food %}<div class="pp-meta-line"><i class="bi bi-egg-fried"></i> Món gợi ý: <b>{{ stop.suggested_food }}</b></div>{% endif %}
+                                    {% if stop.open_hours %}<div class="pp-meta-line"><i class="bi bi-clock"></i> Giờ mở cửa: {{ stop.open_hours }}</div>{% endif %}
+                                {% endif %}
+                                {% set cost = stop.estimated_cost or stop.price or 0 %}
+                                {% if cost and cost > 0 %}<div class="pp-meta-line"><i class="bi bi-cash-coin"></i> Chi phí ước tính: <span class="pp-cost">~{{ money(cost) }}</span></div>{% endif %}
+                                {% if stop.notes %}<div class="pp-stop2-desc">{{ stop.notes }}</div>{% endif %}
+                            </div>
+                        </div>
                     </div>
-                    {% if stop.notes %}<div class="small mt-1" style="white-space: pre-line;">{{ stop.notes }}</div>{% endif %}
-                    {% if stop.safe_map_url %}<a class="small d-inline-block mt-1" href="{{ stop.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Mở trên Google Maps</a>{% endif %}
+                </div>
+                {% else %}
+                <div class="pp-muted small py-2">Ngày này chưa có điểm ghé.</div>
+                {% endfor %}
                 </div>
             </div>
-            {% else %}
-            <div class="pp-muted small py-2">Ngày này chưa có điểm ghé.</div>
             {% endfor %}
+            </div>
+
+            <div class="pp-plan-right">
+            {% for day in plan.days %}
+            {% set day_cost = day.stops|sum(attribute='estimated_cost') or 0 %}
+            {% set day_lodgings = plan.lodgings|selectattr('day_id', 'equalto', day.id)|list %}
+            {% if loop.first %}{% set day_lodgings = day_lodgings + (plan.lodgings|selectattr('day_id', 'equalto', none)|list) %}{% endif %}
+            <div class="pp-day-side{{ ' active' if loop.first }}" data-day-pane="{{ day.id }}">
+                <div class="pp-card pp-overview-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="pp-card-title"><i class="bi bi-calendar3"></i> Tổng quan ngày {{ day.day_number }}</div>
+                        {% if day.date %}<span class="pp-muted small">{{ day.date.strftime('%d/%m') }}</span>{% endif %}
+                    </div>
+                    <div class="pp-stat-grid">
+                        <div class="pp-stat2 pp-stat-geo"><i class="bi bi-geo-alt-fill"></i><div><b>{{ day.stops|length }}</b><span>địa điểm</span></div></div>
+                        {% if day.estimated_duration %}<div class="pp-stat2 pp-stat-time"><i class="bi bi-clock-fill"></i><div><b>{{ day.estimated_duration }}</b><span>thời gian dự kiến</span></div></div>{% endif %}
+                        {% if day.distance_km %}<div class="pp-stat2 pp-stat-car"><i class="bi bi-signpost-2-fill"></i><div><b>{{ day.distance_km|round(1) }} km</b><span>khoảng cách di chuyển</span></div></div>{% endif %}
+                        {% if day_cost and day_cost > 0 %}<div class="pp-stat2 pp-stat-money"><i class="bi bi-cash-stack"></i><div><b>~{{ money(day_cost) }}</b><span>chi phí ước tính</span></div></div>{% endif %}
+                    </div>
+                </div>
+
+                {% if day_lodgings %}
+                <div class="pp-card pp-lodging-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="pp-card-title"><i class="bi bi-moon-stars-fill"></i> Nơi ở trong ngày {{ day.day_number }}</div>
+                    </div>
+                    {% for l in day_lodgings %}
+                    <div class="pp-lodging-row{{ ' mt-3 pt-3 border-top' if not loop.first }}">
+                        {% if day_lodgings|length > 1 %}<div class="pp-muted small fw-semibold mb-1">Nơi ở {{ loop.index }}</div>{% endif %}
+                        <div class="d-flex gap-2">
+                            <div class="pp-lodging-icon"><i class="bi bi-building-fill"></i></div>
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <b>{{ l.hotel_name }}</b>
+                                    {% if l.safe_map_url %}<a href="{{ l.safe_map_url }}" target="_blank" rel="noopener noreferrer nofollow" class="pp-chev"><i class="bi bi-chevron-right"></i></a>{% endif %}
+                                </div>
+                                {% if l.address_text %}<div class="pp-muted small">{{ l.address_text }}</div>{% endif %}
+                                <div class="pp-lodging-meta">
+                                    {% if l.check_in_time %}<div><i class="bi bi-box-arrow-in-right"></i> Nhận phòng: {{ l.check_in_time }}</div>{% endif %}
+                                    {% if l.check_out_time %}<div><i class="bi bi-box-arrow-right"></i> Trả phòng: {{ l.check_out_time }}</div>{% endif %}
+                                    {% if l.guest_count %}<div><i class="bi bi-people-fill"></i> Số người: {{ l.guest_count }}</div>{% endif %}
+                                    {% if l.price_per_night and l.price_per_night > 0 %}<div><i class="bi bi-cash-coin"></i> {{ money(l.price_per_night) }} / đêm</div>{% endif %}
+                                    {% if l.note %}<div><i class="bi bi-sticky-fill"></i> Ghi chú: {{ l.note }}</div>{% endif %}
+                                </div>
+                                {% if l.safe_booking_url %}<a href="{{ l.safe_booking_url }}" target="_blank" rel="noopener noreferrer nofollow" class="small d-inline-block mt-1"><i class="bi bi-link-45deg me-1"></i>Link đặt phòng</a>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if loop.first and suggestions %}
+                <div class="pp-card pp-suggest-card">
+                    <div class="pp-card-title mb-2"><i class="bi bi-heart-fill text-danger"></i> Gợi ý thêm</div>
+                    {% for s in suggestions %}
+                    <a href="{{ url_for('locations.view_post', post_id=s.id) }}" class="pp-suggest-item">
+                        {% if s.photo_url %}<img src="{{ url_for('static', filename=s.photo_url) }}" class="pp-suggest-thumb" alt="">
+                        {% else %}<span class="pp-suggest-thumb pp-suggest-thumb-ph"><i class="bi bi-image"></i></span>{% endif %}
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <b>{{ s.location_name or s.author_name }}</b>
+                            <span class="d-block pp-muted small text-truncate">{{ s.caption or ('Bài của ' ~ s.author_name) }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            </div>
         </div>
-        {% endfor %}
         {% else %}
         <div class="pp-card pp-muted">Chưa có lộ trình chi tiết.</div>
         {% endif %}

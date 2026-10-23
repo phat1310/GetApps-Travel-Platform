@@ -76,6 +76,7 @@
         if (tab) {
             pp.querySelectorAll('.pp-daytab').forEach(t => t.classList.toggle('active', t === tab));
             pp.querySelectorAll('.pp-day').forEach(d => d.classList.toggle('active', d.dataset.dayPane === tab.dataset.day));
+            pp.querySelectorAll('.pp-day-side').forEach(d => d.classList.toggle('active', d.dataset.dayPane === tab.dataset.day));
             return;
         }
         const b = e.target.closest('[data-pp]');
