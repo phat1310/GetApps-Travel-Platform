@@ -121,6 +121,25 @@
         padding: 0.5rem 0.75rem;
         font-size: 0.88rem;
     }
+    .comment-replies {
+        margin-left: 2rem;
+        margin-top: 0.4rem;
+        padding-left: 0.6rem;
+        border-left: 2px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .comment-reply {
+        background-color: #f1f5f9;
+    }
+    .reply-btn {
+        font-size: 0.72rem;
+        text-decoration: none !important;
+    }
+    .reply-btn:hover {
+        text-decoration: underline !important;
+    }
     .sidebar-card {
         background: var(--ges-card-bg);
         border: 1px solid var(--ges-border-color);
@@ -171,6 +190,12 @@
     }
     [data-bs-theme="dark"] .comment-box .text-secondary {
         color: #CBD5E1 !important;
+    }
+    [data-bs-theme="dark"] .comment-replies {
+        border-left-color: #334155;
+    }
+    [data-bs-theme="dark"] .comment-reply {
+        background-color: #1E293B !important;
     }
     [data-bs-theme="dark"] .post-action-btn:hover {
         background-color: #334155 !important;

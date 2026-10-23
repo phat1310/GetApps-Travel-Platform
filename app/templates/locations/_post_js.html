@@ -254,18 +254,49 @@
         }
     }
 
-    // AJAX: Thêm bình luận (Comment)
+    // ---------- Trả lời bình luận ----------
+    const replyContext = {};   // postId -> { parentId, username }
+
+    function replyToComment(postId, parentId, username) {
+        replyContext[postId] = { parentId: parentId, username: username };
+        const ctx = document.getElementById(`reply-context-${postId}`);
+        const nameEl = document.getElementById(`reply-context-name-${postId}`);
+        if (ctx && nameEl) {
+            nameEl.innerText = '@' + username;
+            ctx.classList.remove('d-none');
+        }
+        const input = document.getElementById(`comment-input-${postId}`);
+        if (input) { input.focus(); }
+    }
+
+    function cancelReply(postId) {
+        delete replyContext[postId];
+        const ctx = document.getElementById(`reply-context-${postId}`);
+        if (ctx) ctx.classList.add('d-none');
+    }
+
+    function currentUserAvatarHtml() {
+        const url = {{ current_user.avatar_url | tojson }};
+        const initial = {{ current_user.username[0]|upper|tojson }};
+        return url
+            ? `<img src="${url}" alt="" class="avatar avatar-xs flex-shrink-0">`
+            : `<span class="avatar-placeholder avatar-xs flex-shrink-0">${initial}</span>`;
+    }
+
+    // AJAX: Thêm bình luận (Comment) — hỗ trợ cả bình luận gốc lẫn trả lời (1 cấp)
     async function submitComment(event, postId) {
         event.preventDefault();
         const input = document.getElementById(`comment-input-${postId}`);
         const content = input.value.trim();
         if (!content) return;
 
+        const ctx = replyContext[postId];
+
         try {
             const res = await fetch(`/locations/posts/${postId}/comments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: content })
+                body: JSON.stringify({ content: content, parent_id: ctx ? ctx.parentId : null })
             });
             const data = await res.json();
             if (res.ok) {
@@ -274,22 +305,61 @@
                 const countSpan = document.getElementById(`comment-count-${postId}`);
                 countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
 
-                // Thêm comment vào danh sách
-                const list = document.getElementById(`comments-list-${postId}`);
                 const c = data.comment;
-                const newCommentHtml = `
-                    <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-${c.id}">
-                        <div>
-                            <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${escapeHtml(c.author_username || '{{ current_user.username }}')}:</strong></a>
-                            <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
-                            <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">Vừa xong</div>
+                const avatarHtml = currentUserAvatarHtml();
+                const authorName = escapeHtml(c.author_username || '{{ current_user.username }}');
+
+                if (c.parent_id) {
+                    // Trả lời -> chèn lồng dưới bình luận gốc (tạo khung nếu chưa có)
+                    let repliesBox = document.getElementById(`comment-replies-${c.parent_id}`);
+                    if (!repliesBox) {
+                        repliesBox = document.createElement('div');
+                        repliesBox.className = 'comment-replies';
+                        repliesBox.id = `comment-replies-${c.parent_id}`;
+                        document.getElementById(`comment-thread-${c.parent_id}`).appendChild(repliesBox);
+                    }
+                    const replyHtml = `
+                        <div class="comment-box comment-reply d-flex align-items-start gap-2" id="comment-item-${c.id}">
+                            ${avatarHtml}
+                            <div class="flex-grow-1">
+                                <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}:</strong></a>
+                                <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
+                                <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                    <span>Vừa xong</span>
+                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.parent_id}, '${authorName}')">Trả lời</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                `;
-                list.insertAdjacentHTML('beforeend', newCommentHtml);
+                    `;
+                    repliesBox.insertAdjacentHTML('beforeend', replyHtml);
+                } else {
+                    // Bình luận gốc -> thêm vào cuối danh sách
+                    const list = document.getElementById(`comments-list-${postId}`);
+                    const newCommentHtml = `
+                        <div class="comment-thread" id="comment-thread-${c.id}">
+                            <div class="comment-box d-flex align-items-start gap-2" id="comment-item-${c.id}">
+                                ${avatarHtml}
+                                <div class="flex-grow-1">
+                                    <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}:</strong></a>
+                                    <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
+                                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                        <span>Vừa xong</span>
+                                        <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    list.insertAdjacentHTML('beforeend', newCommentHtml);
+                }
+
+                cancelReply(postId);
             } else {
                 alert(data.error || "Không thể gửi bình luận");
             }
@@ -308,11 +378,16 @@
             });
             const data = await res.json();
             if (res.ok) {
-                const item = document.getElementById(`comment-item-${commentId}`);
-                if (item) item.remove();
+                // Xóa bình luận gốc -> gỡ luôn khung chứa trả lời bên dưới nó; xóa reply -> chỉ gỡ đúng dòng đó
+                const thread = document.getElementById(`comment-thread-${commentId}`);
+                if (thread) { thread.remove(); }
+                else {
+                    const item = document.getElementById(`comment-item-${commentId}`);
+                    if (item) item.remove();
+                }
                 const countSpan = document.getElementById(`comment-count-${postId}`);
-                let count = parseInt(countSpan.innerText) || 1;
-                countSpan.innerText = Math.max(0, count - 1);
+                const count = parseInt(countSpan.innerText) || 0;
+                countSpan.innerText = Math.max(0, count - (data.deleted_count || 1));
             } else {
                 alert(data.error || "Không thể xóa bình luận");
             }

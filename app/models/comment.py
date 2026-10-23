@@ -23,6 +23,11 @@ class Comment(db.Model):
         db.ForeignKey("itineraries.id"),
         nullable=True
     )
+    parent_id = db.Column(                              # ← THÊM MỚI: trả lời 1 bình luận khác (chỉ 1 cấp, không lồng sâu hơn)
+        db.Integer,
+        db.ForeignKey("comments.id"),
+        nullable=True
+    )
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(
         db.DateTime,
