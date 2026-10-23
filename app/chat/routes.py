@@ -4,7 +4,9 @@ Quy tắc nhắn tin:
 - Hai người ĐÃ follow nhau: nhắn tự do (hội thoại status="mutual").
 - NGƯỜI LẠ: tìm theo tên (gợi ý gần giống, bỏ dấu, không phân biệt hoa thường/khoảng trắng) rồi nhắn.
   Tin đầu vào mục "Tin nhắn chờ" của người nhận (status="pending"): người gửi chỉ gửi được 1 tin chữ,
-  chưa gửi được tệp, cho tới khi người nhận Chấp nhận (hoặc trả lời). Từ chối thì không nhắn tiếp được.
+  chưa gửi được tệp, cho tới khi người nhận TRẢ LỜI (ngầm hiểu là đồng ý) -> status chuyển "accepted"
+  và 2 bên nhắn tự do. Không có bước "chấp nhận/từ chối" riêng: người nhận không rep thì thôi, không
+  bị chặn gì, vẫn tìm/nhắn lại người kia bình thường bất cứ lúc nào.
 - Tài khoản riêng tư (is_private): người lạ chưa follow thì không nhắn được.
 - Mọi route đều yêu cầu đăng nhập và kiểm tra người dùng có thuộc hội thoại hay không (chống IDOR).
 - Tệp đính kèm lưu ở instance/chat_uploads/ với tên ngẫu nhiên, KHÔNG nằm trong static/.
@@ -156,11 +158,7 @@ def _permissions(conv, other_id, sets=None):
     is_request = (st == "pending" and conv.initiated_by != me and not mutual)
     perms = {"can_send": False, "can_attach": False, "note": "", "is_request": is_request,
              "awaiting": False, "status": st}
-    if st == "declined":
-        # Đã từ chối thì chặn tuyệt đối, kể cả khi 2 người đang follow nhau (mutual không được "lách" qua declined)
-        perms["note"] = ("Người này chưa thể nhận tin nhắn từ bạn." if conv.initiated_by == me
-                         else "Bạn đã từ chối cuộc trò chuyện này.")
-    elif mutual or st == "accepted":
+    if mutual or st == "accepted":
         perms.update(can_send=True, can_attach=True)
     elif st == "pending":
         if conv.initiated_by == me:
@@ -260,7 +258,7 @@ def _last_ids(conv_ids):
 
 
 def _visible_conversations():
-    """Hội thoại của mình, trừ: yêu cầu đã bị mình từ chối, và yêu cầu chưa có tin nào (người lạ mới bấm mở)."""
+    """Hội thoại của mình, trừ yêu cầu chưa có tin nào (người lạ mới bấm mở, chưa thật sự nhắn gì)."""
     me = current_user.id
     convs = (
         Conversation.query
@@ -272,8 +270,6 @@ def _visible_conversations():
     keep = []
     for c in convs:
         incoming = c.initiated_by is not None and c.initiated_by != me
-        if incoming and c.status == "declined":
-            continue
         if incoming and c.status == "pending" and not last_ids.get(c.id):
             continue
         keep.append(c)
@@ -363,33 +359,8 @@ def open_conversation():
             conv = Conversation.query.filter_by(user_a_id=a, user_b_id=b).first()
             if not conv:
                 return jsonify({"error": "Không tạo được hội thoại"}), 500
-    elif conv.status == "declined" and conv.initiated_by != current_user.id:
-        return jsonify({"error": "Bạn đã từ chối cuộc trò chuyện này"}), 403
     unread_map = _unread_by_conv([conv.id])
     return jsonify({"conversation": _conversation_dict(conv, other, unread_map, sets)})
-
-
-@chat_bp.route("/api/conversations/<int:conv_id>/accept", methods=["POST"])
-@login_required
-def accept_request(conv_id):
-    conv = _get_conv_or_404(conv_id)
-    if conv.status != "pending" or conv.initiated_by == current_user.id:
-        return jsonify({"error": "Không có yêu cầu nào để chấp nhận"}), 400
-    conv.status = "accepted"
-    db.session.commit()
-    other = db.session.get(User, conv.other_user_id(current_user.id))
-    return jsonify({"conversation": _conversation_dict(conv, other, _unread_by_conv([conv.id]))})
-
-
-@chat_bp.route("/api/conversations/<int:conv_id>/decline", methods=["POST"])
-@login_required
-def decline_request(conv_id):
-    conv = _get_conv_or_404(conv_id)
-    if conv.status != "pending" or conv.initiated_by == current_user.id:
-        return jsonify({"error": "Không có yêu cầu nào để từ chối"}), 400
-    conv.status = "declined"
-    db.session.commit()
-    return jsonify({"ok": True})
 
 
 @chat_bp.route("/api/conversations/<int:conv_id>/messages", methods=["GET"])

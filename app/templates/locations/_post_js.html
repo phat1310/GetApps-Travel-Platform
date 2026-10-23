@@ -269,6 +269,19 @@
         if (input) { input.focus(); }
     }
 
+    // Thu gọn / mở khung trả lời (kiểu "Xem N phản hồi" của Facebook)
+    function toggleReplies(commentId) {
+        const box = document.getElementById(`comment-replies-${commentId}`);
+        const btn = document.getElementById(`replies-toggle-${commentId}`);
+        if (!box || !btn) return;
+        const willShow = box.classList.contains('d-none');
+        box.classList.toggle('d-none');
+        const count = box.querySelectorAll('.comment-reply').length;
+        btn.innerHTML = willShow
+            ? `<i class="bi bi-arrow-return-right"></i> Ẩn phản hồi`
+            : `<i class="bi bi-arrow-return-right"></i> Xem ${count} phản hồi`;
+    }
+
     function cancelReply(postId) {
         delete replyContext[postId];
         const ctx = document.getElementById(`reply-context-${postId}`);
@@ -310,23 +323,36 @@
                 const authorName = escapeHtml(c.author_username || '{{ current_user.username }}');
 
                 if (c.parent_id) {
-                    // Trả lời -> chèn lồng dưới bình luận gốc (tạo khung nếu chưa có)
+                    // Trả lời -> chèn lồng dưới bình luận gốc (tạo khung + nút thu gọn nếu chưa có)
                     let repliesBox = document.getElementById(`comment-replies-${c.parent_id}`);
-                    if (!repliesBox) {
+                    let toggleBtn = document.getElementById(`replies-toggle-${c.parent_id}`);
+                    const thread = document.getElementById(`comment-thread-${c.parent_id}`);
+                    if (!toggleBtn && thread) {
+                        toggleBtn = document.createElement('button');
+                        toggleBtn.type = 'button';
+                        toggleBtn.className = 'btn btn-sm btn-link text-muted p-0 ps-1 replies-toggle-btn';
+                        toggleBtn.id = `replies-toggle-${c.parent_id}`;
+                        toggleBtn.onclick = function () { toggleReplies(c.parent_id); };
+                        thread.appendChild(toggleBtn);
+                    }
+                    if (!repliesBox && thread) {
                         repliesBox = document.createElement('div');
                         repliesBox.className = 'comment-replies';
                         repliesBox.id = `comment-replies-${c.parent_id}`;
-                        document.getElementById(`comment-thread-${c.parent_id}`).appendChild(repliesBox);
+                        thread.appendChild(repliesBox);
                     }
+                    const mentionHtml = c.reply_to_name
+                        ? `<a href="javascript:void(0)" class="text-decoration-none reply-mention">@${escapeHtml(c.reply_to_name)}</a> `
+                        : '';
                     const replyHtml = `
                         <div class="comment-box comment-reply d-flex align-items-start gap-2" id="comment-item-${c.id}">
                             ${avatarHtml}
                             <div class="flex-grow-1">
                                 <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}:</strong></a>
-                                <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
+                                ${mentionHtml}<span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                     <span>Vừa xong</span>
-                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.parent_id}, '${authorName}')">Trả lời</button>
+                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
                                 </div>
                             </div>
                             <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
@@ -334,7 +360,14 @@
                             </button>
                         </div>
                     `;
-                    repliesBox.insertAdjacentHTML('beforeend', replyHtml);
+                    if (repliesBox) {
+                        repliesBox.insertAdjacentHTML('beforeend', replyHtml);
+                        repliesBox.classList.remove('d-none');   // tự mở khung ra vì mình vừa trả lời
+                        if (toggleBtn) {
+                            const count = repliesBox.querySelectorAll('.comment-reply').length;
+                            toggleBtn.innerHTML = `<i class="bi bi-arrow-return-right"></i> Ẩn phản hồi (${count})`;
+                        }
+                    }
                 } else {
                     // Bình luận gốc -> thêm vào cuối danh sách
                     const list = document.getElementById(`comments-list-${postId}`);
@@ -383,7 +416,22 @@
                 if (thread) { thread.remove(); }
                 else {
                     const item = document.getElementById(`comment-item-${commentId}`);
+                    const repliesBox = item ? item.closest('.comment-replies') : null;
                     if (item) item.remove();
+                    if (repliesBox) {
+                        const parentThread = repliesBox.closest('.comment-thread');
+                        const toggleBtn = parentThread ? parentThread.querySelector('.replies-toggle-btn') : null;
+                        const remaining = repliesBox.querySelectorAll('.comment-reply').length;
+                        if (remaining === 0) {
+                            repliesBox.remove();
+                            if (toggleBtn) toggleBtn.remove();
+                        } else if (toggleBtn) {
+                            const hidden = repliesBox.classList.contains('d-none');
+                            toggleBtn.innerHTML = hidden
+                                ? `<i class="bi bi-arrow-return-right"></i> Xem ${remaining} phản hồi`
+                                : `<i class="bi bi-arrow-return-right"></i> Ẩn phản hồi`;
+                        }
+                    }
                 }
                 const countSpan = document.getElementById(`comment-count-${postId}`);
                 const count = parseInt(countSpan.innerText) || 0;

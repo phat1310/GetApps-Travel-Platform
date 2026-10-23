@@ -28,6 +28,11 @@ class Comment(db.Model):
         db.ForeignKey("comments.id"),
         nullable=True
     )
+    reply_to_id = db.Column(                            # ← THÊM MỚI: khi trả lời 1 reply (không phải bình luận gốc),
+        db.Integer,                                     #   lưu đúng reply đó để hiện tag "@ai" + báo đúng người,
+        db.ForeignKey("comments.id"),                   #   còn parent_id vẫn luôn trỏ về bình luận gốc (giữ lồng 1 cấp)
+        nullable=True
+    )
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(
         db.DateTime,

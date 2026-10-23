@@ -41,6 +41,8 @@
                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.78rem;">
                                     {% if post.visibility == 'private' %}
                                         <span title="Riêng tư"><i class="bi bi-lock-fill"></i> Riêng tư</span>
+                                    {% else %}
+                                        <span title="Công khai"><i class="bi bi-globe-americas"></i> Công khai</span>
                                     {% endif %}
                                     {% if post.location %}
                                         <span>•</span>
@@ -188,16 +190,20 @@
                                                 {% endif %}
                                             </div>
                                             {% if comment.replies %}
-                                                <div class="comment-replies" id="comment-replies-{{ comment.id }}">
+                                                <button type="button" class="btn btn-sm btn-link text-muted p-0 ps-1 replies-toggle-btn" id="replies-toggle-{{ comment.id }}" onclick="toggleReplies({{ comment.id }})">
+                                                    <i class="bi bi-arrow-return-right"></i> Xem {{ comment.replies|length }} phản hồi
+                                                </button>
+                                                <div class="comment-replies d-none" id="comment-replies-{{ comment.id }}">
                                                     {% for reply in comment.replies %}
                                                         <div class="comment-box comment-reply d-flex align-items-start gap-2" id="comment-item-{{ reply.id }}">
                                                             {% if reply.author_avatar %}<img src="{{ reply.author_avatar }}" alt="{{ reply.author_name }}" class="avatar avatar-xs flex-shrink-0">{% else %}<span class="avatar-placeholder avatar-xs flex-shrink-0">{{ reply.author_name[0]|upper }}</span>{% endif %}
                                                             <div class="flex-grow-1">
                                                                 {% if reply.author_username %}<a href="{{ url_for('auth.profile', username=reply.author_username) }}" class="text-decoration-none"><strong class="text-dark">{{ reply.author_name }}:</strong></a>{% else %}<strong class="text-dark">{{ reply.author_name }}:</strong>{% endif %}
+                                                                {% if reply.reply_to_name %}<a href="javascript:void(0)" class="text-decoration-none reply-mention">@{{ reply.reply_to_name }}</a>{% endif %}
                                                                 <span class="text-secondary ms-1">{{ reply.content | mentions }}</span>
                                                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                                                     <span>{{ time_tag(reply.created_dt) }}</span>
-                                                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment({{ post.id }}, {{ comment.id }}, '{{ reply.author_username or reply.author_name }}')">Trả lời</button>
+                                                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment({{ post.id }}, {{ reply.id }}, '{{ reply.author_username or reply.author_name }}')">Trả lời</button>
                                                                 </div>
                                                             </div>
                                                             {% if reply.can_delete %}

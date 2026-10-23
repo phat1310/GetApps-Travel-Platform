@@ -911,10 +911,6 @@
         .gc-heart-badge[hidden] { display: none; }
         .gc-req { padding: 9px 12px; border-top: 1px solid var(--gc-border); background: var(--gc-soft); font-size: 0.8rem; color: var(--gc-text); }
         .gc-req[hidden], .gc-info[hidden] { display: none; }
-        .gc-req-btns { display: flex; gap: 8px; margin-top: 7px; }
-        .gc-req-btns button { flex: 1; border: 0; border-radius: 8px; padding: 6px 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
-        .gc-req-ok { background: var(--gc-me); color: #fff; }
-        .gc-req-no { background: var(--gc-other); color: var(--gc-text); }
         .gc-info { padding: 5px 12px; font-size: 0.74rem; color: var(--gc-muted); background: var(--gc-soft); text-align: center; border-top: 1px solid var(--gc-border); }
         .gc-row.dim { opacity: .55; cursor: not-allowed; }
         .gc-icon-btn:disabled { opacity: .4; cursor: not-allowed; }
@@ -3312,13 +3308,7 @@
             w.info = el('div', 'gc-info'); w.info.hidden = true;
             w.reqBar = el('div', 'gc-req'); w.reqBar.hidden = true;
             w.reqTxt = el('div', 'gc-req-txt');
-            var reqBtns = el('div', 'gc-req-btns');
-            var okBtn = el('button', 'gc-req-ok', 'Chấp nhận'); okBtn.type = 'button';
-            var noBtn = el('button', 'gc-req-no', 'Từ chối'); noBtn.type = 'button';
-            okBtn.addEventListener('click', function () { acceptReq(w); });
-            noBtn.addEventListener('click', function () { declineReq(w); });
-            reqBtns.appendChild(okBtn); reqBtns.appendChild(noBtn);
-            w.reqBar.appendChild(w.reqTxt); w.reqBar.appendChild(reqBtns);
+            w.reqBar.appendChild(w.reqTxt);
 
             w.prev = el('div', 'gc-attach-prev');
             w.prevName = el('span', 'nm'); var prevX = el('button', 'gc-icon-btn'); prevX.type = 'button'; prevX.appendChild(icon('x-lg'));
@@ -3386,29 +3376,16 @@
             w.attachBtn.disabled = !canAttach;
             w.attachBtn.title = canAttach ? 'Đính kèm ảnh, video hoặc tệp' : 'Chưa thể gửi tệp';
             if (!canAttach && w.file) setFile(w, null);
-            w.ta.placeholder = canSend ? 'Aa' : (c.is_request ? 'Chấp nhận để trả lời' : 'Chưa thể nhắn thêm');
+            w.ta.placeholder = canSend ? 'Aa' : 'Chưa thể nhắn thêm';
             var isReq = !!c.is_request;
             w.reqBar.hidden = !isReq;
-            if (isReq) w.reqTxt.textContent = c.user.display + ' (người lạ) muốn nhắn tin cho bạn. Chấp nhận để trò chuyện bình thường.';
+            if (isReq) w.reqTxt.textContent = c.user.display + ' (người lạ) đã nhắn tin cho bạn. Trả lời để trò chuyện bình thường.';
             w.info.textContent = (!isReq && c.note) ? c.note : '';
             w.info.hidden = !w.info.textContent;
         }
         function mergeConv(id, data) {
             var c = convs[id]; if (!c || !data) return;
             ['can_send', 'can_attach', 'note', 'is_request', 'awaiting', 'status'].forEach(function (k) { if (data[k] !== undefined) c[k] = data[k]; });
-        }
-        function acceptReq(w) {
-            api('/conversations/' + w.id + '/accept', { method: 'POST' }).then(function (res) {
-                mergeConv(w.id, res.conversation); applyUser(w); updateBadge(); renderBubbles(); if (listOpen) renderList();
-            }).catch(function (err) { showNote(w, err.message); });
-        }
-        function declineReq(w) {
-            var id = w.id;
-            api('/conversations/' + id + '/decline', { method: 'POST' }).then(function () {
-                state.items = state.items.filter(function (i) { return i.id !== id; });
-                delete convs[id]; convOrder = convOrder.filter(function (x) { return x !== id; });
-                saveState(); render(); updateBadge(); if (listOpen) renderList();
-            }).catch(function (err) { showNote(w, err.message); });
         }
         function showNote(w, text) {
             w.note.textContent = text || ''; w.note.hidden = !text;

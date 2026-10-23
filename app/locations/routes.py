@@ -492,11 +492,13 @@ def build_post_cards(posts, viewer_id):
         is_saved = bool(SavedPost.query.filter_by(user_id=viewer_id, post_id=p.id).first())
         shares_count = Share.query.filter_by(post_id=p.id).count()
 
-        def _fmt_comment(c, c_author):
+        def _fmt_comment(c, c_author, reply_to_author=None):
             return {
                 "id": c.id,
                 "user_id": c.user_id,
                 "parent_id": c.parent_id,
+                "reply_to_id": c.reply_to_id,
+                "reply_to_name": reply_to_author.username if reply_to_author else None,
                 "author_name": c_author.username if c_author else f"User #{c.user_id}",
                 "author_username": c_author.username if c_author else None,
                 "author_avatar": c_author.avatar_url if c_author else None,
@@ -511,7 +513,12 @@ def build_post_cards(posts, viewer_id):
         top_level = []
         for c in comments:
             c_author = db.session.get(User, c.user_id)
-            by_id[c.id] = _fmt_comment(c, c_author)
+            reply_to_author = None
+            if c.reply_to_id:
+                reply_to_comment = db.session.get(Comment, c.reply_to_id)
+                if reply_to_comment:
+                    reply_to_author = db.session.get(User, reply_to_comment.user_id)
+            by_id[c.id] = _fmt_comment(c, c_author, reply_to_author)
         for c in comments:
             node = by_id[c.id]
             if c.parent_id and c.parent_id in by_id:
@@ -742,12 +749,15 @@ def create_comment(post_id):
 
     parent_id = data.get("parent_id")
     parent = None
+    reply_to = None  # reply cụ thể đang được trả lời (nếu có) — khác parent khi trả lời-của-trả lời
     if parent_id:
         parent = db.session.get(Comment, int(parent_id))
         if not parent or parent.post_id != post_id:
             return jsonify({"error": "Bình luận gốc không hợp lệ"}), 400
         if parent.parent_id:
-            # Chỉ cho trả lời 1 cấp: trả lời 1 reply -> tự động gắn vào bình luận gốc của reply đó
+            # Trả lời 1 reply -> vẫn chỉ lồng 1 cấp trong DB (gắn parent_id vào bình luận gốc của reply đó),
+            # nhưng lưu lại reply_to_id = chính reply vừa bị trả lời để hiện tag "@người" + báo đúng người.
+            reply_to = parent
             parent_id = parent.parent_id
             parent = db.session.get(Comment, parent_id)
 
@@ -755,6 +765,7 @@ def create_comment(post_id):
         user_id=current_user.id,
         post_id=post_id,
         parent_id=parent.id if parent else None,
+        reply_to_id=reply_to.id if reply_to else None,
         content=content
     )
 
@@ -763,10 +774,13 @@ def create_comment(post_id):
     tagged = notify_mentions(content, current_user.id, post.user_id, post=post)
     if post.user_id not in tagged:
         notify(post.user_id, current_user.id, "comment", post_id=post.id)
-    # Trả lời bình luận của người khác (không phải chính mình, chưa được tag ở trên) -> báo cho họ
-    if parent and parent.user_id != current_user.id and parent.user_id not in tagged and parent.user_id != post.user_id:
-        notify(parent.user_id, current_user.id, "comment", post_id=post.id)
+    # Người thực sự bị trả lời (reply_to nếu có, không thì bình luận gốc) -> báo cho đúng họ, không phải người khác
+    notify_target = reply_to or parent
+    if notify_target and notify_target.user_id != current_user.id and notify_target.user_id not in tagged and notify_target.user_id != post.user_id:
+        notify(notify_target.user_id, current_user.id, "comment", post_id=post.id)
     db.session.commit()
+
+    reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
 
     return jsonify({
         "message": "Bình luận thành công",
@@ -775,6 +789,8 @@ def create_comment(post_id):
             "user_id": comment.user_id,
             "post_id": comment.post_id,
             "parent_id": comment.parent_id,
+            "reply_to_id": comment.reply_to_id,
+            "reply_to_name": reply_to_author.username if reply_to_author else None,
             "author_username": current_user.username,
             "author_avatar": current_user.avatar_url,
             "content": comment.content,
