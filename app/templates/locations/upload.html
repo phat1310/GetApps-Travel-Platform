@@ -337,5 +337,17 @@
     }
 
     // Địa điểm: dùng ô chọn chung GesPlace (static/js/place-picker.js) — chọn theo danh mục hành chính
+
+    // Khóa nút khi submit để chống bấm nhiều lần gây double-submit (đồng bộ với hộp "Tạo mới" ở base.html)
+    (function () {
+        const form = document.getElementById('post-upload-form');
+        const submitBtn = document.getElementById('submit-btn');
+        if (!form || !submitBtn) return;
+        form.addEventListener('submit', function (e) {
+            if (submitBtn.disabled) { e.preventDefault(); return; }
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang đăng...';
+        });
+    })();
 </script>
 {% endblock %}
