@@ -2,6 +2,35 @@
     let currentSharePostId = null;
     let shareModalInstance = null;
 
+    // ---------- Modal xác nhận dùng chung (thay cho window.confirm) ----------
+    let confirmModalInstance = null;
+    function confirmDialog(message, okText) {
+        return new Promise((resolve) => {
+            const modalEl = document.getElementById('confirmModal');
+            if (!confirmModalInstance) {
+                confirmModalInstance = new bootstrap.Modal(modalEl);
+            }
+            document.getElementById('confirmModalMessage').innerText = message;
+            const okBtn = document.getElementById('confirmModalOkBtn');
+            okBtn.innerText = okText || 'Xóa';
+
+            let settled = false;
+            const onOk = () => {
+                settled = true;
+                confirmModalInstance.hide();
+                resolve(true);
+            };
+            const onHidden = () => {
+                okBtn.removeEventListener('click', onOk);
+                modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                if (!settled) resolve(false);
+            };
+            okBtn.addEventListener('click', onOk);
+            modalEl.addEventListener('hidden.bs.modal', onHidden);
+            confirmModalInstance.show();
+        });
+    }
+
     function openShareModal(postId) {
         currentSharePostId = postId;
         const modalEl = document.getElementById('shareModal');
@@ -271,7 +300,7 @@
 
     // AJAX: Xóa bình luận
     async function deleteComment(commentId, postId) {
-        if (!confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+        if (!(await confirmDialog("Bạn có chắc chắn muốn xóa bình luận này?"))) return;
 
         try {
             const res = await fetch(`/locations/comments/${commentId}`, {

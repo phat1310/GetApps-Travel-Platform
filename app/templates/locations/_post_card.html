@@ -168,7 +168,7 @@
                         <div class="collapse {% if post.comments_count > 0 %}show{% endif %}" id="comments-collapse-{{ post.id }}">
                             <div class="pt-2 border-top">
                                 <!-- Comments List -->
-                                <div class="comments-list d-flex flex-col gap-2 mb-3" id="comments-list-{{ post.id }}">
+                                <div class="comments-list d-flex flex-column gap-2 mb-3" id="comments-list-{{ post.id }}">
                                     {% for comment in post.comments %}
                                         <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-{{ comment.id }}">
                                             <div>
