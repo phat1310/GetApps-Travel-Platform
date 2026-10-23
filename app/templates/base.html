@@ -2940,12 +2940,23 @@
         }
 
         function validateQcPostForm(e) {
+            const form = e.target.closest ? e.target.closest('form') : e.target;
+            const btn = form ? form.querySelector('button[type="submit"]') : null;
+
+            if (btn && btn.disabled) { e.preventDefault(); return false; }   // đã gửi rồi, chặn bấm lại (double-submit)
+
             if (qcDataTransfer.files.length === 0) {
                 e.preventDefault();
                 alert('Vui lòng thêm ít nhất 1 hình ảnh hoặc video cho bài viết của bạn.');
                 document.getElementById('qcDropZone')?.scrollIntoView({ behavior: 'smooth' });
                 return false;
             }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang đăng...';
+            }
+
             return qcMapGuard(e, 'post', '#qcPostForm input[name=location_name]', 'qcPostMapJson');
         }
 
