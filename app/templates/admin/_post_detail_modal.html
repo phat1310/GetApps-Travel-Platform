@@ -1,0 +1,38 @@
+{# Modal xem nhanh chi tiết 1 bài đăng (ảnh/video đầy đủ + nội dung + khóa/xóa).
+   Dùng chung bởi app/templates/admin/posts.html, điền dữ liệu qua JS (static/js/admin_post_modal.js)
+   gọi JSON từ route admin.post_detail — không reload trang. #}
+<div class="modal fade" id="postDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="background:#1e293b;color:#e2e8f0;border-color:#334155;">
+            <div class="modal-header" style="border-color:#334155;">
+                <h5 class="modal-title"><i class="bi bi-images"></i> Bài đăng <span id="pdm-id"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="small text-secondary mb-2">
+                    <i class="bi bi-person-fill"></i> <span id="pdm-author"></span>
+                    &middot; <i class="bi bi-clock"></i> <span id="pdm-created"></span>
+                    &middot; <span class="badge bg-secondary" id="pdm-visibility"></span>
+                    &middot; <i class="bi bi-chat-fill"></i> <span id="pdm-comment-count"></span> bình luận
+                </div>
+                <div id="pdm-media" class="d-flex flex-wrap mb-3"></div>
+                <p id="pdm-caption" class="mb-3" style="white-space: pre-wrap;"></p>
+                <hr style="border-color:#334155;">
+                <h6 class="small text-uppercase text-secondary mb-2"><i class="bi bi-chat-fill"></i> Bình luận</h6>
+                <div id="pdm-comments-list" data-delete-base="{{ url_for('admin.delete_comment', comment_id=0) }}"></div>
+            </div>
+            <div class="modal-footer" style="border-color:#334155;">
+                <form method="post" id="pdm-form-hide" data-base="{{ url_for('admin.toggle_hide_post', post_id=0) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-warning"><i class="bi bi-lock-fill"></i> Khóa</button>
+                </form>
+                <form method="post" id="pdm-form-delete" data-base="{{ url_for('admin.delete_post', post_id=0) }}" class="d-inline"
+                      onsubmit="return confirm('Xóa vĩnh viễn bài viết này? Người đăng sẽ nhận được thông báo.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-light"><i class="bi bi-trash"></i> Xóa</button>
+                </form>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>

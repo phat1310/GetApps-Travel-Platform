@@ -1,0 +1,74 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Quản lý Tin nhắn — Admin{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-envelope-fill"></i> Quản lý Tin nhắn</h3>
+    <form method="get" class="d-flex" style="width: 280px;">
+        <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Tìm theo username...">
+        <button class="btn btn-sm btn-outline-light ms-2"><i class="bi bi-search"></i></button>
+    </form>
+</div>
+<p class="text-secondary small">Mặc định chỉ hiện số liệu (số tin, số ảnh/video) — bấm vào 1 hội thoại để xem toàn bộ nội dung.</p>
+
+<div class="adm-card p-0">
+    <table class="table adm-table mb-0">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Người A</th>
+            <th>Người B</th>
+            <th>Trạng thái</th>
+            <th class="text-center">Số tin nhắn</th>
+            <th class="text-center">Ảnh/Video</th>
+            <th>Tin nhắn cuối</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for c in conversations %}
+        <tr class="adm-row-click" data-detail-url="{{ url_for('admin.conversation_detail', conversation_id=c.id) }}" style="cursor:pointer;">
+            <td>{{ c.id }}</td>
+            <td>{{ users_by_id[c.user_a_id].username if c.user_a_id in users_by_id else 'user#' + c.user_a_id|string }}</td>
+            <td>{{ users_by_id[c.user_b_id].username if c.user_b_id in users_by_id else 'user#' + c.user_b_id|string }}</td>
+            <td><span class="badge bg-secondary">{{ c.status }}</span></td>
+            <td class="text-center">{{ msg_counts.get(c.id, 0) }}</td>
+            <td class="text-center">{{ media_counts.get(c.id, 0) }}</td>
+            <td class="small text-secondary">{{ c.last_message_at.strftime('%d/%m/%Y %H:%M') if c.last_message_at else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-secondary py-4">Không có hội thoại nào khớp.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if pagination.pages > 1 %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm">
+        {% for p in range(1, pagination.pages + 1) %}
+        <li class="page-item {{ 'active' if p == pagination.page }}">
+            <a class="page-link" href="{{ url_for('admin.messages', page=p, q=q) }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+
+<div class="modal fade" id="convDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="background:#1e293b;color:#e2e8f0;border-color:#334155;">
+            <div class="modal-header" style="border-color:#334155;">
+                <h5 class="modal-title"><i class="bi bi-envelope-fill"></i> Hội thoại <span id="cdm-id"></span> — <span id="cdm-pair"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="cdm-messages" style="max-height: 60vh;"></div>
+            <div class="modal-footer" style="border-color:#334155;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin_message_modal.js') }}"></script>
+{% endblock %}

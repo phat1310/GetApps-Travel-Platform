@@ -117,7 +117,7 @@
                 {% for n in notifications %}
                     {% set actor = n.actor %}
                     {% set who = (actor.nickname or actor.full_name or actor.username) if actor else 'Một người dùng' %}
-                    {% if n.notification_type in ('post_removed', 'itinerary_removed') %}
+                    {% if n.notification_type in ('post_removed', 'itinerary_removed', 'post_locked', 'itinerary_locked') %}
                         {% set who = 'Quản trị viên hệ thống' %}
                     {% endif %}
                     {% if n.itinerary_id and n.itinerary %}
@@ -153,6 +153,8 @@
                                 <div class="notif-badge-icon bg-warning"><i class="bi bi-at"></i></div>
                             {% elif n.notification_type in ('post_removed', 'itinerary_removed') %}
                                 <div class="notif-badge-icon bg-danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                            {% elif n.notification_type in ('post_locked', 'itinerary_locked') %}
+                                <div class="notif-badge-icon bg-warning"><i class="bi bi-lock-fill"></i></div>
                             {% else %}
                                 <div class="notif-badge-icon bg-secondary"><i class="bi bi-bell-fill"></i></div>
                             {% endif %}
@@ -175,6 +177,10 @@
                                     <span class="text-danger fw-semibold">đã xóa bài đăng của bạn do có hành vi đáng ngờ.</span>
                                 {% elif n.notification_type == 'itinerary_removed' %}
                                     <span class="text-danger fw-semibold">đã xóa lịch trình của bạn do có hành vi đáng ngờ.</span>
+                                {% elif n.notification_type == 'post_locked' %}
+                                    <span class="text-warning-emphasis fw-semibold">đã khóa bài đăng của bạn do có hành vi đáng ngờ.</span>
+                                {% elif n.notification_type == 'itinerary_locked' %}
+                                    <span class="text-warning-emphasis fw-semibold">đã khóa lịch trình của bạn do có hành vi đáng ngờ.</span>
                                 {% else %}
                                     <span class="text-secondary">đã tương tác với bạn.</span>
                                 {% endif %}

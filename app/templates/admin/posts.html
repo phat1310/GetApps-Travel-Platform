@@ -1,8 +1,8 @@
 {% extends "admin/base_admin.html" %}
-{% block title %}Quản lý Post — Admin{% endblock %}
+{% block title %}Quản lý Bài đăng — Admin{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="mb-0"><i class="bi bi-images"></i> Quản lý Post</h3>
+    <h3 class="mb-0"><i class="bi bi-images"></i> Quản lý Bài đăng</h3>
     <form method="get" class="d-flex" style="width: 280px;">
         <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Tìm nội dung/username...">
         <button class="btn btn-sm btn-outline-light ms-2"><i class="bi bi-search"></i></button>
@@ -25,7 +25,7 @@
         </thead>
         <tbody>
         {% for p in posts %}
-        <tr>
+        <tr class="adm-row-click" data-detail-url="{{ url_for('admin.post_detail', post_id=p.id) }}" style="cursor:pointer;">
             <td>{{ p.id }}</td>
             <td>
                 {% set ph = thumbs.get(p.id) %}
@@ -47,7 +47,7 @@
                 {% if p.is_hidden %}<span class="badge bg-danger ms-1"><i class="bi bi-lock-fill"></i> Đã khóa</span>{% endif %}
             </td>
             <td class="small text-secondary">{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '—' }}</td>
-            <td class="text-end">
+            <td class="text-end" onclick="event.stopPropagation();">
                 <form method="post" action="{{ url_for('admin.toggle_hide_post', post_id=p.id) }}" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     {% if p.is_hidden %}
@@ -81,4 +81,10 @@
     </ul>
 </nav>
 {% endif %}
+
+{% include "admin/_post_detail_modal.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin_post_modal.js') }}"></script>
 {% endblock %}
