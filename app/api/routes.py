@@ -11,7 +11,8 @@ from flask_jwt_extended import (
 )
 
 from app.api import api_bp
-from app.extensions import db
+from app.extensions import db, limiter
+from app.security_logging import log_security_event
 from app.models import (
     User,
     Follow,
@@ -34,8 +35,9 @@ from app.locations.discovery import can_view_post, following_ids
 # =========================================================
 
 @api_bp.route("/login", methods=["POST"])
+@limiter.limit("10 per minute; 30 per hour")
 def api_login():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     username = data.get("username")
     password = data.get("password")
@@ -45,6 +47,13 @@ def api_login():
     ).first()
 
     if not user or not user.check_password(password):
+        log_security_event(
+            event_type="BRUTE_FORCE_AUTH",
+            severity="WARNING",
+            status_code=401,
+            payload_snippet=f"Failed login attempt for username: {username}",
+            action_taken="BLOCKED",
+        )
         return jsonify({
             "error": "Sai username hoặc password"
         }), 401
@@ -709,44 +718,59 @@ def search_all():
     viewer_follow = following_ids(viewer_id)
     posts = [p for p in posts if can_view_post(p, viewer_id, viewer_follow)]
 
+    # Gom nhóm truy vấn (Batch queries) bằng GROUP BY để triệt tiêu N+1 queries
+    post_ids = [p.id for p in posts]
+    like_counts = (
+        dict(
+            db.session.query(Like.post_id, db.func.count(Like.id))
+            .filter(Like.post_id.in_(post_ids))
+            .group_by(Like.post_id)
+            .all()
+        )
+        if post_ids
+        else {}
+    )
+    comment_counts = (
+        dict(
+            db.session.query(Comment.post_id, db.func.count(Comment.id))
+            .filter(Comment.post_id.in_(post_ids))
+            .group_by(Comment.post_id)
+            .all()
+        )
+        if post_ids
+        else {}
+    )
+    share_counts = (
+        dict(
+            db.session.query(Share.post_id, db.func.count(Share.id))
+            .filter(Share.post_id.in_(post_ids))
+            .group_by(Share.post_id)
+            .all()
+        )
+        if post_ids
+        else {}
+    )
+    all_tag_names = {h.name for p in posts for h in p.hashtags}
+    tag_pop_map = (
+        dict(
+            db.session.query(Hashtag.name, db.func.count(Post.id))
+            .join(Post.hashtags)
+            .filter(Hashtag.name.in_(all_tag_names))
+            .group_by(Hashtag.name)
+            .all()
+        )
+        if all_tag_names
+        else {}
+    )
+
     result = []
 
     for post in posts:
-
-        # -------------------------------------------------
-        # LIKE COUNT
-        # -------------------------------------------------
-        like_count = Like.query.filter_by(
-            post_id=post.id
-        ).count()
-
-        # -------------------------------------------------
-        # COMMENT COUNT
-        # -------------------------------------------------
-        comment_count = Comment.query.filter_by(
-            post_id=post.id
-        ).count()
-
-        # -------------------------------------------------
-        # SHARE COUNT
-        # -------------------------------------------------
-        share_count = Share.query.filter_by(
-            post_id=post.id
-        ).count()
-
-        # -------------------------------------------------
-        # HASHTAG POPULARITY
-        # -------------------------------------------------
+        like_count = like_counts.get(post.id, 0)
+        comment_count = comment_counts.get(post.id, 0)
+        share_count = share_counts.get(post.id, 0)
         tag_names = [h.name for h in post.hashtags]
-        hashtag_popularity = 0
-
-        for tag in tag_names:
-            hashtag_popularity += (
-                Post.query
-                .join(Post.hashtags)
-                .filter(Hashtag.name == tag)
-                .count()
-            )
+        hashtag_popularity = sum(tag_pop_map.get(tag, 0) for tag in tag_names)
 
         # -------------------------------------------------
         # TOTAL SCORE

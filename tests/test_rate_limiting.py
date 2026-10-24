@@ -142,3 +142,45 @@ def test_rate_limiting_logs_security_event_automatically(rate_limit_app, rate_cl
         assert latest_log.status_code == 429
         assert latest_log.action_taken == "BLOCKED"
         assert latest_log.endpoint == "/login"
+
+
+
+def test_ip_spoofing_cannot_bypass_rate_limit(rate_client):
+    """Kẻ tấn công liên tục giả mạo header X-Forwarded-For / CF-Connecting-IP ở mỗi request
+    không thể vượt qua bộ giới hạn tần suất khi TRUST_PROXY_HEADERS chưa bật."""
+    statuses = []
+    for i in range(12):
+        res = rate_client.post(
+            "/login",
+            json={"username": "testlimiter", "password": f"Wrong{i}"},
+            headers={
+                "Content-Type": "application/json",
+                "X-Forwarded-For": f"203.0.113.{i + 1}",
+                "CF-Connecting-IP": f"198.51.100.{i + 1}",
+            },
+        )
+        statuses.append(res.status_code)
+
+    assert 401 in statuses[:10]
+    assert statuses[-1] == 429
+
+
+def test_api_login_rate_limiting_and_security_log(rate_limit_app, rate_client):
+    """REST API POST /api/login ghi nhận BRUTE_FORCE_AUTH khi sai mật khẩu
+    và chặn với HTTP 429 khi vượt quá 10 lần/phút."""
+    from app.models.security_log import SecurityLog
+
+    statuses = []
+    for i in range(12):
+        res = rate_client.post(
+            "/api/login",
+            json={"username": "testlimiter", "password": f"WrongApiPass{i}"},
+        )
+        statuses.append(res.status_code)
+
+    assert 401 in statuses[:10]
+    assert statuses[-1] == 429
+
+    with rate_limit_app.app_context():
+        bf_logs = SecurityLog.query.filter_by(event_type="BRUTE_FORCE_AUTH", endpoint="/api/login").count()
+        assert bf_logs >= 1

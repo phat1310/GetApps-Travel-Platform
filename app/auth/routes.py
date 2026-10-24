@@ -1032,17 +1032,24 @@ def reset_profile_background():
 @login_required
 @csrf.exempt
 def update_profile_avatar():
-    """API cập nhật ảnh đại diện: hỗ trợ upload trực tiếp từ thiết bị lẫn đường dẫn URL."""
+    """API cập nhật ảnh đại diện: hỗ trợ upload trực tiếp từ thiết bị lẫn đường dẫn URL.
+    Loại bỏ hoàn toàn .svg và kiểm tra magic bytes để phòng chống Stored XSS."""
+    from app.profile_bg import sniff_image_type, MAX_BG_BYTES
+
     if 'avatar_file' in request.files or 'file' in request.files or 'avatar' in request.files:
         uploaded_file = request.files.get('avatar_file') or request.files.get('file') or request.files.get('avatar')
         if uploaded_file and uploaded_file.filename:
-            filename = secure_filename(uploaded_file.filename)
-            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-            allowed_exts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
-            if ext not in allowed_exts:
-                return jsonify({"error": "Định dạng file không hỗ trợ. Vui lòng chọn ảnh JPG, PNG, WEBP hoặc GIF"}), 400
+            data = uploaded_file.stream.read(MAX_BG_BYTES + 1)
+            uploaded_file.stream.seek(0)
 
-            unique_filename = f"avatar_{current_user.id}_{secrets.token_hex(6)}.{ext}"
+            if not data or len(data) > MAX_BG_BYTES:
+                return jsonify({"error": "Ảnh đại diện vượt quá dung lượng cho phép (tối đa 5MB)."}), 400
+
+            kind = sniff_image_type(data[:16])
+            if kind is None or kind not in ('jpg', 'png', 'webp'):
+                return jsonify({"error": "Chỉ chấp nhận file ảnh JPG, PNG hoặc WebP hợp lệ."}), 400
+
+            unique_filename = f"avatar_{current_user.id}_{secrets.token_hex(6)}.{kind}"
             upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'avatars')
             os.makedirs(upload_dir, exist_ok=True)
             file_path = os.path.join(upload_dir, unique_filename)
@@ -1060,6 +1067,10 @@ def update_profile_avatar():
     avatar_url = (data.get('avatar_url') or '').strip()
     if not avatar_url:
         return jsonify({"error": "Vui lòng chọn file ảnh từ thiết bị hoặc nhập đường dẫn ảnh hợp lệ"}), 400
+
+    low_url = avatar_url.lower()
+    if low_url.startswith(("javascript:", "data:")) or low_url.split("?", 1)[0].endswith(".svg"):
+        return jsonify({"error": "Đường dẫn ảnh đại diện không hợp lệ hoặc không an toàn."}), 400
 
     current_user.avatar_url = avatar_url
     db.session.commit()
@@ -1404,11 +1415,21 @@ def forgot_password():
         session['reset_expires_at'] = (datetime.utcnow() + timedelta(minutes=10)).timestamp()
 
         masked_target = target[:3] + "***" + target[-3:] if len(target) > 6 else target
-        return jsonify({
+        response_data = {
             "message": f"Mã xác nhận OTP đã được gửi đến {masked_target}",
-            "otp": otp_code,
-            "target": masked_target
-        }), 200
+            "target": masked_target,
+        }
+        # Chỉ đính kèm OTP trong JSON khi chạy môi trường phát triển / kiểm thử tự động
+        if (
+            current_app.config.get("DEBUG")
+            or current_app.config.get("TESTING")
+            or os.environ.get("DEMO_OTP_EXPOSE") == "1"
+        ):
+            response_data["otp"] = otp_code
+        else:
+            current_app.logger.info(f"[OTP DEBUG] Mã gửi tới {masked_target}: {otp_code}")
+
+        return jsonify(response_data), 200
 
     if form.validate_on_submit():
         target = form.target.data.strip()

@@ -152,3 +152,35 @@ def test_search_posts_by_location_and_unaccented_hashtag(client, app, users):
     assert "Quá tuyệt vời".encode('utf-8') in res_no_accent.data
 
 
+
+def test_api_search_batch_queries(client, app, users):
+    """Kiểm thử API /api/search (gom nhóm Batch queries GROUP BY tránh N+1)
+    trả về đúng điểm score và thứ tự bài viết."""
+    login_res = client.post("/api/login", json={"username": "testuser1", "password": "123456"})
+    assert login_res.status_code == 200
+    token = login_res.get_json()["access_token"]
+
+    with app.app_context():
+        u1_id = users["user1"].id
+        u2_id = users["user2"].id
+        p1 = Post(user_id=u1_id, caption="Khám phá Hội An cổ kính", visibility="public")
+        p2 = Post(user_id=u2_id, caption="Ẩm thực Hội An cao lầu", visibility="public")
+        db.session.add_all([p1, p2])
+        db.session.flush()
+        db.session.add_all([
+            Like(user_id=u1_id, post_id=p2.id),
+            Like(user_id=u2_id, post_id=p2.id),
+            Comment(user_id=u1_id, post_id=p2.id, content="Ngon tuyệt"),
+        ])
+        db.session.commit()
+        p2_id = p2.id
+
+    res = client.get("/api/search?q=Hội An", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["post_count"] >= 2
+    top_post = data["posts"][0]
+    assert top_post["id"] == p2_id
+    assert top_post["like_count"] == 2
+    assert top_post["comment_count"] == 1
+    assert top_post["score"] >= 3

@@ -730,3 +730,61 @@ def test_feed_proposal_ui_elements(client, users, post):
 
 
 
+
+
+def test_avatar_upload_rejects_svg_and_checks_magic_bytes(client, users):
+    """Kiểm tra lỗ hổng Stored XSS qua Avatar: từ chối file .svg hoặc file giả mạo đuôi ảnh,
+    chỉ chấp nhận file có magic bytes PNG/JPG/WebP hợp lệ."""
+    import io
+    login_user(client)
+
+    # 1. Thử tải lên file SVG chứa mã độc XSS
+    svg_payload = b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)"/>'
+    res_svg = client.post(
+        "/api/profile/avatar",
+        data={"avatar_file": (io.BytesIO(svg_payload), "evil.svg")},
+        content_type="multipart/form-data",
+    )
+    assert res_svg.status_code == 400
+
+    # 2. Thử tải lên file .png giả mạo (nội dung bên trong là HTML/SVG)
+    res_fake_png = client.post(
+        "/api/profile/avatar",
+        data={"avatar_file": (io.BytesIO(svg_payload), "fake.png")},
+        content_type="multipart/form-data",
+    )
+    assert res_fake_png.status_code == 400
+
+    # 3. Thử truyền avatar_url trỏ tới .svg hoặc javascript:
+    res_url_svg = client.post("/api/profile/avatar", json={"avatar_url": "https://evil.com/xss.svg"})
+    assert res_url_svg.status_code == 400
+    res_url_js = client.post("/api/profile/avatar", json={"avatar_url": "javascript:alert(1)"})
+    assert res_url_js.status_code == 400
+
+    # 4. Tải lên ảnh PNG thật (có magic bytes \x89PNG\r\n\x1a\n) -> Thành công 200 OK
+    valid_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    res_valid = client.post(
+        "/api/profile/avatar",
+        data={"avatar_file": (io.BytesIO(valid_png), "good.png")},
+        content_type="multipart/form-data",
+    )
+    assert res_valid.status_code == 200
+    assert res_valid.get_json()["avatar_url"].endswith(".png")
+
+
+def test_forgot_password_hides_otp_in_production(app, client, users):
+    """Ở môi trường Production (TESTING=False, DEBUG=False), API /forgot-password
+    tuyệt đối không trả mã OTP trực tiếp trong JSON response."""
+    app.config["TESTING"] = False
+    app.config["DEBUG"] = False
+    try:
+        res = client.post(
+            "/forgot-password",
+            json={"target": "test1@example.com", "method": "email"},
+        )
+        assert res.status_code == 200
+        data = res.get_json()
+        assert "otp" not in data
+        assert "target" in data
+    finally:
+        app.config["TESTING"] = True

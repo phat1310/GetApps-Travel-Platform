@@ -174,3 +174,45 @@ def test_admin_demo_bac_vulnerable_flag(app, client):
         assert res.status_code == 200
     finally:
         app.config["DEMO_BAC_VULNERABLE"] = False
+
+
+def test_admin_delete_post_and_itinerary_cascade(app, client):
+    """Admin xóa bài viết hoặc lịch trình đã có tương tác (Like, Comment, Repost)
+    sẽ xóa sạch dữ liệu liên quan qua delete_post_cascade / delete_itinerary_cascade mà không lỗi FK."""
+    from app.models import Like, Comment, Itinerary
+    _create_admin(app, username="cascade_admin", password="password123")
+    _login(client, username="cascade_admin", password="password123")
+
+    with app.app_context():
+        u = User.query.filter_by(username="testuser1").first()
+        p = Post(user_id=u.id, caption="Bài viết có tương tác để test xóa cascade", visibility="public")
+        db.session.add(p)
+        db.session.flush()
+        repost = Post(user_id=u.id, caption="Repost", original_post_id=p.id, visibility="public")
+        it = Itinerary(user_id=u.id, title="Lịch trình có tương tác", destination="Đà Lạt", visibility="public")
+        db.session.add_all([repost, it])
+        db.session.flush()
+
+        db.session.add_all([
+            Like(user_id=u.id, post_id=p.id),
+            Comment(user_id=u.id, post_id=p.id, content="Bình luận test"),
+            Like(user_id=u.id, itinerary_id=it.id),
+            Comment(user_id=u.id, itinerary_id=it.id, content="Bình luận lịch trình"),
+        ])
+        db.session.commit()
+        post_id, repost_id, it_id = p.id, repost.id, it.id
+
+    res_p = client.post(f"/admin/posts/{post_id}/delete", follow_redirects=True)
+    assert res_p.status_code == 200
+
+    res_it = client.post(f"/admin/itineraries/{it_id}/delete", follow_redirects=True)
+    assert res_it.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(Post, post_id) is None
+        assert db.session.get(Post, repost_id) is None
+        assert Like.query.filter_by(post_id=post_id).count() == 0
+        assert Comment.query.filter_by(post_id=post_id).count() == 0
+        assert db.session.get(Itinerary, it_id) is None
+        assert Like.query.filter_by(itinerary_id=it_id).count() == 0
+        assert Comment.query.filter_by(itinerary_id=it_id).count() == 0

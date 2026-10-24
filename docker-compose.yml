@@ -5,6 +5,8 @@ services:
       - "5000:5000"
     env_file:
       - .env
+    environment:
+      - TRUST_PROXY_HEADERS=1
     volumes:
       - ./app/static/uploads:/app/app/static/uploads
       - ./instance:/app/instance

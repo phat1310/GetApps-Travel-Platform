@@ -6,13 +6,21 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 
 def get_client_ip():
-    """Lấy IP thực của client, hỗ trợ Cloudflare (CF-Connecting-IP) và Nginx (X-Forwarded-For)."""
-    from flask import request
-    if request.headers.get("CF-Connecting-IP"):
-        return request.headers.get("CF-Connecting-IP").strip()
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """Lấy IP thực của client. Chỉ tin tưởng header proxy (CF-Connecting-IP, X-Forwarded-For)
+    khi cấu hình TRUST_PROXY_HEADERS=1 (ví dụ chạy trong Docker đứng sau Cloudflare Tunnel / Nginx)
+    để ngăn chặn lỗ hổng giả mạo IP (IP Spoofing) vượt qua Rate Limiting."""
+    import os
+    from flask import request, current_app
+    trust_proxy = (
+        os.environ.get("TRUST_PROXY_HEADERS", "0") == "1"
+        or bool(current_app and current_app.config.get("TRUST_PROXY_HEADERS"))
+    )
+    if trust_proxy:
+        if request.headers.get("CF-Connecting-IP"):
+            return request.headers.get("CF-Connecting-IP").strip()
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
     return request.remote_addr or "127.0.0.1"
 
 db = SQLAlchemy()

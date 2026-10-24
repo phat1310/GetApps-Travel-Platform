@@ -26,6 +26,7 @@ from app.models.comment import Comment
 from app.models.itinerary import Itinerary
 from app.models.security_log import SecurityLog
 from app.models.chat import Conversation, Message
+from app.deletion import delete_post_cascade, delete_itinerary_cascade
 from app.notifications import notify_moderation
 from app.timeutil import to_vn
 
@@ -185,7 +186,7 @@ def toggle_hide_post(post_id):
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
     owner_id = post.user_id
-    db.session.delete(post)
+    delete_post_cascade(post)
     # post_id=None (bắt buộc) để thông báo không bị cascade "delete-orphan" xóa theo bài vừa xóa.
     notify_moderation(owner_id, current_user.id, "post_removed")
     db.session.commit()
@@ -297,7 +298,7 @@ def toggle_hide_itinerary(itinerary_id):
 def delete_itinerary(itinerary_id):
     it = Itinerary.query.get_or_404(itinerary_id)
     owner_id = it.user_id
-    db.session.delete(it)
+    delete_itinerary_cascade(it)
     notify_moderation(owner_id, current_user.id, "itinerary_removed")
     db.session.commit()
     flash(f"Đã xóa lịch trình #{itinerary_id} và thông báo cho người dùng.", "success")
