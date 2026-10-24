@@ -16,7 +16,10 @@
                     &middot; <i class="bi bi-chat-fill"></i> <span id="pdm-comment-count"></span> bình luận
                 </div>
                 <div id="pdm-media" class="d-flex flex-wrap mb-3"></div>
-                <p id="pdm-caption" class="mb-0" style="white-space: pre-wrap;"></p>
+                <p id="pdm-caption" class="mb-3" style="white-space: pre-wrap;"></p>
+                <hr style="border-color:#334155;">
+                <h6 class="small text-uppercase text-secondary mb-2"><i class="bi bi-chat-fill"></i> Bình luận</h6>
+                <div id="pdm-comments-list" data-delete-base="{{ url_for('admin.delete_comment', comment_id=0) }}"></div>
             </div>
             <div class="modal-footer" style="border-color:#334155;">
                 <form method="post" id="pdm-form-hide" data-base="{{ url_for('admin.toggle_hide_post', post_id=0) }}" class="d-inline">

@@ -100,6 +100,18 @@
             {% set day_cost = day.stops|sum(attribute='estimated_cost') or 0 %}
             {% set day_lodgings = plan.lodgings|selectattr('day_id', 'equalto', day.id)|list %}
             {% if loop.first %}{% set day_lodgings = day_lodgings + (plan.lodgings|selectattr('day_id', 'equalto', none)|list) %}{% endif %}
+{% if loop.first and has_attach %}
+<div class="pp-card pp-attach-card">
+    <a href="{{ url_for('plans.attachment', plan_id=plan.id) }}" class="d-flex align-items-center gap-2 text-decoration-none" download>
+        <div class="pp-lodging-icon"><i class="bi bi-file-earmark-pdf-fill text-danger"></i></div>
+        <div class="flex-grow-1" style="min-width:0;">
+            <b class="text-dark">Tệp lịch trình đính kèm</b>
+            <div class="pp-muted small">Bấm để tải xuống</div>
+        </div>
+        <i class="bi bi-download pp-chev"></i>
+    </a>
+</div>
+{% endif %}
             <div class="pp-day-side{{ ' active' if loop.first }}" data-day-pane="{{ day.id }}">
                 <div class="pp-card pp-overview-card">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -170,10 +182,10 @@
 
         <div class="pp-author">
             {% if plan.author.avatar_url %}<img src="{{ plan.author.avatar_url }}" alt="" class="pp-av">
-            {% else %}<span class="pp-av pp-av-ph">{{ plan.author.username[0]|upper }}</span>{% endif %}
+            {% else %}<span class="pp-av pp-av-ph">{{ (plan.author.nickname or plan.author.username)[0]|upper }}</span>{% endif %}
             <div>
                 <div class="small pp-muted">Người đăng</div>
-                <a href="{{ url_for('auth.profile', username=plan.author.username) }}" class="fw-bold text-decoration-none">{{ plan.author.username }}</a>
+                <a href="{{ url_for('auth.profile', username=plan.author.username) }}" class="fw-bold text-decoration-none">{{ plan.author.nickname or plan.author.username }}</a>
             </div>
         </div>
 

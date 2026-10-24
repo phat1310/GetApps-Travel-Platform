@@ -19,7 +19,11 @@
                 <div id="idm-cover" class="mb-3"></div>
                 <h6 id="idm-title" class="fw-bold mb-1"></h6>
                 <div class="small text-secondary mb-2"><i class="bi bi-geo-alt-fill"></i> <span id="idm-destination"></span></div>
-                <p id="idm-description" class="mb-0" style="white-space: pre-wrap;"></p>
+                <p id="idm-description" class="mb-2" style="white-space: pre-wrap;"></p>
+                <div id="idm-attachment" class="mb-3"></div>
+                <hr style="border-color:#334155;">
+                <h6 class="small text-uppercase text-secondary mb-2"><i class="bi bi-chat-fill"></i> Bình luận</h6>
+                <div id="idm-comments-list" data-delete-base="{{ url_for('admin.delete_comment', comment_id=0) }}"></div>
             </div>
             <div class="modal-footer" style="border-color:#334155;">
                 <form method="post" id="idm-form-hide" data-base="{{ url_for('admin.toggle_hide_itinerary', itinerary_id=0) }}" class="d-inline">

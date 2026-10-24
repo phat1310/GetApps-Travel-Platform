@@ -193,22 +193,46 @@ def _photo_url(ph):
 @login_required
 @admin_required
 def post_detail(post_id):
-    """JSON chi tiết 1 post (ảnh/video đầy đủ + nội dung) để hiện trong modal xem nhanh."""
+    """JSON chi tiết 1 post (ảnh/video đầy đủ + nội dung + danh sách bình luận) để hiện
+    trong modal xem nhanh — cho phép admin đọc và xóa từng bình luận ngay tại đây."""
     post = Post.query.get_or_404(post_id)
     author = db.session.get(User, post.user_id)
     photos = Photo.query.filter_by(post_id=post.id).order_by(Photo.id).all()
+    cmts = Comment.query.filter_by(post_id=post.id).order_by(Comment.created_at.asc()).all()
+    cmt_authors = _users_by_id({c.user_id for c in cmts})
     return jsonify({
         "id": post.id,
         "caption": post.caption or "",
+        "caption_html": str(linkify_comment(post.caption)) if post.caption else "",
         "author": author.username if author else f"user#{post.user_id}",
         "visibility": post.visibility,
         "is_hidden": post.is_hidden,
         "created_at": post.created_at.strftime("%d/%m/%Y %H:%M") if post.created_at else "—",
-        "comment_count": Comment.query.filter_by(post_id=post.id).count(),
+        "comment_count": len(cmts),
         "media": [
             {"url": _photo_url(ph), "type": ph.media_type} for ph in photos
         ],
+        "comments": [_comment_json(c, cmt_authors) for c in cmts],
     })
+
+
+def _users_by_id(ids):
+    ids = {i for i in ids if i}
+    return {u.id: u for u in User.query.filter(User.id.in_(ids)).all()} if ids else {}
+
+
+def _comment_json(c, authors_by_id):
+    author = authors_by_id.get(c.user_id)
+    return {
+        "id": c.id,
+        "author": author.username if author else f"user#{c.user_id}",
+        "content": c.content,
+        # HTML đã escape + biến URL thành link bấm được (dùng chung hàm linkify_comment ở dưới) —
+        # để admin kiểm tra link spam/độc hại người dùng dán trong bình luận mà không phải đoán.
+        "content_html": str(linkify_comment(c.content)) if c.content else "",
+        "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "—",
+        "is_reply": bool(c.parent_id),
+    }
 
 
 # --------------------------------------------------------- Quản lý Lịch trình
@@ -276,25 +300,63 @@ def delete_itinerary(itinerary_id):
 @login_required
 @admin_required
 def itinerary_detail(itinerary_id):
-    """JSON chi tiết 1 lịch trình (ảnh bìa + mô tả + số liệu) để hiện trong modal xem nhanh."""
+    """JSON chi tiết 1 lịch trình (ảnh bìa + mô tả + danh sách bình luận) để hiện trong modal
+    xem nhanh — cho phép admin đọc và xóa từng bình luận ngay tại đây."""
     it = Itinerary.query.get_or_404(itinerary_id)
     author = db.session.get(User, it.user_id)
     cover_url = None
     if it.cover_image:
         cover_url = url_for("static", filename=it.cover_image.replace("static/", ""))
+    cmts = Comment.query.filter_by(itinerary_id=it.id).order_by(Comment.created_at.asc()).all()
+    cmt_authors = _users_by_id({c.user_id for c in cmts})
+
+    # Tệp đính kèm (PDF/doc lịch trình người dùng up) — dùng chung hàm kiểm tra đường dẫn hợp lệ
+    # của app/plans/routes.py, nhưng tải qua route riêng của admin (admin.itinerary_attachment)
+    # vì route công khai plans.attachment đòi quyền "xem được lịch trình" — admin không phải chủ
+    # và lịch trình có thể đang bị khóa (is_hidden) nên sẽ bị chặn nếu dùng lại route đó.
+    from app.plans.routes import _attachment_path
+    attachment_url, attachment_name = None, None
+    full_path = _attachment_path(it)
+    if full_path:
+        attachment_name = re.sub(r"^[0-9a-f]{12}_", "", os.path.basename(full_path)) or os.path.basename(full_path)
+        attachment_url = url_for("admin.itinerary_attachment", itinerary_id=it.id)
+
     return jsonify({
         "id": it.id,
         "title": it.title or "",
         "destination": it.destination or "",
         "description": it.description or "",
+        "description_html": str(linkify_comment(it.description)) if it.description else "",
         "cover_url": cover_url,
         "author": author.username if author else f"user#{it.user_id}",
         "visibility": it.visibility,
         "is_hidden": it.is_hidden,
         "created_at": it.created_at.strftime("%d/%m/%Y %H:%M") if it.created_at else "—",
         "total_days": it.total_days,
-        "comment_count": Comment.query.filter_by(itinerary_id=it.id).count(),
+        "comment_count": len(cmts),
+        "comments": [_comment_json(c, cmt_authors) for c in cmts],
+        "attachment_url": attachment_url,
+        "attachment_name": attachment_name,
     })
+
+
+@admin_bp.route("/itineraries/<int:itinerary_id>/attachment")
+@login_required
+@admin_required
+def itinerary_attachment(itinerary_id):
+    """Tải tệp đính kèm của lịch trình — dành riêng cho admin kiểm duyệt (bỏ qua kiểm tra
+    "có quyền xem lịch trình" của app/plans/routes.py:attachment, vì admin vốn không phải
+    chủ và lịch trình có thể đang bị khóa/is_hidden)."""
+    from app.plans.routes import _attachment_path
+
+    it = Itinerary.query.get_or_404(itinerary_id)
+    full = _attachment_path(it)
+    if not full:
+        abort(404)
+    name = re.sub(r"^[0-9a-f]{12}_", "", os.path.basename(full)) or os.path.basename(full)
+    resp = send_file(full, as_attachment=True, download_name=name, max_age=0)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 _URL_RE = re.compile(r'(https?://[^\s<>"\')]+)')
@@ -343,14 +405,22 @@ def comments():
 @admin_required
 def delete_comment(comment_id):
     """Xóa bình luận (kiểm duyệt) — xóa bình luận gốc thì xóa luôn các trả lời (1 cấp lồng),
-    cùng logic với route xóa bình luận của chính chủ ở app/locations/routes.py."""
+    cùng logic với route xóa bình luận của chính chủ ở app/locations/routes.py.
+    Hỗ trợ cả gọi thường (redirect, dùng ở trang /admin/comments) lẫn gọi AJAX từ modal xem
+    nhanh bài đăng/lịch trình (trả JSON, không rời trang) — phân biệt qua header X-Requested-With."""
     comment = Comment.query.get_or_404(comment_id)
-    deleted_count = 1
+    reply_ids = []
     if not comment.parent_id:
-        deleted_count += Comment.query.filter_by(parent_id=comment.id).delete()
+        reply_ids = [r.id for r in Comment.query.filter_by(parent_id=comment.id).all()]
+        Comment.query.filter_by(parent_id=comment.id).delete()
+    deleted_ids = [comment.id] + reply_ids
     db.session.delete(comment)
     db.session.commit()
-    flash(f"Đã xóa {deleted_count} bình luận.", "success")
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"deleted_ids": deleted_ids, "deleted_count": len(deleted_ids)})
+
+    flash(f"Đã xóa {len(deleted_ids)} bình luận.", "success")
     return redirect(request.referrer or url_for("admin.comments"))
 
 
