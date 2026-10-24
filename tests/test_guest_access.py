@@ -1,5 +1,8 @@
-"""Chế độ KHÁCH: xem bảng tin / bài viết / lịch trình / tìm kiếm không cần đăng nhập;
-đăng bài, thông báo, tin nhắn, cài đặt, thích, bình luận... vẫn bắt đăng nhập."""
+"""
+Kiểm thử chính sách xác thực và bảo vệ tài nguyên đối với Khách vãng lai (Chưa đăng nhập).
+Hệ thống bắt buộc xác thực (@login_required) đối với các trang nghiệp vụ cá nhân,
+bảng tin, tạo bài, bình luận... và chuyển hướng 302 về /login hoặc trả về 401 JSON.
+"""
 import pytest
 
 from app.extensions import db
@@ -16,49 +19,43 @@ def private_post(app, users):
         return p.id
 
 
-def test_guest_feed_shows_public_posts_and_guest_card(client, users, post, private_post):
-    html = client.get("/locations/feed").get_data(as_text=True)
-    assert "Test post" in html
-    assert "BAI RIENG TU BI MAT" not in html                   # bài riêng tư không lộ ra cho khách
-    assert "Góc cá nhân chưa hoạt động" in html and "Kích hoạt ngay" in html
-    assert "st-guest-login" in html and "st-guest-reg" in html  # nút Đăng nhập / Đăng ký thay avatar
-    assert 'class="st-top-avatar"' not in html and "Gợi ý kết nối" not in html
+def test_guest_feed_redirects_to_login(client):
+    """Khách chưa login truy cập /locations/feed bị chuyển hướng 302 về /login."""
+    res = client.get("/locations/feed")
+    assert res.status_code == 302
+    assert "/login" in res.headers["Location"]
 
 
-def test_guest_gates_on_restricted_buttons(client):
-    html = client.get("/locations/feed").get_data(as_text=True)
-    for what in ("đăng bài", "xem thông báo", "nhắn tin", "cài đặt"):
-        assert f'data-login-gate="{what}"' in html
-    assert 'id="gaFab"' not in html                             # GEs Around chỉ cho người đã đăng nhập
-
-
-def test_logged_in_user_sees_avatar_not_guest_ui(client, users):
+def test_logged_in_user_sees_feed(client, users):
+    """Người dùng đã đăng nhập truy cập /locations/feed nhận 200 OK và thấy bảng tin."""
     from tests.test_frontend import login_user
     login_user(client)
-    html = client.get("/locations/feed").get_data(as_text=True)
-    assert 'class="st-top-avatar"' in html and 'class="st-guest-btn st-guest-login"' not in html and "data-login-gate" not in html
-    assert "Góc cá nhân chưa hoạt động" not in html
+    res = client.get("/locations/feed")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "Bảng tin" in html
 
 
-def test_guest_can_view_public_post_not_private(client, users, post, private_post):
-    assert client.get(f"/locations/p/{post.id}").status_code == 200
-    assert client.get(f"/locations/p/{private_post}").status_code == 404
-    assert client.get(f"/locations/posts/{post.id}").status_code == 200
-    assert client.get(f"/locations/posts/{private_post}").status_code == 403
-    assert client.get(f"/locations/posts/{post.id}/comments").status_code == 200
-    assert client.get(f"/locations/posts/{private_post}/comments").status_code == 403
+def test_guest_post_access_requires_login(client, users, post, private_post):
+    """Khách chưa login truy cập link bài viết bị yêu cầu đăng nhập."""
+    assert client.get(f"/locations/p/{post.id}").status_code == 302
+    assert client.get(f"/locations/p/{private_post}").status_code == 302
+    assert client.get(f"/locations/posts/{post.id}").status_code == 302
 
 
-def test_guest_browse_search_plans_itineraries(client, users):
-    for url in ("/plans", "/search?q=hue", "/locations/itineraries/feed", "/locations/search?q=hue"):
-        assert client.get(url).status_code == 200, url
-    assert client.get("/locations/itineraries/999999").status_code == 404
+def test_guest_public_routes_allow_access(client, users):
+    """Các route công khai như /plans và /search cho phép khách tìm kiếm."""
+    for url in ("/plans", "/search?q=hue"):
+        res = client.get(url)
+        assert res.status_code == 200, url
+    # Các route nhạy cảm /itineraries/feed yêu cầu login
+    assert client.get("/locations/itineraries/feed").status_code == 302
 
 
-def test_guest_feed_json_has_only_public(client, users, post, private_post):
-    j = client.get("/locations/feed?format=json").get_json()
-    caps = [p.get("caption") for p in j["feed"]]
-    assert "Test post" in caps and "BAI RIENG TU BI MAT" not in caps
+def test_guest_feed_json_returns_unauthorized(client, users, post, private_post):
+    """Khách gọi API feed JSON chưa xác thực nhận chuyển hướng 302 hoặc mã 401."""
+    res = client.get("/locations/feed?format=json", headers={"Accept": "application/json"})
+    assert res.status_code in (302, 401)
 
 
 @pytest.mark.parametrize("url", ["/notifications", "/settings", "/locations/upload", "/plans/create", "/profile", "/chat/conversations"])
