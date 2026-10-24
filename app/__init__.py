@@ -76,6 +76,8 @@ def create_app(config_override=None):
                         conn.execute(text("ALTER TABLE posts ADD COLUMN edited_at DATETIME"))
                     if 'edit_media_added' not in post_cols:
                         conn.execute(text("ALTER TABLE posts ADD COLUMN edit_media_added INTEGER NOT NULL DEFAULT 0"))
+                    if 'is_hidden' not in post_cols:
+                        conn.execute(text("ALTER TABLE posts ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0"))
 
                 if 'shares' in tables:
                     share_cols = [col['name'] for col in inspector.get_columns('shares')]
@@ -102,6 +104,8 @@ def create_app(config_override=None):
                         conn.execute(text("ALTER TABLE itineraries ADD COLUMN participants_count INTEGER"))
                     if 'budget_estimate' not in itin_cols:
                         conn.execute(text("ALTER TABLE itineraries ADD COLUMN budget_estimate INTEGER"))
+                    if 'is_hidden' not in itin_cols:
+                        conn.execute(text("ALTER TABLE itineraries ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0"))
 
                 if 'itinerary_stops' in tables:
                     stop_cols = [col['name'] for col in inspector.get_columns('itinerary_stops')]
