@@ -577,7 +577,11 @@ def security_logs():
     log_user_ids = {log.user_id for log in pagination.items if log.user_id}
     log_users = {u.id: u for u in User.query.filter(User.id.in_(log_user_ids)).all()} if log_user_ids else {}
 
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Tính mốc 00:00:00 đầu ngày theo giờ Việt Nam (UTC+7), sau đó quy đổi ngược về UTC
+    # để so sánh với cột SecurityLog.timestamp (lưu UTC). Nếu lấy thẳng utcnow().replace(hour=0)
+    # sẽ bị lệch mốc sang 07:00 sáng giờ Việt Nam.
+    vn_now = to_vn(datetime.utcnow())
+    today_start = vn_now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(hours=7)
     today_q = SecurityLog.query.filter(SecurityLog.timestamp >= today_start)
     kpi = {
         "total_today": today_q.count(),

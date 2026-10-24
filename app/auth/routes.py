@@ -568,6 +568,9 @@ def login():
         ).first()
 
         if not user or not user.check_password(password):
+            log_security_event(event_type="BRUTE_FORCE_AUTH", severity="WARNING",
+                                status_code=401, payload_snippet=f"Failed login: {raw_val[:80]}",
+                                action_taken="BLOCKED")
             return jsonify({"error": "Sai username hoặc password"}), 401
 
         if current_user.is_authenticated:
@@ -594,6 +597,9 @@ def login():
         ).first()
 
         if not user or not user.check_password(password):
+            log_security_event(event_type="BRUTE_FORCE_AUTH", severity="WARNING",
+                                status_code=401, payload_snippet=f"Failed login: {login_val[:80]}",
+                                action_taken="BLOCKED")
             flash("Tên đăng nhập hoặc mật khẩu không chính xác.", "error")
             return render_template('auth/login.html', form=form), 401
 

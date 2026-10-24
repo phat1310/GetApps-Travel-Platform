@@ -69,7 +69,9 @@
         <tbody>
         {% for log in logs %}
         <tr>
-            <td class="small text-secondary">{{ log.timestamp | vn_dt('%d/%m %H:%M:%S') }}</td>
+            <td class="small text-secondary text-nowrap">
+                <span class="adm-log-time" data-ts="{{ log.timestamp.strftime('%Y-%m-%dT%H:%M:%S') }}Z">{{ log.timestamp | vn_dt('%d/%m/%Y %H:%M:%S') }}</span>
+            </td>
             <td><code>{{ log.ip_address }}</code></td>
             <td class="small">
                 {% set u = log_users.get(log.user_id) if log.user_id else None %}

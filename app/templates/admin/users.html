@@ -37,7 +37,7 @@
             <td>
                 {% if u.is_banned %}<span class="badge badge-banned">Bị khóa</span>{% else %}<span class="badge bg-success">Hoạt động</span>{% endif %}
             </td>
-            <td class="small text-secondary">{{ u.created_at | vn_dt('%d/%m/%Y') }}</td>
+            <td class="small text-secondary">{{ u.created_at | vn_dt('%d/%m/%Y %H:%M') }}</td>
             <td class="text-end">
                 {% if u.id != current_user.id %}
                 <form method="post" action="{{ url_for('admin.toggle_admin', user_id=u.id) }}" class="d-inline">
