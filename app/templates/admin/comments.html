@@ -26,13 +26,19 @@
         <tr>
             <td>{{ c.id }}</td>
             <td>{{ authors[c.user_id].username if c.user_id in authors else 'user#' + c.user_id|string }}</td>
-            <td class="text-truncate" style="max-width: 360px;">
+            <td style="max-width: 420px; white-space: normal; word-break: break-word;">
                 {% if c.parent_id %}<span class="badge bg-secondary bg-opacity-50 me-1">trả lời</span>{% endif %}
-                {{ c.content }}
+                {{ c.content | linkify }}
             </td>
             <td class="small text-secondary">
-                {% if c.post_id %}<i class="bi bi-image"></i> Post #{{ c.post_id }}
-                {% elif c.itinerary_id %}<i class="bi bi-map"></i> Lịch trình #{{ c.itinerary_id }}
+                {% if c.post_id %}
+                    <a href="{{ url_for('locations.view_post', post_id=c.post_id) }}" target="_blank" rel="noopener" class="text-info">
+                        <i class="bi bi-image"></i> Post #{{ c.post_id }} <i class="bi bi-box-arrow-up-right small"></i>
+                    </a>
+                {% elif c.itinerary_id %}
+                    <a href="{{ url_for('plans.index', open=c.itinerary_id) }}" target="_blank" rel="noopener" class="text-info">
+                        <i class="bi bi-map"></i> Lịch trình #{{ c.itinerary_id }} <i class="bi bi-box-arrow-up-right small"></i>
+                    </a>
                 {% else %}—{% endif %}
             </td>
             <td class="small text-secondary">{{ c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else '—' }}</td>

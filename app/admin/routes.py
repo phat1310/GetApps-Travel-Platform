@@ -10,7 +10,9 @@ token (Flask-WTF CSRFProtect đã bật global trong app/extensions.py), KHÔNG
 dùng GET — để tránh bị gọi "nhầm" qua link/ảnh (CSRF qua GET là lỗi hay gặp).
 """
 import os
+import re
 from flask import render_template, request, redirect, url_for, flash, jsonify, abort, send_file
+from markupsafe import Markup, escape
 
 from flask_login import login_required, current_user
 
@@ -293,6 +295,24 @@ def itinerary_detail(itinerary_id):
         "total_days": it.total_days,
         "comment_count": Comment.query.filter_by(itinerary_id=it.id).count(),
     })
+
+
+_URL_RE = re.compile(r'(https?://[^\s<>"\')]+)')
+
+
+@admin_bp.app_template_filter("linkify")
+def linkify_comment(text):
+    """Hiện URL trong bình luận thành link bấm được (chỉ dùng ở trang Quản lý Bình luận) để
+    admin kiểm tra nhanh link spam/độc hại mà không phải đọc raw text. Escape TRƯỚC, chỉ chèn
+    thẻ <a> sau khi đã escape toàn bộ, nên không mở lại lỗ XSS dù nội dung là do người dùng gõ."""
+    if not text:
+        return ""
+    safe = str(escape(text))
+    linked = _URL_RE.sub(
+        lambda m: f'<a href="{m.group(1)}" target="_blank" rel="noopener noreferrer nofollow" class="text-info">{m.group(1)}</a>',
+        safe,
+    )
+    return Markup(linked)
 
 
 # --------------------------------------------------------- Quản lý Bình luận
