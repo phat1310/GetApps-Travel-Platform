@@ -1,7 +1,15 @@
 """
 Kiểm thử chính sách xác thực và bảo vệ tài nguyên đối với Khách vãng lai (Chưa đăng nhập).
-Hệ thống bắt buộc xác thực (@login_required) đối với các trang nghiệp vụ cá nhân,
-bảng tin, tạo bài, bình luận... và chuyển hướng 302 về /login hoặc trả về 401 JSON.
+
+CHÍNH SÁCH (đã cập nhật — xem app/locations/routes.py: feed(), view_post(), get_post()):
+khách được xem BẢNG TIN + CHI TIẾT BÀI CÔNG KHAI + TÌM KIẾM mà KHÔNG cần đăng nhập, để
+tăng khả năng khám phá nội dung (mục đích cốt lõi của 1 mạng xã hội du lịch). Bài RIÊNG TƯ
+vẫn bị chặn y như cũ (404 ở trang HTML, 403 ở API JSON — không lộ nội dung riêng tư).
+
+Mọi HÀNH ĐỘNG (like/comment/lưu/đăng bài/tạo lịch trình/nhắn tin/follow...) và các trang
+nghiệp vụ cá nhân (thông báo, cài đặt, trang cá nhân, upload, tạo lịch trình...) vẫn bắt
+buộc xác thực (@login_required): chuyển hướng 302 về /login (request HTML thường) hoặc trả
+về 401 JSON (request kiểu fetch/AJAX) — không đổi gì ở phần này.
 """
 import pytest
 
@@ -19,11 +27,12 @@ def private_post(app, users):
         return p.id
 
 
-def test_guest_feed_redirects_to_login(client):
-    """Khách chưa login truy cập /locations/feed bị chuyển hướng 302 về /login."""
+def test_guest_feed_shows_public_posts(client):
+    """Khách chưa login vẫn xem được /locations/feed (bài công khai) — KHÔNG bị chuyển hướng login."""
     res = client.get("/locations/feed")
-    assert res.status_code == 302
-    assert "/login" in res.headers["Location"]
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "Bảng tin" in html
 
 
 def test_logged_in_user_sees_feed(client, users):
@@ -36,11 +45,18 @@ def test_logged_in_user_sees_feed(client, users):
     assert "Bảng tin" in html
 
 
-def test_guest_post_access_requires_login(client, users, post, private_post):
-    """Khách chưa login truy cập link bài viết bị yêu cầu đăng nhập."""
-    assert client.get(f"/locations/p/{post.id}").status_code == 302
-    assert client.get(f"/locations/p/{private_post}").status_code == 302
-    assert client.get(f"/locations/posts/{post.id}").status_code == 302
+def test_guest_public_post_access_allowed(client, users, post):
+    """Khách chưa login vẫn xem được bài CÔNG KHAI qua link trực tiếp (trang HTML + API JSON)."""
+    assert client.get(f"/locations/p/{post.id}").status_code == 200
+    assert client.get(f"/locations/posts/{post.id}").status_code == 200
+
+
+def test_guest_private_post_access_blocked(client, users, private_post):
+    """Khách chưa login truy cập bài RIÊNG TƯ vẫn bị chặn — không lộ nội dung riêng tư.
+    Trang HTML trả 404 (cố tình không phân biệt "không tồn tại" và "không có quyền");
+    API JSON trả 403 (báo rõ không có quyền, không cần giấu sự tồn tại ở API nội bộ)."""
+    assert client.get(f"/locations/p/{private_post}").status_code == 404
+    assert client.get(f"/locations/posts/{private_post}").status_code == 403
 
 
 def test_guest_public_routes_allow_access(client, users):
@@ -52,10 +68,14 @@ def test_guest_public_routes_allow_access(client, users):
     assert client.get("/locations/itineraries/feed").status_code == 302
 
 
-def test_guest_feed_json_returns_unauthorized(client, users, post, private_post):
-    """Khách gọi API feed JSON chưa xác thực nhận chuyển hướng 302 hoặc mã 401."""
+def test_guest_feed_json_returns_public_feed(client, users, post, private_post):
+    """Khách gọi API feed JSON (chưa đăng nhập) nhận bài CÔNG KHAI — không bị 401/302,
+    và bài RIÊNG TƯ không được lọt vào feed của khách."""
     res = client.get("/locations/feed?format=json", headers={"Accept": "application/json"})
-    assert res.status_code in (302, 401)
+    assert res.status_code == 200
+    j = res.get_json()
+    assert "feed" in j
+    assert all(p["post_id"] != private_post for p in j["feed"])
 
 
 @pytest.mark.parametrize("url", ["/notifications", "/settings", "/locations/upload", "/plans/create", "/profile", "/chat/conversations"])
