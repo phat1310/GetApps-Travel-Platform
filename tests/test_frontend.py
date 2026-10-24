@@ -21,10 +21,10 @@ def test_root_index_redirect(client):
 
 
 def test_feed_unauthenticated(client):
-    """Khách (chưa login) truy cập bảng tin bị chuyển hướng về /login."""
+    """Khách (chưa login) truy cập bảng tin xem được nội dung công khai (200 OK)."""
     res = client.get("/locations/feed")
-    assert res.status_code == 302
-    assert "/login" in res.headers["Location"]
+    assert res.status_code == 200
+    assert "Bảng tin" in res.get_data(as_text=True)
 
 
 def test_feed_authenticated_html(client, users, post):
