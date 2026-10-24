@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 
 from app.locations import locations_bp
 from app.notifications import notify
-from app.mentions import notify_mentions, notify_new_mentions, render_mentions, suggest as suggest_mentions
+from app.mentions import notify_mentions, notify_new_mentions, render_mentions, strip_leading_self_mention, suggest as suggest_mentions
 from app.extensions import db
 from sqlalchemy.exc import IntegrityError
 from app.models import (
@@ -516,6 +516,7 @@ def build_comments_tree(comments, viewer_id):
 
     def _fmt(c, c_author, reply_to_author=None):
         lk = cmt_likes.get(c.id, {"count": 0, "mine": False})
+        display_content = strip_leading_self_mention(c.content, reply_to_author.username) if reply_to_author else c.content
         return {
             "id": c.id,
             "user_id": c.user_id,
@@ -525,7 +526,7 @@ def build_comments_tree(comments, viewer_id):
             "author_name": c_author.username if c_author else f"User #{c.user_id}",
             "author_username": c_author.username if c_author else None,
             "author_avatar": c_author.avatar_url if c_author else None,
-            "content": c.content,
+            "content": display_content,
             "created_at": to_vn(c.created_at).strftime("%H:%M %d/%m/%Y") if c.created_at else "",
             "created_dt": c.created_at,
             "can_delete": (c.user_id == viewer_id),
@@ -826,6 +827,7 @@ def create_comment(post_id):
     db.session.commit()
 
     reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
+    display_content = strip_leading_self_mention(comment.content, reply_to_author.username) if reply_to_author else comment.content
 
     return jsonify({
         "message": "Bình luận thành công",
@@ -838,8 +840,8 @@ def create_comment(post_id):
             "reply_to_name": reply_to_author.username if reply_to_author else None,
             "author_username": current_user.username,
             "author_avatar": current_user.avatar_url,
-            "content": comment.content,
-            "content_html": str(render_mentions(comment.content)),
+            "content": display_content,
+            "content_html": str(render_mentions(display_content)),
             "created_at": comment.created_at.isoformat()
         }
     }), 201
@@ -1654,6 +1656,7 @@ def create_itinerary_comment(itinerary_id):
     db.session.commit()
 
     reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
+    display_content = strip_leading_self_mention(comment.content, reply_to_author.username) if reply_to_author else comment.content
 
     return jsonify({
         "message": "Đã bình luận",
@@ -1665,8 +1668,8 @@ def create_itinerary_comment(itinerary_id):
             "reply_to_name": reply_to_author.username if reply_to_author else None,
             "author_username": current_user.username,
             "author_avatar": current_user.avatar_url,
-            "content": comment.content,
-            "content_html": str(render_mentions(comment.content)),
+            "content": display_content,
+            "content_html": str(render_mentions(display_content)),
             "likes_count": 0,
             "is_liked": False,
             "created_at": comment.created_at.isoformat(),

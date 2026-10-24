@@ -65,6 +65,17 @@ def find_mentions(text):
     return out
 
 
+def strip_leading_self_mention(content, reply_to_username):
+    """Nếu nội dung MỞ ĐẦU bằng đúng @<người đang được trả lời> thì bỏ cụm đó khi hiển thị
+    (chỉ ảnh hưởng hiển thị, KHÔNG đổi dữ liệu đã lưu trong DB) — tránh lặp vì giao diện đã tự
+    hiện thẻ '@người' phía trước nội dung rồi (người dùng có thói quen tự gõ thêm @tên khi trả lời
+    sẽ ra "@@ten" nếu không lọc). Chỉ khớp ĐÚNG username đó, không khớp username khác bắt đầu giống vậy."""
+    if not content or not reply_to_username:
+        return content
+    pat = re.compile(r"^@" + re.escape(reply_to_username) + r"(?![\w.\-])\s*", re.IGNORECASE | re.UNICODE)
+    return pat.sub("", content, count=1)
+
+
 def mentioned_users(text, limit=MAX_MENTIONS):
     """Danh sách User duy nhất được @ trong text (tối đa `limit`)."""
     seen, out = set(), []
