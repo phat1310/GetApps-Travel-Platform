@@ -285,8 +285,8 @@
         }
 
         /* Layout with Pill Sidebar */
-        body.has-pill-side {
-            padding-top: 64px;
+        body.has-pill-side, body.has-top-only {
+            padding-top: 64px;    /* chừa chỗ cho header .st-top (position: fixed, cao 64px) */
         }
         body.has-pill-side main.main-content {
             padding-left: calc(var(--st-inset) + var(--st-side-w) + 20px);
@@ -985,7 +985,7 @@
     </style>
 </head>
 {% set is_auth_page = request.endpoint in ('auth.login', 'auth.register') %}
-<body class="{% if not is_auth_page %}has-pill-side {% endif %}{% if not current_user.is_authenticated %}is-guest{% endif %}">
+<body class="{% if is_auth_page %}has-top-only{% else %}has-pill-side{% endif %} {% if not current_user.is_authenticated %}is-guest{% endif %}">
 
     <!-- ==================== HEADER & NAVBAR ==================== -->
     {# Khung giao diện dùng chung cho cả khách và người đã đăng nhập; chức năng cần tài khoản dùng data-login-gate.
