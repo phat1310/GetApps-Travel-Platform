@@ -285,8 +285,8 @@
         }
 
         /* Layout with Pill Sidebar */
-        body.has-pill-side {
-            padding-top: 64px;
+        body.has-pill-side, body.has-top-only {
+            padding-top: 64px;    /* chừa chỗ cho header .st-top (position: fixed, cao 64px) */
         }
         body.has-pill-side main.main-content {
             padding-left: calc(var(--st-inset) + var(--st-side-w) + 20px);
@@ -984,18 +984,21 @@
     .mention-empty { padding: 8px 12px; font-size: .8rem; color: #64748b; }
     </style>
 </head>
-<body class="has-pill-side{% if not current_user.is_authenticated %} is-guest{% endif %}">
+{% set is_auth_page = request.endpoint in ('auth.login', 'auth.register') %}
+<body class="{% if is_auth_page %}has-top-only{% else %}has-pill-side{% endif %} {% if not current_user.is_authenticated %}is-guest{% endif %}">
 
     <!-- ==================== HEADER & NAVBAR ==================== -->
     {# Khung giao diện dùng chung cho cả khách và người đã đăng nhập; chức năng cần tài khoản dùng data-login-gate.
-       Riêng trang đăng nhập/đăng ký KHÔNG hiện thanh tìm kiếm/cài đặt/sidebar (card đăng nhập đứng một mình). #}
-    {% if request.endpoint not in ('auth.login', 'auth.register') %}
+       Riêng trang đăng nhập/đăng ký: VẪN giữ logo + nút đổi theme + nút Đăng nhập/Đăng ký (card đứng một mình, có
+       header tối giản) nhưng ẨN thanh tìm kiếm + nút cài đặt + sidebar bên trái (is_auth_page set phía trên,
+       ngay trước thẻ <body>, vì <body> cũng cần biến này để bỏ class has-pill-side). #}
         <!-- Top Bar Proposal (Slide 4 & forntend.jpg) -->
         <header class="st-top">
             <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps" style="margin-left: -14px;">
                 <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="GEs" class="brand-logo-img" style="height: 30px; width: auto;">
             </a>
             <div class="st-top-actions">
+                {% if not is_auth_page %}
                 <div class="st-search-wrapper" id="topSearchWrapper">
                     <form class="st-search" id="topSearchForm" method="get" action="{{ url_for('auth.search_page') }}" role="search">
                         <i class="bi bi-search" aria-hidden="true"></i>
@@ -1012,11 +1015,14 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
                 <button type="button" class="st-top-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Nền sáng / Nền tối" aria-label="Chuyển chế độ Nền sáng / Nền tối">
                     <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
                 </button>
+                {% if not is_auth_page %}
                 <a href="{{ url_for('auth.settings_page') }}" class="st-top-btn {% if request.endpoint in ['auth.settings', 'auth.settings_page'] %}active{% endif %}" title="Cài đặt tài khoản" aria-label="Cài đặt" {% if not current_user.is_authenticated %}data-login-gate="cài đặt"{% endif %}><i class="bi bi-gear-fill"></i></a>
                 <span class="st-top-divider" aria-hidden="true"></span>
+                {% endif %}
                 {% if current_user.is_authenticated %}
                 <a class="st-top-avatar" href="{{ url_for('auth.profile', username=current_user.username) }}" title="Trang cá nhân của bạn" aria-label="Trang cá nhân của bạn">
                     {% if current_user.avatar_url %}
@@ -1034,6 +1040,7 @@
             </div>
         </header>
 
+    {% if not is_auth_page %}
         <!-- Pill Sidebar (Thanh điều hướng viên thuốc bên trái) -->
         <nav class="st-side" aria-label="Điều hướng chính">
             <a class="st-nav {% if request.endpoint == 'locations.feed' %}active{% endif %}" href="{{ url_for('locations.feed') }}">
