@@ -80,3 +80,7 @@ class Post(db.Model):
 
     # Số ảnh/video đã thêm bằng chức năng Chỉnh sửa (tối đa 2 trong cả vòng đời bài)
     edit_media_added = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+
+    # Admin KHÓA bài (nghi ngờ vi phạm) -> ẩn khỏi mọi nơi (feed/profile/chi tiết) với
+    # TẤT CẢ người dùng khác, trừ admin và chính chủ bài. Không xóa dữ liệu, có thể mở khóa lại.
+    is_hidden = db.Column(db.Boolean, nullable=False, default=False, server_default="0")

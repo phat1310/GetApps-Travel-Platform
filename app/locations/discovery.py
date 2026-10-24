@@ -136,9 +136,12 @@ def can_view_post(post, viewer_id, follow_set):
     - Bài đặt 'riêng tư' (private) -> CHỈ chủ bài thấy, kể cả follower cũng không.
     - Tác giả để tài khoản riêng tư -> chỉ người đang follow mới thấy bài công khai.
     - Repost: phải xem được cả bài gốc thật sự (gốc bị xóa/riêng tư/tài khoản kín -> ẩn).
+    - Admin đã KHÓA bài (is_hidden) -> ẩn với mọi người trừ chính chủ.
     """
     if post.user_id != viewer_id:
         if post.visibility == "private":
+            return False
+        if getattr(post, "is_hidden", False):
             return False
         if account_hidden(post.user_id, viewer_id, follow_set):
             return False
@@ -149,16 +152,21 @@ def can_view_post(post, viewer_id, follow_set):
         if src.user_id != viewer_id:
             if src.visibility == "private":
                 return False
+            if getattr(src, "is_hidden", False):
+                return False
             if account_hidden(src.user_id, viewer_id, follow_set):
                 return False
     return True
 
 
 def can_view_itinerary(it, viewer_id, follow_set):
-    """Quyền xem 1 lịch trình: chủ luôn thấy; 'private' chỉ chủ; tài khoản kín -> cần follow."""
+    """Quyền xem 1 lịch trình: chủ luôn thấy; 'private' chỉ chủ; tài khoản kín -> cần follow;
+    admin đã KHÓA (is_hidden) -> ẩn với mọi người trừ chính chủ."""
     if it.user_id == viewer_id:
         return True
     if (it.visibility or "public") == "private":
+        return False
+    if getattr(it, "is_hidden", False):
         return False
     return not account_hidden(it.user_id, viewer_id, follow_set)
 

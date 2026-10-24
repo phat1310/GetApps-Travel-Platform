@@ -34,6 +34,10 @@ class Itinerary(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Admin KHÓA lịch trình (nghi ngờ vi phạm) -> ẩn khỏi mọi nơi với tất cả người
+    # dùng khác, trừ admin và chính chủ. Không xóa dữ liệu, có thể mở khóa lại.
+    is_hidden = db.Column(db.Boolean, nullable=False, default=False, server_default="0")
+
     # Relationships
     author = db.relationship("User", backref=db.backref("itineraries", lazy=True, cascade="all, delete-orphan"))
     days = db.relationship("ItineraryDay", backref="itinerary", lazy="select",

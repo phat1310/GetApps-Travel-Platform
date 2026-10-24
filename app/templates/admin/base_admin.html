@@ -42,8 +42,11 @@
             <a href="{{ url_for('admin.users') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.users') or request.endpoint in ['admin.toggle_admin','admin.toggle_ban','admin.delete_user'] }}">
                 <i class="bi bi-people-fill"></i> Quản lý User
             </a>
-            <a href="{{ url_for('admin.posts') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.posts') or request.endpoint == 'admin.delete_post' }}">
+            <a href="{{ url_for('admin.posts') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.posts') or request.endpoint in ['admin.delete_post','admin.toggle_hide_post'] }}">
                 <i class="bi bi-images"></i> Quản lý Post
+            </a>
+            <a href="{{ url_for('admin.itineraries') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.itineraries') or request.endpoint in ['admin.delete_itinerary','admin.toggle_hide_itinerary'] }}">
+                <i class="bi bi-map"></i> Quản lý Lịch trình
             </a>
             <a href="{{ url_for('admin.security_logs') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.security_logs') or request.endpoint == 'admin.clear_security_logs' }}">
                 <i class="bi bi-shield-exclamation"></i> Nhật ký An ninh

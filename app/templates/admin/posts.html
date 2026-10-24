@@ -14,8 +14,10 @@
         <thead>
         <tr>
             <th>ID</th>
+            <th>Ảnh</th>
             <th>Người đăng</th>
             <th>Nội dung</th>
+            <th class="text-center">Bình luận</th>
             <th>Hiển thị</th>
             <th>Tạo lúc</th>
             <th class="text-end">Hành động</th>
@@ -25,20 +27,44 @@
         {% for p in posts %}
         <tr>
             <td>{{ p.id }}</td>
+            <td>
+                {% set ph = thumbs.get(p.id) %}
+                {% if ph and ph.media_type == 'video' %}
+                    <span class="d-inline-flex align-items-center justify-content-center bg-secondary bg-opacity-25 rounded" style="width:48px;height:48px;"><i class="bi bi-play-circle-fill fs-5"></i></span>
+                {% elif ph %}
+                    <img src="{{ url_for('static', filename=ph.file_path.replace('static/', '')) }}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;" loading="lazy">
+                {% else %}
+                    <span class="d-inline-flex align-items-center justify-content-center bg-secondary bg-opacity-10 rounded text-secondary" style="width:48px;height:48px;"><i class="bi bi-card-image"></i></span>
+                {% endif %}
+            </td>
             <td>{{ authors[p.user_id].username if p.user_id in authors else 'user#' + p.user_id|string }}</td>
-            <td class="text-truncate" style="max-width: 320px;">{{ p.caption or '(không có chữ)' }}</td>
-            <td><span class="badge bg-secondary">{{ p.visibility }}</span></td>
+            <td class="text-truncate" style="max-width: 280px;">{{ p.caption or '(không có chữ)' }}</td>
+            <td class="text-center">
+                <span class="badge bg-primary-subtle text-primary-emphasis"><i class="bi bi-chat-fill"></i> {{ comment_counts.get(p.id, 0) }}</span>
+            </td>
+            <td>
+                <span class="badge bg-secondary">{{ p.visibility }}</span>
+                {% if p.is_hidden %}<span class="badge bg-danger ms-1"><i class="bi bi-lock-fill"></i> Đã khóa</span>{% endif %}
+            </td>
             <td class="small text-secondary">{{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '—' }}</td>
             <td class="text-end">
+                <form method="post" action="{{ url_for('admin.toggle_hide_post', post_id=p.id) }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% if p.is_hidden %}
+                        <button class="btn btn-sm btn-outline-success"><i class="bi bi-unlock-fill"></i> Mở khóa</button>
+                    {% else %}
+                        <button class="btn btn-sm btn-outline-warning"><i class="bi bi-lock-fill"></i> Khóa</button>
+                    {% endif %}
+                </form>
                 <form method="post" action="{{ url_for('admin.delete_post', post_id=p.id) }}" class="d-inline"
-                      onsubmit="return confirm('Xóa vĩnh viễn bài viết #{{ p.id }}?');">
+                      onsubmit="return confirm('Xóa vĩnh viễn bài viết #{{ p.id }}? Người đăng sẽ nhận được thông báo.');">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-sm btn-outline-light"><i class="bi bi-trash"></i> Xóa</button>
                 </form>
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="text-center text-secondary py-4">Không có bài viết nào khớp.</td></tr>
+        <tr><td colspan="8" class="text-center text-secondary py-4">Không có bài viết nào khớp.</td></tr>
         {% endfor %}
         </tbody>
     </table>
