@@ -53,9 +53,9 @@ def rate_client(rate_limit_app):
 
 def test_login_rate_limiting_blocks_bruteforce(rate_client):
     """Gửi dồn dập POST /login (mô phỏng brute-force mật khẩu) -> bị chặn với 429."""
-    # POST /login giới hạn 10 per minute
+    # POST /login giới hạn 5 per minute
     statuses = []
-    for i in range(12):
+    for i in range(7):
         res = rate_client.post(
             "/login",
             json={"username": "testlimiter", "password": f"WrongPass{i}"},
@@ -63,14 +63,14 @@ def test_login_rate_limiting_blocks_bruteforce(rate_client):
         )
         statuses.append(res.status_code)
 
-    # Các request đầu bị 401 (sai pass), nhưng khi vượt giới hạn 10 lần phải bị 429
-    assert 401 in statuses[:10]
+    # Các request đầu bị 401 (sai pass), nhưng khi vượt giới hạn 5 lần (từ lần thứ 6) phải bị 429
+    assert 401 in statuses[:5]
     assert statuses[-1] == 429
 
 
 def test_rate_limit_json_response_structure(rate_client):
     """Request JSON vượt quá giới hạn nhận về JSON 429 chuẩn mực."""
-    for _ in range(11):
+    for _ in range(6):
         res = rate_client.post(
             "/login",
             json={"username": "testlimiter", "password": "wrong"},
@@ -86,7 +86,7 @@ def test_rate_limit_json_response_structure(rate_client):
 
 def test_rate_limit_html_browser_response(rate_client):
     """Trình duyệt web (Accept: text/html) vượt giới hạn render giao diện 429.html."""
-    for _ in range(11):
+    for _ in range(6):
         res = rate_client.post(
             "/login",
             data={"username": "testlimiter", "password": "wrong"},
@@ -131,7 +131,7 @@ def test_rate_limiting_logs_security_event_automatically(rate_limit_app, rate_cl
         count_before = SecurityLog.query.filter_by(event_type="DDOS_RATE_LIMIT").count()
 
     # Kích hoạt 429 bằng cách spam request
-    for _ in range(12):
+    for _ in range(7):
         rate_client.post("/login", json={"username": "testlimiter", "password": "wrong"})
 
     with rate_limit_app.app_context():
@@ -149,7 +149,7 @@ def test_ip_spoofing_cannot_bypass_rate_limit(rate_client):
     """Kẻ tấn công liên tục giả mạo header X-Forwarded-For / CF-Connecting-IP ở mỗi request
     không thể vượt qua bộ giới hạn tần suất khi TRUST_PROXY_HEADERS chưa bật."""
     statuses = []
-    for i in range(12):
+    for i in range(7):
         res = rate_client.post(
             "/login",
             json={"username": "testlimiter", "password": f"Wrong{i}"},
@@ -161,24 +161,24 @@ def test_ip_spoofing_cannot_bypass_rate_limit(rate_client):
         )
         statuses.append(res.status_code)
 
-    assert 401 in statuses[:10]
+    assert 401 in statuses[:5]
     assert statuses[-1] == 429
 
 
 def test_api_login_rate_limiting_and_security_log(rate_limit_app, rate_client):
     """REST API POST /api/login ghi nhận BRUTE_FORCE_AUTH khi sai mật khẩu
-    và chặn với HTTP 429 khi vượt quá 10 lần/phút."""
+    và chặn với HTTP 429 khi vượt quá 5 lần/phút (từ lần thứ 6)."""
     from app.models.security_log import SecurityLog
 
     statuses = []
-    for i in range(12):
+    for i in range(7):
         res = rate_client.post(
             "/api/login",
             json={"username": "testlimiter", "password": f"WrongApiPass{i}"},
         )
         statuses.append(res.status_code)
 
-    assert 401 in statuses[:10]
+    assert 401 in statuses[:5]
     assert statuses[-1] == 429
 
     with rate_limit_app.app_context():

@@ -35,7 +35,7 @@ from app.locations.discovery import can_view_post, following_ids
 # =========================================================
 
 @api_bp.route("/login", methods=["POST"])
-@limiter.limit("10 per minute; 30 per hour")
+@limiter.limit("5 per minute; 20 per hour")
 def api_login():
     data = request.get_json(silent=True) or {}
 

@@ -450,7 +450,7 @@ def search_suggest():
 # =========================================================
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
-@limiter.limit('10 per minute; 30 per hour', methods=['POST'])
+@limiter.limit('5 per minute; 15 per hour', methods=['POST'])
 def register():
     """Đăng ký tài khoản người dùng mới (hỗ trợ song song HTML Form và JSON API)."""
     if current_user.is_authenticated:
@@ -534,7 +534,7 @@ def register():
 # =========================================================
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-@limiter.limit('10 per minute; 30 per hour', methods=['POST'])
+@limiter.limit('5 per minute; 20 per hour', methods=['POST'])
 def login():
     """Đăng nhập tài khoản người dùng — hỗ trợ linh hoạt Username, Email (không phân biệt chữ hoa/thường) hoặc Số điện thoại."""
     if request.method == 'GET':
@@ -1335,7 +1335,7 @@ def csrf_token():
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @auth_bp.route('/settings/password', methods=['GET', 'POST'])
 @login_required
-@limiter.limit('10 per minute', methods=['POST'])
+@limiter.limit('5 per minute', methods=['POST'])
 def change_password():
     """Đổi mật khẩu người dùng (hỗ trợ cả Web Form và JSON API)."""
     form = ChangePasswordForm()
@@ -1384,7 +1384,7 @@ def change_password():
 # =========================================================
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
-@limiter.limit('5 per minute; 20 per hour', methods=['POST'])
+@limiter.limit('3 per minute; 10 per hour', methods=['POST'])
 def forgot_password():
     """Yêu cầu khôi phục mật khẩu qua Email hoặc Số điện thoại (SĐT)."""
     if current_user.is_authenticated:
@@ -1473,7 +1473,7 @@ def forgot_password():
 
 
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
-@limiter.limit('10 per minute', methods=['POST'])
+@limiter.limit('5 per minute', methods=['POST'])
 def reset_password():
     """Xác thực mã OTP và Đặt lại mật khẩu mới."""
     if current_user.is_authenticated:
