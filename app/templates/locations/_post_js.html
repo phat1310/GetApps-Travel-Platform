@@ -544,3 +544,39 @@
         }, { passive: true });
     })();
 </script>
+
+    // ---------- Emoji Picker cho Bình luận Bài viết ----------
+    function toggleCommentEmojiPicker(e, postId) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const picker = document.getElementById(`emoji-picker-${postId}`);
+        if (!picker) return;
+        const willShow = picker.classList.contains('d-none');
+        document.querySelectorAll('.cmt-emoji-picker').forEach(p => p.classList.add('d-none'));
+        if (willShow) {
+            picker.classList.remove('d-none');
+        }
+    }
+
+    function insertCommentEmoji(postId, emoji) {
+        const input = document.getElementById(`comment-input-${postId}`);
+        if (!input) return;
+        const start = input.selectionStart !== undefined ? input.selectionStart : input.value.length;
+        const end = input.selectionEnd !== undefined ? input.selectionEnd : input.value.length;
+        const text = input.value;
+        input.value = text.substring(0, start) + emoji + text.substring(end);
+        input.selectionStart = input.selectionEnd = start + emoji.length;
+        input.focus();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        const picker = document.getElementById(`emoji-picker-${postId}`);
+        if (picker) picker.classList.add('d-none');
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.cmt-emoji-picker') && !e.target.closest('.cmt-emoji-btn')) {
+            document.querySelectorAll('.cmt-emoji-picker').forEach(p => p.classList.add('d-none'));
+        }
+    });
+

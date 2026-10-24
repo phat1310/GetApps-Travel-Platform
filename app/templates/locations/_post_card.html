@@ -235,11 +235,25 @@
                                 </div>
 
                                 <!-- Add Comment Input Box -->
-                                <form onsubmit="submitComment(event, {{ post.id }})" class="d-flex gap-2">
-                                    <input type="text" class="form-control form-control-sm rounded-pill px-3" placeholder="Viết bình luận của bạn..." id="comment-input-{{ post.id }}" required>
-                                    <button type="submit" class="btn btn-sm btn-ges-primary rounded-pill px-3">
+                                <form onsubmit="submitComment(event, {{ post.id }})" class="d-flex align-items-center gap-1 position-relative">
+                                    <div class="input-group input-group-sm flex-grow-1">
+                                        <input type="text" class="form-control rounded-pill-start ps-3" placeholder="Viết bình luận của bạn..." id="comment-input-{{ post.id }}" required autocomplete="off">
+                                        <button type="button" class="btn btn-outline-secondary border-start-0 cmt-emoji-btn rounded-pill-end pe-3" onclick="toggleCommentEmojiPicker(event, {{ post.id }})" title="Chèn biểu tượng cảm xúc">
+                                            <i class="bi bi-emoji-smile fs-6"></i>
+                                        </button>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-ges-primary rounded-pill px-3 flex-shrink-0">
                                         Gửi
                                     </button>
+
+                                    <!-- Emoji Picker Popover -->
+                                    <div class="cmt-emoji-picker d-none p-2" id="emoji-picker-{{ post.id }}">
+                                        <div class="cmt-emoji-grid">
+                                            {% for em in ['❤️','🔥','👍','👏','🥰','😂','😍','🤩','🥳','✨','🎉','✈️','🏖️','🌴','⛰️','🏨','🍜','☕','🛵','📸','📍','☀️','🌈','💯','🙌','💖','😎','🤤','🥺','😮','😴','🎒'] %}
+                                                <span class="cmt-emoji-item" onclick="insertCommentEmoji({{ post.id }}, '{{ em }}')">{{ em }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
                                 </form>
                             </div>
                         </div>

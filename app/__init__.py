@@ -190,15 +190,20 @@ def create_app(config_override=None):
 
     @app.context_processor
     def inject_notification_badge():
-        """Số thông báo CHƯA ĐỌC cho chấm đỏ ở quả chuông (hiển thị ngay khi tải trang)."""
+        """Số thông báo CHƯA ĐỌC và danh sách top hashtag phổ biến cho modal tạo bài."""
         from flask_login import current_user
+        from app.locations.hashtag_utils import get_top_hashtags
+        data = {
+            "notif_unread": 0,
+            "top_hashtags": get_top_hashtags(10)
+        }
         try:
             if current_user.is_authenticated:
                 from app.notifications import unread_count
-                return {"notif_unread": unread_count(current_user.id)}
+                data["notif_unread"] = unread_count(current_user.id)
         except Exception:
             db.session.rollback()
-        return {"notif_unread": 0}
+        return data
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(locations_bp, url_prefix="/locations")

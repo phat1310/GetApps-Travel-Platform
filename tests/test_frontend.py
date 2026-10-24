@@ -97,3 +97,30 @@ def test_location_autocomplete_aliases(client):
     res2 = client.get("/locations/locations/search?q=tuyen")
     assert res2.status_code == 200
     assert any("Tuyền Lâm" in l["name"] for l in res2.get_json()["locations"])
+
+def test_api_top_hashtags_and_helper(client):
+    """API /locations/api/hashtags/top trả về top 10 hashtag phổ biến."""
+    from app.locations.hashtag_utils import get_top_hashtags
+    tags = get_top_hashtags(10)
+    assert len(tags) == 10
+    assert any("dalat" in t for t in tags)
+
+    res = client.get("/locations/api/hashtags/top")
+    assert res.status_code == 200
+    j = res.get_json()
+    assert "hashtags" in j
+    assert len(j["hashtags"]) == 10
+
+
+def test_comment_form_contains_emoji_picker(client, users, post):
+    """Giao diện form bình luận hiển thị nút emoji và popup bảng chọn emoji."""
+    login_user(client)
+    res = client.get("/locations/feed", headers={"Accept": "text/html"})
+    assert res.status_code == 200
+    html = res.data.decode("utf-8")
+    assert "cmt-emoji-btn" in html
+    assert "bi-emoji-smile" in html
+    assert "cmt-emoji-picker" in html
+    assert "qc-hashtag-bar" in html
+    assert "qcAddTagBtn" in html
+
