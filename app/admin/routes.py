@@ -9,7 +9,9 @@ Hành động thay đổi dữ liệu (toggle quyền, ban, xóa) đều dùng P
 token (Flask-WTF CSRFProtect đã bật global trong app/extensions.py), KHÔNG
 dùng GET — để tránh bị gọi "nhầm" qua link/ảnh (CSRF qua GET là lỗi hay gặp).
 """
-from flask import render_template, request, redirect, url_for, flash
+import os
+from flask import render_template, request, redirect, url_for, flash, jsonify, abort, send_file
+
 from flask_login import login_required, current_user
 
 from app.admin import admin_bp
@@ -21,7 +23,8 @@ from app.models.photo import Photo
 from app.models.comment import Comment
 from app.models.itinerary import Itinerary
 from app.models.security_log import SecurityLog
-from app.notifications import notify_removal
+from app.models.chat import Conversation, Message
+from app.notifications import notify_moderation
 
 
 # ---------------------------------------------------------------- Dashboard
@@ -155,9 +158,12 @@ def posts():
 @admin_required
 def toggle_hide_post(post_id):
     """Khóa/mở khóa bài viết — ẩn khỏi mọi người (trừ admin & chính chủ) mà KHÔNG xóa dữ liệu.
-    Dùng khi nghi ngờ vi phạm nhưng chưa cần xóa vĩnh viễn (có thể mở khóa lại nếu xét sai)."""
+    Dùng khi nghi ngờ vi phạm nhưng chưa cần xóa vĩnh viễn (có thể mở khóa lại nếu xét sai).
+    Chỉ báo cho chủ bài khi KHÓA (not khi mở khóa lại)."""
     post = Post.query.get_or_404(post_id)
     post.is_hidden = not post.is_hidden
+    if post.is_hidden:
+        notify_moderation(post.user_id, current_user.id, "post_locked")
     db.session.commit()
     flash(f"Đã {'khóa' if post.is_hidden else 'mở khóa'} bài viết #{post_id}.", "success")
     return redirect(request.referrer or url_for("admin.posts"))
@@ -171,10 +177,36 @@ def delete_post(post_id):
     owner_id = post.user_id
     db.session.delete(post)
     # post_id=None (bắt buộc) để thông báo không bị cascade "delete-orphan" xóa theo bài vừa xóa.
-    notify_removal(owner_id, current_user.id, "post_removed")
+    notify_moderation(owner_id, current_user.id, "post_removed")
     db.session.commit()
     flash(f"Đã xóa bài viết #{post_id} và thông báo cho người dùng.", "success")
     return redirect(request.referrer or url_for("admin.posts"))
+
+
+def _photo_url(ph):
+    return url_for("static", filename=ph.file_path.replace("static/", ""))
+
+
+@admin_bp.route("/posts/<int:post_id>/detail")
+@login_required
+@admin_required
+def post_detail(post_id):
+    """JSON chi tiết 1 post (ảnh/video đầy đủ + nội dung) để hiện trong modal xem nhanh."""
+    post = Post.query.get_or_404(post_id)
+    author = db.session.get(User, post.user_id)
+    photos = Photo.query.filter_by(post_id=post.id).order_by(Photo.id).all()
+    return jsonify({
+        "id": post.id,
+        "caption": post.caption or "",
+        "author": author.username if author else f"user#{post.user_id}",
+        "visibility": post.visibility,
+        "is_hidden": post.is_hidden,
+        "created_at": post.created_at.strftime("%d/%m/%Y %H:%M") if post.created_at else "—",
+        "comment_count": Comment.query.filter_by(post_id=post.id).count(),
+        "media": [
+            {"url": _photo_url(ph), "type": ph.media_type} for ph in photos
+        ],
+    })
 
 
 # --------------------------------------------------------- Quản lý Lịch trình
@@ -218,6 +250,8 @@ def itineraries():
 def toggle_hide_itinerary(itinerary_id):
     it = Itinerary.query.get_or_404(itinerary_id)
     it.is_hidden = not it.is_hidden
+    if it.is_hidden:
+        notify_moderation(it.user_id, current_user.id, "itinerary_locked")
     db.session.commit()
     flash(f"Đã {'khóa' if it.is_hidden else 'mở khóa'} lịch trình #{itinerary_id}.", "success")
     return redirect(request.referrer or url_for("admin.itineraries"))
@@ -230,10 +264,190 @@ def delete_itinerary(itinerary_id):
     it = Itinerary.query.get_or_404(itinerary_id)
     owner_id = it.user_id
     db.session.delete(it)
-    notify_removal(owner_id, current_user.id, "itinerary_removed")
+    notify_moderation(owner_id, current_user.id, "itinerary_removed")
     db.session.commit()
     flash(f"Đã xóa lịch trình #{itinerary_id} và thông báo cho người dùng.", "success")
     return redirect(request.referrer or url_for("admin.itineraries"))
+
+
+@admin_bp.route("/itineraries/<int:itinerary_id>/detail")
+@login_required
+@admin_required
+def itinerary_detail(itinerary_id):
+    """JSON chi tiết 1 lịch trình (ảnh bìa + mô tả + số liệu) để hiện trong modal xem nhanh."""
+    it = Itinerary.query.get_or_404(itinerary_id)
+    author = db.session.get(User, it.user_id)
+    cover_url = None
+    if it.cover_image:
+        cover_url = url_for("static", filename=it.cover_image.replace("static/", ""))
+    return jsonify({
+        "id": it.id,
+        "title": it.title or "",
+        "destination": it.destination or "",
+        "description": it.description or "",
+        "cover_url": cover_url,
+        "author": author.username if author else f"user#{it.user_id}",
+        "visibility": it.visibility,
+        "is_hidden": it.is_hidden,
+        "created_at": it.created_at.strftime("%d/%m/%Y %H:%M") if it.created_at else "—",
+        "total_days": it.total_days,
+        "comment_count": Comment.query.filter_by(itinerary_id=it.id).count(),
+    })
+
+
+# --------------------------------------------------------- Quản lý Bình luận
+@admin_bp.route("/comments")
+@login_required
+@admin_required
+def comments():
+    q = request.args.get("q", "").strip()
+    query = Comment.query.join(User, Comment.user_id == User.id)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            db.or_(Comment.content.ilike(like), User.username.ilike(like))
+        )
+    page = request.args.get("page", 1, type=int)
+    pagination = query.order_by(Comment.id.desc()).paginate(page=page, per_page=30, error_out=False)
+
+    author_ids = {c.user_id for c in pagination.items}
+    authors = {u.id: u for u in User.query.filter(User.id.in_(author_ids)).all()} if author_ids else {}
+
+    return render_template(
+        "admin/comments.html", comments=pagination.items, pagination=pagination, q=q, authors=authors
+    )
+
+
+@admin_bp.route("/comments/<int:comment_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_comment(comment_id):
+    """Xóa bình luận (kiểm duyệt) — xóa bình luận gốc thì xóa luôn các trả lời (1 cấp lồng),
+    cùng logic với route xóa bình luận của chính chủ ở app/locations/routes.py."""
+    comment = Comment.query.get_or_404(comment_id)
+    deleted_count = 1
+    if not comment.parent_id:
+        deleted_count += Comment.query.filter_by(parent_id=comment.id).delete()
+    db.session.delete(comment)
+    db.session.commit()
+    flash(f"Đã xóa {deleted_count} bình luận.", "success")
+    return redirect(request.referrer or url_for("admin.comments"))
+
+
+# --------------------------------------------------------- Quản lý Tin nhắn
+@admin_bp.route("/messages")
+@login_required
+@admin_required
+def messages():
+    """Danh sách hội thoại 1-1: 2 người, tổng số tin nhắn, tổng số ảnh/video đã gửi.
+    KHÔNG hiện nội dung tin nhắn ở đây — chỉ số liệu. Bấm vào 1 hội thoại mới xem full nội dung
+    (route conversation_detail), để hạn chế việc đọc tin nhắn riêng tư khi không cần thiết."""
+    q = request.args.get("q", "").strip()
+    query = Conversation.query
+    if q:
+        like = f"%{q}%"
+        matching_ids = [u.id for u in User.query.filter(User.username.ilike(like)).all()]
+        if matching_ids:
+            query = query.filter(
+                db.or_(Conversation.user_a_id.in_(matching_ids), Conversation.user_b_id.in_(matching_ids))
+            )
+        else:
+            query = query.filter(Conversation.id == -1)
+
+    page = request.args.get("page", 1, type=int)
+    pagination = query.order_by(Conversation.last_message_at.desc()).paginate(page=page, per_page=20, error_out=False)
+
+    conv_ids = [c.id for c in pagination.items]
+    user_ids = set()
+    for c in pagination.items:
+        user_ids.add(c.user_a_id)
+        user_ids.add(c.user_b_id)
+    users_by_id = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+    msg_counts, media_counts = {}, {}
+    if conv_ids:
+        rows = (
+            db.session.query(Message.conversation_id, db.func.count(Message.id))
+            .filter(Message.conversation_id.in_(conv_ids))
+            .group_by(Message.conversation_id)
+            .all()
+        )
+        msg_counts = dict(rows)
+        media_rows = (
+            db.session.query(Message.conversation_id, db.func.count(Message.id))
+            .filter(Message.conversation_id.in_(conv_ids), Message.file_kind.in_(["image", "video"]))
+            .group_by(Message.conversation_id)
+            .all()
+        )
+        media_counts = dict(media_rows)
+
+    return render_template(
+        "admin/messages.html", conversations=pagination.items, pagination=pagination, q=q,
+        users_by_id=users_by_id, msg_counts=msg_counts, media_counts=media_counts,
+    )
+
+
+@admin_bp.route("/messages/<int:conversation_id>/detail")
+@login_required
+@admin_required
+def conversation_detail(conversation_id):
+    """JSON toàn bộ tin nhắn của 1 hội thoại — chỉ gọi khi admin chủ động bấm xem 1 hội thoại cụ thể
+    (không tải sẵn nội dung ở trang danh sách) để hạn chế lộ nội dung riêng tư ngoài nhu cầu kiểm duyệt."""
+    conv = Conversation.query.get_or_404(conversation_id)
+    user_a = db.session.get(User, conv.user_a_id)
+    user_b = db.session.get(User, conv.user_b_id)
+    msgs = Message.query.filter_by(conversation_id=conv.id).order_by(Message.created_at.asc()).all()
+    senders = {u.id: u for u in (user_a, user_b) if u}
+
+    def _msg_json(m):
+        sender = senders.get(m.sender_id)
+        return {
+            "id": m.id,
+            "sender": sender.username if sender else f"user#{m.sender_id}",
+            "body": m.body or "",
+            "file_name": m.file_name,
+            "file_kind": m.file_kind,
+            "file_url": url_for("admin.message_file", message_id=m.id) if (m.file_path and not m.is_deleted) else None,
+            "is_deleted": bool(m.is_deleted),
+            "created_at": m.created_at.strftime("%d/%m/%Y %H:%M") if m.created_at else "—",
+        }
+
+    return jsonify({
+        "id": conv.id,
+        "user_a": user_a.username if user_a else f"user#{conv.user_a_id}",
+        "user_b": user_b.username if user_b else f"user#{conv.user_b_id}",
+        "status": conv.status,
+        "messages": [_msg_json(m) for m in msgs],
+    })
+
+
+@admin_bp.route("/messages/file/<int:message_id>")
+@login_required
+@admin_required
+def message_file(message_id):
+    """Tải/xem file đính kèm trong tin nhắn — dành riêng cho admin kiểm duyệt (bỏ qua kiểm
+    tra 'phải là thành viên hội thoại' của app/chat/routes.py:download_file, vì admin vốn
+    không phải thành viên của bất kỳ hội thoại nào)."""
+    from app.chat.routes import _upload_dir, _safe_ext, IMAGE_TYPES, VIDEO_TYPES
+
+    msg = Message.query.get_or_404(message_id)
+    if not msg.file_path:
+        abort(404)
+    path = os.path.join(_upload_dir(), os.path.basename(msg.file_path))
+    if not os.path.isfile(path):
+        abort(404)
+    ext = _safe_ext(msg.file_path)
+    inline_type = IMAGE_TYPES.get(ext) or VIDEO_TYPES.get(ext)
+    resp = send_file(
+        path,
+        mimetype=inline_type or "application/octet-stream",
+        as_attachment=inline_type is None,
+        download_name=msg.file_name or "tep",
+        conditional=True,
+        max_age=0,
+    )
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 # ------------------------------------------------------ Nhật ký An ninh (Phát)
