@@ -71,7 +71,9 @@ document.addEventListener("DOMContentLoaded", function () {
             var body = document.createElement("div");
             body.style.whiteSpace = "pre-wrap";
             body.style.wordBreak = "break-word";
-            body.textContent = c.content;
+            // content_html đã được server escape + biến URL thành link <a> (xem linkify_comment
+            // trong app/admin/routes.py) — an toàn để gán thẳng innerHTML.
+            body.innerHTML = c.content_html || "";
             left.appendChild(head);
             left.appendChild(body);
 
@@ -121,7 +123,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     document.getElementById("pdm-created").textContent = d.created_at;
                     document.getElementById("pdm-visibility").textContent = d.visibility;
                     document.getElementById("pdm-comment-count").textContent = d.comment_count;
-                    document.getElementById("pdm-caption").textContent = d.caption || "(không có chữ)";
+                    var captionEl = document.getElementById("pdm-caption");
+                    captionEl.innerHTML = d.caption_html || "";
+                    if (!d.caption) captionEl.textContent = "(không có chữ)";
                     fillMedia(d.media);
                     renderComments(d.comments);
                     setHideButton(d.is_hidden);

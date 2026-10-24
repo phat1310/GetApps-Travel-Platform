@@ -203,6 +203,7 @@ def post_detail(post_id):
     return jsonify({
         "id": post.id,
         "caption": post.caption or "",
+        "caption_html": str(linkify_comment(post.caption)) if post.caption else "",
         "author": author.username if author else f"user#{post.user_id}",
         "visibility": post.visibility,
         "is_hidden": post.is_hidden,
@@ -226,6 +227,9 @@ def _comment_json(c, authors_by_id):
         "id": c.id,
         "author": author.username if author else f"user#{c.user_id}",
         "content": c.content,
+        # HTML đã escape + biến URL thành link bấm được (dùng chung hàm linkify_comment ở dưới) —
+        # để admin kiểm tra link spam/độc hại người dùng dán trong bình luận mà không phải đoán.
+        "content_html": str(linkify_comment(c.content)) if c.content else "",
         "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "—",
         "is_reply": bool(c.parent_id),
     }
@@ -305,11 +309,24 @@ def itinerary_detail(itinerary_id):
         cover_url = url_for("static", filename=it.cover_image.replace("static/", ""))
     cmts = Comment.query.filter_by(itinerary_id=it.id).order_by(Comment.created_at.asc()).all()
     cmt_authors = _users_by_id({c.user_id for c in cmts})
+
+    # Tệp đính kèm (PDF/doc lịch trình người dùng up) — dùng chung hàm kiểm tra đường dẫn hợp lệ
+    # của app/plans/routes.py, nhưng tải qua route riêng của admin (admin.itinerary_attachment)
+    # vì route công khai plans.attachment đòi quyền "xem được lịch trình" — admin không phải chủ
+    # và lịch trình có thể đang bị khóa (is_hidden) nên sẽ bị chặn nếu dùng lại route đó.
+    from app.plans.routes import _attachment_path
+    attachment_url, attachment_name = None, None
+    full_path = _attachment_path(it)
+    if full_path:
+        attachment_name = re.sub(r"^[0-9a-f]{12}_", "", os.path.basename(full_path)) or os.path.basename(full_path)
+        attachment_url = url_for("admin.itinerary_attachment", itinerary_id=it.id)
+
     return jsonify({
         "id": it.id,
         "title": it.title or "",
         "destination": it.destination or "",
         "description": it.description or "",
+        "description_html": str(linkify_comment(it.description)) if it.description else "",
         "cover_url": cover_url,
         "author": author.username if author else f"user#{it.user_id}",
         "visibility": it.visibility,
@@ -318,7 +335,28 @@ def itinerary_detail(itinerary_id):
         "total_days": it.total_days,
         "comment_count": len(cmts),
         "comments": [_comment_json(c, cmt_authors) for c in cmts],
+        "attachment_url": attachment_url,
+        "attachment_name": attachment_name,
     })
+
+
+@admin_bp.route("/itineraries/<int:itinerary_id>/attachment")
+@login_required
+@admin_required
+def itinerary_attachment(itinerary_id):
+    """Tải tệp đính kèm của lịch trình — dành riêng cho admin kiểm duyệt (bỏ qua kiểm tra
+    "có quyền xem lịch trình" của app/plans/routes.py:attachment, vì admin vốn không phải
+    chủ và lịch trình có thể đang bị khóa/is_hidden)."""
+    from app.plans.routes import _attachment_path
+
+    it = Itinerary.query.get_or_404(itinerary_id)
+    full = _attachment_path(it)
+    if not full:
+        abort(404)
+    name = re.sub(r"^[0-9a-f]{12}_", "", os.path.basename(full)) or os.path.basename(full)
+    resp = send_file(full, as_attachment=True, download_name=name, max_age=0)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 _URL_RE = re.compile(r'(https?://[^\s<>"\')]+)')

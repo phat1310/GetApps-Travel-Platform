@@ -44,7 +44,9 @@ document.addEventListener("DOMContentLoaded", function () {
             var body = document.createElement("div");
             body.style.whiteSpace = "pre-wrap";
             body.style.wordBreak = "break-word";
-            body.textContent = c.content;
+            // content_html đã được server escape + biến URL thành link <a> (xem linkify_comment
+            // trong app/admin/routes.py) — an toàn để gán thẳng innerHTML.
+            body.innerHTML = c.content_html || "";
             left.appendChild(head);
             left.appendChild(body);
 
@@ -97,7 +99,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     document.getElementById("idm-days").textContent = d.total_days;
                     document.getElementById("idm-title").textContent = d.title || "(không có tiêu đề)";
                     document.getElementById("idm-destination").textContent = d.destination || "—";
-                    document.getElementById("idm-description").textContent = d.description || "(không có mô tả)";
+                    var descEl = document.getElementById("idm-description");
+                    descEl.innerHTML = d.description_html || "";
+                    if (!d.description) descEl.textContent = "(không có mô tả)";
 
                     var coverWrap = document.getElementById("idm-cover");
                     coverWrap.innerHTML = "";
@@ -109,6 +113,18 @@ document.addEventListener("DOMContentLoaded", function () {
                         img.style.borderRadius = "8px";
                         img.style.objectFit = "cover";
                         coverWrap.appendChild(img);
+                    }
+
+                    var attachWrap = document.getElementById("idm-attachment");
+                    attachWrap.innerHTML = "";
+                    if (d.attachment_url) {
+                        var a = document.createElement("a");
+                        a.href = d.attachment_url;
+                        a.target = "_blank";
+                        a.rel = "noopener noreferrer nofollow";
+                        a.className = "text-info";
+                        a.innerHTML = '<i class="bi bi-paperclip"></i> ' + (d.attachment_name || "Tệp đính kèm");
+                        attachWrap.appendChild(a);
                     }
 
                     renderComments(d.comments);
