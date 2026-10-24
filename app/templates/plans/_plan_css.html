@@ -182,4 +182,48 @@
     .sh-opt:disabled { opacity: .55; cursor: not-allowed; }
     .sh-opt i { font-size: 1.3rem; color: var(--ges-primary); }
     .sh-opt small { display: block; color: var(--bs-secondary-color); font-size: .74rem; }
+<
+    /* Emoji picker cho Lịch trình */
+    .pp-cmt-form .cmt-emoji-btn {
+        border-color: var(--bs-border-color, #cbd5e1);
+        background: transparent;
+        color: var(--bs-secondary-color, #64748b);
+        transition: all 0.15s ease;
+    }
+    .pp-cmt-form .cmt-emoji-btn:hover {
+        color: var(--ges-primary, #0284c7);
+        background: rgba(14, 165, 233, 0.08);
+    }
+    .pp-cmt-form .cmt-emoji-picker {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        right: 48px;
+        width: 270px;
+        background: var(--bs-body-bg, #ffffff);
+        border: 1px solid var(--bs-border-color, #e2e8f0);
+        z-index: 1050;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    .pp-cmt-form .cmt-emoji-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 2px;
+    }
+    .pp-cmt-form .cmt-emoji-item {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        font-size: 1.15rem;
+        cursor: pointer;
+        border-radius: 6px;
+        user-select: none;
+        transition: transform 0.1s, background 0.1s;
+    }
+    .pp-cmt-form .cmt-emoji-item:hover {
+        background: rgba(14, 165, 233, 0.15);
+        transform: scale(1.22);
+    }
 </style>

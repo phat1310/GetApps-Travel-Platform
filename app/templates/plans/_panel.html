@@ -239,10 +239,24 @@
             <span>Đang trả lời <b id="ppReplyName"></b></span>
             <button type="button" class="btn-close btn-close-sm" id="ppReplyCancel" aria-label="Hủy"></button>
         </div>
-        <form class="pp-cmt-form" data-pp-form="comment">
+        <form class="pp-cmt-form position-relative d-flex align-items-center gap-1" data-pp-form="comment">
             <input type="hidden" name="parent_id" value="">
-            <input type="text" class="form-control form-control-sm rounded-pill" maxlength="500" placeholder="Viết bình luận..." aria-label="Bình luận">
-            <button class="btn btn-primary btn-sm rounded-pill px-3" type="submit">Gửi</button>
+            <div class="input-group input-group-sm flex-grow-1">
+                <input type="text" class="form-control rounded-pill-start ps-3" maxlength="500" placeholder="Viết bình luận..." aria-label="Bình luận" id="ppCommentInput" autocomplete="off">
+                <button type="button" class="btn btn-outline-secondary border-start-0 cmt-emoji-btn rounded-pill-end pe-3" onclick="togglePlanEmojiPicker(event)" title="Chèn biểu tượng cảm xúc">
+                    <i class="bi bi-emoji-smile fs-6"></i>
+                </button>
+            </div>
+            <button class="btn btn-primary btn-sm rounded-pill px-3 flex-shrink-0" type="submit">Gửi</button>
+
+            <!-- Emoji Picker Popover cho Lịch trình -->
+            <div class="cmt-emoji-picker d-none p-2" id="planEmojiPicker">
+                <div class="cmt-emoji-grid">
+                    {% for em in ['❤️','🔥','👍','👏','🥰','😂','😍','🤩','🥳','✨','🎉','✈️','🏖️','🌴','⛰️','🏨','🍜','☕','🛵','📸','📍','☀️','🌈','💯','🙌','💖','😎','🤤','🥺','😮','😴','🎒'] %}
+                        <span class="cmt-emoji-item" onclick="insertPlanEmoji('{{ em }}')">{{ em }}</span>
+                    {% endfor %}
+                </div>
+            </div>
         </form>
         {% else %}
         <div class="small pp-muted"><a href="{{ url_for('auth.login') }}">Đăng nhập</a> để bình luận.</div>

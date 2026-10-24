@@ -48,3 +48,49 @@ def get_or_create_hashtag(name: str) -> Hashtag:
     tag = Hashtag(name=name)
     db.session.add(tag)
     return tag
+
+from sqlalchemy import func
+from app.models.hashtag import post_hashtags
+
+DEFAULT_TRENDING_HASHTAGS = [
+    "nguoidulich",
+    "khongquangcao",
+    "dalat",
+    "travelreview",
+    "checkin",
+    "vietnam",
+    "dulich",
+    "phuot",
+    "foodreview",
+    "homestay",
+]
+
+
+def get_top_hashtags(limit=10):
+    """Lấy danh sách tối đa `limit` hashtag được sử dụng nhiều nhất trong hệ thống.
+    Nếu chưa đủ dữ liệu thực tế hoặc ngoài app context, bù thêm các hashtag du lịch phổ biến mặc định."""
+    names = []
+    from flask import has_app_context
+    if has_app_context():
+        try:
+            rows = (
+                db.session.query(Hashtag.name, func.count(post_hashtags.c.post_id).label("cnt"))
+                .join(post_hashtags, Hashtag.id == post_hashtags.c.hashtag_id)
+                .group_by(Hashtag.id, Hashtag.name)
+                .order_by(db.desc("cnt"), Hashtag.id.asc())
+                .limit(limit)
+                .all()
+            )
+            names = [r[0] for r in rows if r[0]]
+        except Exception:
+            db.session.rollback()
+            names = []
+
+    for d in DEFAULT_TRENDING_HASHTAGS:
+        if len(names) >= limit:
+            break
+        if d not in names:
+            names.append(d)
+
+    return [f"#{n}" if not n.startswith("#") else n for n in names[:limit]]
+

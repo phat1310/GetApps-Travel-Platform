@@ -1853,3 +1853,12 @@ def upload_stop_image(stop_id):
 @login_required
 def new_itinerary_page():
     return redirect(url_for("locations.feed", compose="plan"))
+
+@locations_bp.route("/api/hashtags/top", methods=["GET"])
+def api_top_hashtags():
+    """API trả về top 10 hashtag được dùng nhiều nhất để hiển thị thanh gợi ý."""
+    from app.locations.hashtag_utils import get_top_hashtags
+    limit = min(max(request.args.get("limit", 10, type=int), 1), 30)
+    tags = get_top_hashtags(limit=limit)
+    return jsonify({"hashtags": tags})
+

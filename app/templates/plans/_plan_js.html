@@ -206,5 +206,35 @@
             history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
         }
     } catch (e) {}
+
+    // ---------- Emoji picker cho Lịch trình ----------
+    window.togglePlanEmojiPicker = function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const p = document.getElementById('planEmojiPicker');
+        if (p) p.classList.toggle('d-none');
+    };
+
+    window.insertPlanEmoji = function(emoji) {
+        const input = document.getElementById('ppCommentInput');
+        if (!input) return;
+        const start = input.selectionStart !== undefined ? input.selectionStart : input.value.length;
+        const end = input.selectionEnd !== undefined ? input.selectionEnd : input.value.length;
+        const text = input.value;
+        input.value = text.substring(0, start) + emoji + text.substring(end);
+        input.selectionStart = input.selectionEnd = start + emoji.length;
+        input.focus();
+        const p = document.getElementById('planEmojiPicker');
+        if (p) p.classList.add('d-none');
+    };
+
+    document.addEventListener('click', function(e) {
+        const picker = document.getElementById('planEmojiPicker');
+        if (picker && !picker.classList.contains('d-none')) {
+            if (!e.target.closest('#planEmojiPicker') && !e.target.closest('.cmt-emoji-btn')) {
+                picker.classList.add('d-none');
+            }
+        }
+    });
+
 })();
 </script>
