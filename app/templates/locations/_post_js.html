@@ -303,8 +303,13 @@
     }
 
     function currentUserAvatarHtml() {
-        const url = {{ current_user.avatar_url | tojson }};
-        const initial = {{ current_user.username[0]|upper|tojson }};
+        {% if current_user.is_authenticated %}
+        const url = {{ (current_user.avatar_url or '') | tojson }};
+        const initial = {{ (current_user.username[0]|upper if current_user.username else 'U') | tojson }};
+        {% else %}
+        const url = '';
+        const initial = 'U';
+        {% endif %}
         return url
             ? `<img src="${url}" alt="" class="avatar avatar-sm flex-shrink-0">`
             : `<span class="avatar-placeholder avatar-sm flex-shrink-0">${initial}</span>`;

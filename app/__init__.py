@@ -215,6 +215,19 @@ def create_app(config_override=None):
         from flask import request, jsonify, render_template
         desc = getattr(e, "description", None) or "Quá nhiều yêu cầu. Vui lòng thử lại sau ít phút."
         retry_after = getattr(e, "retry_after", None)
+
+        try:
+            from app.security_logging import log_security_event
+            log_security_event(
+                event_type="DDOS_RATE_LIMIT",
+                severity="WARNING",
+                status_code=429,
+                payload_snippet=f"Rate limit exceeded: {desc}",
+                action_taken="BLOCKED"
+            )
+        except Exception:
+            pass
+
         is_ajax = (
             request.is_json
             or request.headers.get("X-Requested-With") == "XMLHttpRequest"

@@ -121,3 +121,24 @@ def test_get_login_page_not_blocked_by_post_limit(rate_client):
     for _ in range(15):
         res = rate_client.get("/login")
         assert res.status_code == 200
+
+
+def test_rate_limiting_logs_security_event_automatically(rate_limit_app, rate_client):
+    """Khi người dùng bị chặn 429, hệ thống tự động ghi 1 dòng log DDOS_RATE_LIMIT vào SecurityLog."""
+    from app.models.security_log import SecurityLog
+
+    with rate_limit_app.app_context():
+        count_before = SecurityLog.query.filter_by(event_type="DDOS_RATE_LIMIT").count()
+
+    # Kích hoạt 429 bằng cách spam request
+    for _ in range(12):
+        rate_client.post("/login", json={"username": "testlimiter", "password": "wrong"})
+
+    with rate_limit_app.app_context():
+        count_after = SecurityLog.query.filter_by(event_type="DDOS_RATE_LIMIT").count()
+        assert count_after > count_before
+
+        latest_log = SecurityLog.query.filter_by(event_type="DDOS_RATE_LIMIT").order_by(SecurityLog.id.desc()).first()
+        assert latest_log.status_code == 429
+        assert latest_log.action_taken == "BLOCKED"
+        assert latest_log.endpoint == "/login"
