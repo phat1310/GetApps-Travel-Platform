@@ -2559,7 +2559,7 @@
         }
         function pick(u) {
             var t = input && token(input); if (!t) return closeBox();
-            var v = input.value, ins = '@' + u.username + ' ';
+            var v = input.value, ins = '@' + (u.display || u.username) + ' ';   // chèn tên hiển thị (có dấu) để gõ tự nhiên; server khớp lại bằng mentions.py
             input.value = v.slice(0, t.start) + ins + v.slice(t.end);
             var caret = t.start + ins.length; input.setSelectionRange(caret, caret);
             closeBox(); input.focus();

@@ -191,7 +191,7 @@
                             {% if c.author_username %}<a href="{{ url_for('auth.profile', username=c.author_username) }}" class="text-decoration-none fw-bold">{{ c.author_name }}</a>{% else %}<b>{{ c.author_name }}</b>{% endif %}
                         </div>
                         <div class="comment-text">
-                            {% if c.reply_to_name %}<a class="reply-mention">@{{ c.reply_to_name }}</a> {% endif %}{{ c.content }}
+                            {% if c.reply_to_name %}<a href="{{ url_for('auth.profile', username=c.reply_to_username) }}" class="reply-mention">@{{ c.reply_to_name }}</a> {% endif %}{{ c.content | mentions }}
                         </div>
                     </div>
                     <div class="pp-cmt-actions">

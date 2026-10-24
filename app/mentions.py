@@ -1,79 +1,95 @@
-"""Gắn thẻ người dùng trong bình luận: gõ @username -> hiện tên người, người được gắn nhận thông báo ở chuông.
+"""Gắn thẻ người dùng trong bình luận: gõ @username HOẶC @Tên hiển thị (có dấu, có khoảng trắng đều được)
+-> hiện tên người, bấm vào dẫn tới hồ sơ, người được gắn nhận thông báo ở chuông.
 
 Thiết kế an toàn:
-  * Nội dung bình luận vẫn lưu CHỮ THUẦN "@username" (không lưu HTML). Tên hiển thị được dựng lúc hiển thị
+  * Nội dung bình luận vẫn lưu CHỮ THUẦN "@..." (không lưu HTML). Tên hiển thị được dựng lúc hiển thị
     => người dùng đổi biệt danh thì mọi bình luận cũ tự đổi theo.
-  * SERVER tự quét @username trong nội dung rồi mới tạo thông báo; không tin danh sách người được tag do trình duyệt gửi.
-  * Khớp theo username đầy đủ (không phân biệt hoa/thường), ưu tiên chuỗi DÀI nhất ("@test_refactor" không bị hiểu thành "@test").
+  * SERVER tự quét lại trong nội dung rồi mới tạo thông báo; không tin danh sách người được tag do trình duyệt gửi.
+  * Khớp theo username / biệt danh / họ tên đầy đủ (không phân biệt hoa/thường), ƯU TIÊN CHUỖI DÀI NHẤT trước
+    ("Nguyễn Văn Mười" phải thắng "Nguyễn" dù cả 2 đều có thể là tên 1 ai đó).
   * Hiển thị bằng markupsafe: phần chữ thường luôn được escape, chỉ thẻ <a> do server dựng mới là HTML.
-  * Chỉ quét 5000 ký tự đầu, tối đa 5 người mỗi bình luận.
+  * Chỉ quét 5000 ký tự đầu, tối đa 80 ký tự cho mỗi tên sau '@', tối đa 5 người mỗi bình luận.
 """
 import re
 import unicodedata
 
 from markupsafe import Markup, escape
 from flask import url_for
-from sqlalchemy import func
 
 from app.extensions import db
 
 MAX_MENTIONS = 5
 SCAN_LIMIT = 5000
-# '@' không đứng sau chữ/ký tự username (tránh bắt email a@b.com), username 3-64 ký tự
-_MENTION_RE = re.compile(r"(?<![\w@.\-])@([\w.\-]{3,64})", re.UNICODE)
+MAX_NAME_CHARS = 80
+# '@' không đứng sau chữ/ký tự username (tránh bắt email a@b.com)
+_AT_RE = re.compile(r"(?<![\w@.\-])@", re.UNICODE)
 
 
 def display_name(user):
     return user.nickname or user.full_name or user.username
 
 
-def _candidates(token):
-    """Các username có thể từ một cụm sau '@', dài nhất trước: 'test.' -> 'test'; 'a.b' -> 'a.b', 'a'."""
-    t = token.rstrip(".-")
+def _mention_candidates():
+    """-> list[(tên_chuẩn_hoá_thường, độ_dài, user_id)] của TẤT CẢ username/biệt danh/họ tên trên hệ thống,
+    sắp xếp DÀI NHẤT trước để so khớp "tham lam" đúng kiểu (vd "Nguyễn Văn Mười" thắng "Nguyễn Văn")."""
+    from app.models import User
+    rows = User.query.with_entities(User.id, User.username, User.nickname, User.full_name).all()
     out = []
-    if len(t) >= 3:
-        out.append(t)
-    for i in range(len(t) - 1, 2, -1):
-        if t[i] in ".-":
-            out.append(t[:i])
+    for uid, uname, nick, full in rows:
+        for cand in (uname, nick, full):
+            if not cand:
+                continue
+            norm = re.sub(r"\s+", " ", cand.strip())
+            if len(norm) >= 2:
+                out.append((norm.lower(), len(norm), uid))
+    out.sort(key=lambda t: -t[1])
     return out
 
 
 def find_mentions(text):
-    """-> list[(start, end, User)] theo thứ tự xuất hiện (start là vị trí '@', end là sau ký tự cuối của username)."""
+    """-> list[(start, end, User)] theo thứ tự xuất hiện (start là vị trí '@', end là sau ký tự cuối của tên).
+    Khớp cả username thuần ("@phucsikai") lẫn tên hiển thị có dấu/khoảng trắng ("@Nguyễn Văn Mười")."""
     from app.models import User
     text = (text or "")[:SCAN_LIMIT]
     if "@" not in text:
         return []
-    found = []
-    wanted = set()
-    for m in _MENTION_RE.finditer(text):
-        cands = _candidates(m.group(1))
-        if cands:
-            found.append((m.start(), cands))
-            wanted.update(c.lower() for c in cands)
-    if not wanted:
+    at_ends = [m.end() for m in _AT_RE.finditer(text)]   # vị trí ngay SAU dấu '@'
+    if not at_ends:
         return []
-    users = {u.username.lower(): u for u in User.query.filter(func.lower(User.username).in_(wanted)).all()}
-    out = []
-    for start, cands in found:
-        for c in cands:
-            u = users.get(c.lower())
-            if u:
-                out.append((start, start + 1 + len(c), u))
-                break
-    return out
+    candidates = _mention_candidates()
+    if not candidates:
+        return []
+
+    found = []
+    for at_end in at_ends:
+        rest_lower = text[at_end:at_end + MAX_NAME_CHARS].lower()
+        for norm_lower, length, uid in candidates:
+            if not rest_lower.startswith(norm_lower):
+                continue
+            # ranh giới: ký tự ngay sau tên không được là chữ/số (tránh "@An" ăn lẹm vào "Anh")
+            nxt = rest_lower[length:length + 1]
+            if nxt and (nxt.isalnum() or nxt in "._-"):
+                continue
+            found.append((at_end - 1, at_end + length, uid))
+            break
+
+    if not found:
+        return []
+    id_map = {u.id: u for u in User.query.filter(User.id.in_({uid for *_r, uid in found})).all()}
+    return [(s, e, id_map[uid]) for s, e, uid in found if uid in id_map]
 
 
-def strip_leading_self_mention(content, reply_to_username):
-    """Nếu nội dung MỞ ĐẦU bằng đúng @<người đang được trả lời> thì bỏ cụm đó khi hiển thị
-    (chỉ ảnh hưởng hiển thị, KHÔNG đổi dữ liệu đã lưu trong DB) — tránh lặp vì giao diện đã tự
-    hiện thẻ '@người' phía trước nội dung rồi (người dùng có thói quen tự gõ thêm @tên khi trả lời
-    sẽ ra "@@ten" nếu không lọc). Chỉ khớp ĐÚNG username đó, không khớp username khác bắt đầu giống vậy."""
-    if not content or not reply_to_username:
+def strip_leading_self_mention(content, reply_to_user):
+    """Nếu mention ĐẦU TIÊN trong nội dung (ngay vị trí 0) là tag tới ĐÚNG người đang được trả lời
+    thì bỏ khi hiển thị (chỉ ảnh hưởng hiển thị, KHÔNG đổi dữ liệu đã lưu trong DB) — tránh lặp vì
+    giao diện đã tự hiện thẻ '@người' phía trước nội dung rồi (người dùng có thói quen tự gõ thêm
+    @tên khi trả lời sẽ ra "@@ten" nếu không lọc). `reply_to_user` là đối tượng User, không phải chuỗi."""
+    if not content or not reply_to_user:
         return content
-    pat = re.compile(r"^@" + re.escape(reply_to_username) + r"(?![\w.\-])\s*", re.IGNORECASE | re.UNICODE)
-    return pat.sub("", content, count=1)
+    ms = find_mentions(content)
+    if ms and ms[0][0] == 0 and ms[0][2].id == reply_to_user.id:
+        return content[ms[0][1]:].lstrip()
+    return content
 
 
 def mentioned_users(text, limit=MAX_MENTIONS):

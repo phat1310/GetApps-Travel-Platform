@@ -207,7 +207,7 @@
                                                                     {% if reply.author_username %}<a href="{{ url_for('auth.profile', username=reply.author_username) }}" class="text-decoration-none"><strong class="text-dark">{{ reply.author_name }}</strong></a>{% else %}<strong class="text-dark">{{ reply.author_name }}</strong>{% endif %}
                                                                 </div>
                                                                 <div class="comment-text">
-                                                                    {% if reply.reply_to_name %}<a href="javascript:void(0)" class="text-decoration-none reply-mention">@{{ reply.reply_to_name }}</a> {% endif %}{{ reply.content | mentions }}
+                                                                    {% if reply.reply_to_name %}<a href="{{ url_for('auth.profile', username=reply.reply_to_username) }}" class="text-decoration-none reply-mention">@{{ reply.reply_to_name }}</a> {% endif %}{{ reply.content | mentions }}
                                                                 </div>
                                                                 <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                                                     <span>{{ time_tag(reply.created_dt) }}</span>

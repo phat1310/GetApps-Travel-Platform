@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 
 from app.locations import locations_bp
 from app.notifications import notify
-from app.mentions import notify_mentions, notify_new_mentions, render_mentions, strip_leading_self_mention, suggest as suggest_mentions
+from app.mentions import display_name as mention_display_name, notify_mentions, notify_new_mentions, render_mentions, strip_leading_self_mention, suggest as suggest_mentions
 from app.extensions import db
 from sqlalchemy.exc import IntegrityError
 from app.models import (
@@ -516,13 +516,14 @@ def build_comments_tree(comments, viewer_id):
 
     def _fmt(c, c_author, reply_to_author=None):
         lk = cmt_likes.get(c.id, {"count": 0, "mine": False})
-        display_content = strip_leading_self_mention(c.content, reply_to_author.username) if reply_to_author else c.content
+        display_content = strip_leading_self_mention(c.content, reply_to_author) if reply_to_author else c.content
         return {
             "id": c.id,
             "user_id": c.user_id,
             "parent_id": c.parent_id,
             "reply_to_id": c.reply_to_id,
-            "reply_to_name": reply_to_author.username if reply_to_author else None,
+            "reply_to_name": mention_display_name(reply_to_author) if reply_to_author else None,
+            "reply_to_username": reply_to_author.username if reply_to_author else None,
             "author_name": c_author.username if c_author else f"User #{c.user_id}",
             "author_username": c_author.username if c_author else None,
             "author_avatar": c_author.avatar_url if c_author else None,
@@ -827,7 +828,7 @@ def create_comment(post_id):
     db.session.commit()
 
     reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
-    display_content = strip_leading_self_mention(comment.content, reply_to_author.username) if reply_to_author else comment.content
+    display_content = strip_leading_self_mention(comment.content, reply_to_author) if reply_to_author else comment.content
 
     return jsonify({
         "message": "Bình luận thành công",
@@ -837,7 +838,8 @@ def create_comment(post_id):
             "post_id": comment.post_id,
             "parent_id": comment.parent_id,
             "reply_to_id": comment.reply_to_id,
-            "reply_to_name": reply_to_author.username if reply_to_author else None,
+            "reply_to_name": mention_display_name(reply_to_author) if reply_to_author else None,
+            "reply_to_username": reply_to_author.username if reply_to_author else None,
             "author_username": current_user.username,
             "author_avatar": current_user.avatar_url,
             "content": display_content,
@@ -1656,7 +1658,7 @@ def create_itinerary_comment(itinerary_id):
     db.session.commit()
 
     reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
-    display_content = strip_leading_self_mention(comment.content, reply_to_author.username) if reply_to_author else comment.content
+    display_content = strip_leading_self_mention(comment.content, reply_to_author) if reply_to_author else comment.content
 
     return jsonify({
         "message": "Đã bình luận",
@@ -1665,7 +1667,8 @@ def create_itinerary_comment(itinerary_id):
             "user_id": comment.user_id,
             "parent_id": comment.parent_id,
             "reply_to_id": comment.reply_to_id,
-            "reply_to_name": reply_to_author.username if reply_to_author else None,
+            "reply_to_name": mention_display_name(reply_to_author) if reply_to_author else None,
+            "reply_to_username": reply_to_author.username if reply_to_author else None,
             "author_username": current_user.username,
             "author_avatar": current_user.avatar_url,
             "content": display_content,

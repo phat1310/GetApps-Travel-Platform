@@ -158,8 +158,15 @@
             '</div></div></div>';
         row.querySelector('.comment-name a').textContent = c.author_username;   // textContent: không chèn HTML
         const textEl = row.querySelector('.comment-text');
-        if (c.reply_to_name) { const m = document.createElement('a'); m.className = 'reply-mention'; m.textContent = '@' + c.reply_to_name; textEl.appendChild(m); textEl.appendChild(document.createTextNode(' ')); }
-        textEl.appendChild(document.createTextNode(text));
+        if (c.reply_to_name) {
+            const m = document.createElement('a');
+            m.className = 'reply-mention';
+            m.href = '/profile/' + encodeURIComponent(c.reply_to_username || '');
+            m.textContent = '@' + c.reply_to_name;
+            textEl.appendChild(m);
+            textEl.appendChild(document.createTextNode(' '));
+        }
+        textEl.insertAdjacentHTML('beforeend', c.content_html || '');   // content_html do SERVER dựng (đã escape + gắn link @mention)
         if (parentId) {
             let wrap = $('.pp-cmt-item[data-cid="' + parentId + '"]', $('#ppCmtList')).nextElementSibling;
             if (!wrap || !wrap.classList.contains('pp-cmt-replies')) {

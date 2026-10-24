@@ -356,7 +356,7 @@
                         thread.appendChild(repliesBox);
                     }
                     const mentionHtml = c.reply_to_name
-                        ? `<a href="javascript:void(0)" class="text-decoration-none reply-mention">@${escapeHtml(c.reply_to_name)}</a> `
+                        ? `<a href="/profile/${encodeURIComponent(c.reply_to_username || '')}" class="text-decoration-none reply-mention">@${escapeHtml(c.reply_to_name)}</a> `
                         : '';
                     const replyHtml = `
                         <div class="comment-box comment-reply d-flex align-items-start gap-2" id="comment-item-${c.id}">
