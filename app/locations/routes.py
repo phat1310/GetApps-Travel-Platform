@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from app.locations import locations_bp
 from app.notifications import notify
 from app.mentions import display_name as mention_display_name, notify_mentions, notify_new_mentions, render_mentions, strip_leading_self_mention, suggest as suggest_mentions
+from app.security_logging import log_security_event, detect_xss
 from app.extensions import db
 from sqlalchemy.exc import IntegrityError
 from app.models import (
@@ -789,6 +790,11 @@ def create_comment(post_id):
     data = request.get_json() or {}
     content = data.get("content", "").strip()
 
+    if detect_xss(content):
+        log_security_event(event_type="XSS_DETECTED", severity="CRITICAL",
+                            status_code=201, payload_snippet=content,
+                            action_taken="LOGGED_ONLY")  # vẫn lưu bình thường — Jinja autoescape + escapeHtml() lo phần hiển thị an toàn
+
     if not content:
         return jsonify({
             "error": "Nội dung bình luận không được để trống"
@@ -1169,6 +1175,11 @@ def repost_post(post_id):
     note = (data.get("note") or "").strip()
     if len(note) > 500:
         return jsonify({"error": "Ghi chú tối đa 500 ký tự"}), 400
+
+    if detect_xss(note):
+        log_security_event(event_type="XSS_DETECTED", severity="CRITICAL",
+                            status_code=201, payload_snippet=note,
+                            action_taken="LOGGED_ONLY")  # vẫn lưu — Jinja autoescape {{ post.repost_note }} lo phần hiển thị an toàn
 
     # Mỗi user chỉ repost một bài gốc một lần
     existing = Share.query.filter_by(
@@ -1626,6 +1637,12 @@ def create_itinerary_comment(itinerary_id):
     plan = visible_itinerary_or_404(itinerary_id)
     data = request.get_json() or {}
     content = (data.get("content") or "").strip()
+
+    if detect_xss(content):
+        log_security_event(event_type="XSS_DETECTED", severity="CRITICAL",
+                            status_code=201, payload_snippet=content,
+                            action_taken="LOGGED_ONLY")
+
     if not content:
         return jsonify({"error": "Nội dung bình luận không được rỗng"}), 400
 

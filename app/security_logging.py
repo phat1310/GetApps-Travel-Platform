@@ -24,6 +24,8 @@ Cách dùng (ví dụ cho từng người):
 
     # Khánh — đã gọi sẵn trong app/admin/decorators.py khi admin_required chặn 403.
 """
+import re
+
 from flask import request
 from flask_login import current_user
 
@@ -38,6 +40,33 @@ VALID_EVENT_TYPES = {
     "ACCESS_DENIED_403",
 }
 VALID_SEVERITIES = {"INFO", "WARNING", "CRITICAL"}
+
+# ---------------------------------------------------------------------------
+# Nhận diện pattern khả nghi — CHỈ dùng để QUYẾT ĐỊNH CÓ GHI LOG hay không.
+# Việc chặn/escape thật sự vẫn do SQLAlchemy ORM (parameterized query) và
+# Jinja2 autoescape/escapeHtml() lo như cũ — 2 hàm này không thay đổi logic xử lý,
+# chỉ "bắt mạch" input nghi vấn để bảng /admin/security-logs có dữ liệu hiển thị.
+# Cố tình để regex khá rộng (thà báo nhầm còn hơn bỏ sót) vì mục đích là DEMO giám sát,
+# không phải bộ lọc chặn (nên không lo chặn oan người dùng thật).
+# ---------------------------------------------------------------------------
+_SQLI_PATTERN = re.compile(
+    r"(\bOR\b\s+['\"]?\d+['\"]?\s*=\s*['\"]?\d+|\bUNION\b\s+\bSELECT\b|--|\b#|/\*|'\s*;|\bDROP\b\s+\bTABLE\b|\bSLEEP\s*\()",
+    re.IGNORECASE,
+)
+_XSS_PATTERN = re.compile(
+    r"(<script|<img[^>]+onerror|<svg[^>]+onload|javascript:|on(error|load|click|mouseover)\s*=)",
+    re.IGNORECASE,
+)
+
+
+def detect_sqli(text):
+    """True nếu chuỗi CHỨA pattern SQLi điển hình (OR 1=1, UNION SELECT, comment --, ...)."""
+    return bool(text) and bool(_SQLI_PATTERN.search(text))
+
+
+def detect_xss(text):
+    """True nếu chuỗi CHỨA pattern XSS điển hình (<script>, onerror=, javascript:, ...)."""
+    return bool(text) and bool(_XSS_PATTERN.search(text))
 
 
 def log_security_event(event_type, severity="WARNING", status_code=403,

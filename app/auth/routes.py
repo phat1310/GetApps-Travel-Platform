@@ -47,6 +47,7 @@ from app.presence import presence_state
 from app.timeutil import relative_label
 from app.notifications import notify
 from app.extensions import db, csrf, limiter
+from app.security_logging import log_security_event, detect_sqli
 import app.locations.places as places
 from app.models import (
     Comment,
@@ -171,6 +172,11 @@ def search_page():
     tab = (request.args.get('tab') or 'all').strip().lower()
     if tab not in ('all', 'users', 'posts', 'locations'):
         tab = 'all'
+
+    if detect_sqli(q):
+        log_security_event(event_type="SQLI_DETECTED", severity="WARNING",
+                            status_code=200, payload_snippet=q,
+                            action_taken="LOGGED_ONLY")  # vẫn trả kết quả bình thường (ORM tự an toàn), chỉ ghi nhận để theo dõi
 
     viewer_id = current_user.id if current_user.is_authenticated else None
     viewer_follow = viewer_follow_set(viewer_id)
@@ -548,6 +554,11 @@ def login():
         if not raw_val or not password:
             return jsonify({"error": "Sai username hoặc password"}), 401
 
+        if detect_sqli(raw_val):
+            log_security_event(event_type="SQLI_DETECTED", severity="CRITICAL",
+                                status_code=401, payload_snippet=raw_val,
+                                action_taken="BLOCKED")
+
         user = User.query.filter(
             or_(
                 func.lower(User.username) == raw_val.lower(),
@@ -568,6 +579,11 @@ def login():
     if form.validate_on_submit():
         login_val = form.username.data.strip()
         password = form.password.data
+
+        if detect_sqli(login_val):
+            log_security_event(event_type="SQLI_DETECTED", severity="CRITICAL",
+                                status_code=401, payload_snippet=login_val,
+                                action_taken="BLOCKED")
 
         user = User.query.filter(
             or_(
