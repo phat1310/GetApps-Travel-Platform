@@ -43,6 +43,73 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    function csrf() {
+        var m = document.querySelector('meta[name="csrf-token"]');
+        return m ? m.getAttribute("content") : "";
+    }
+
+    function renderComments(comments) {
+        var wrap = document.getElementById("pdm-comments-list");
+        var base = wrap.getAttribute("data-delete-base");
+        wrap.innerHTML = "";
+        if (!comments || !comments.length) {
+            wrap.innerHTML = '<div class="text-secondary small">(Chưa có bình luận nào)</div>';
+            return;
+        }
+        comments.forEach(function (c) {
+            var row = document.createElement("div");
+            row.className = "d-flex justify-content-between align-items-start mb-2 pb-2";
+            row.style.borderBottom = "1px solid #334155";
+            row.dataset.commentId = c.id;
+
+            var left = document.createElement("div");
+            left.style.minWidth = "0";
+            var head = document.createElement("div");
+            head.className = "small text-secondary";
+            head.innerHTML = (c.is_reply ? '<span class="badge bg-secondary bg-opacity-50 me-1">trả lời</span>' : "") +
+                '<strong style="color:#38bdf8;">' + c.author + "</strong> &middot; " + c.created_at;
+            var body = document.createElement("div");
+            body.style.whiteSpace = "pre-wrap";
+            body.style.wordBreak = "break-word";
+            body.textContent = c.content;
+            left.appendChild(head);
+            left.appendChild(body);
+
+            var delBtn = document.createElement("button");
+            delBtn.className = "btn btn-sm btn-outline-light flex-shrink-0 ms-2";
+            delBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            delBtn.title = "Xóa bình luận này";
+            delBtn.addEventListener("click", function () {
+                if (!confirm("Xóa bình luận này?")) return;
+                var delUrl = base.replace("/0/", "/" + c.id + "/");
+                fetch(delUrl, {
+                    method: "POST",
+                    headers: { "X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf() },
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        (res.deleted_ids || [c.id]).forEach(function (id) {
+                            var node = wrap.querySelector('[data-comment-id="' + id + '"]');
+                            if (node) node.remove();
+                        });
+                        var countEl = document.getElementById("pdm-comment-count");
+                        var n = parseInt(countEl.textContent, 10) || 0;
+                        countEl.textContent = Math.max(0, n - (res.deleted_count || 1));
+                        if (!wrap.children.length) {
+                            wrap.innerHTML = '<div class="text-secondary small">(Chưa có bình luận nào)</div>';
+                        }
+                    })
+                    .catch(function () {
+                        alert("Không xóa được bình luận.");
+                    });
+            });
+
+            row.appendChild(left);
+            row.appendChild(delBtn);
+            wrap.appendChild(row);
+        });
+    }
+
     document.querySelectorAll(".adm-row-click").forEach(function (row) {
         row.addEventListener("click", function () {
             var url = row.getAttribute("data-detail-url");
@@ -56,6 +123,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     document.getElementById("pdm-comment-count").textContent = d.comment_count;
                     document.getElementById("pdm-caption").textContent = d.caption || "(không có chữ)";
                     fillMedia(d.media);
+                    renderComments(d.comments);
                     setHideButton(d.is_hidden);
 
                     var hideForm = document.getElementById("pdm-form-hide");
