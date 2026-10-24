@@ -17,7 +17,11 @@ from app.admin.decorators import admin_required
 from app.extensions import db
 from app.models.user import User
 from app.models.post import Post
+from app.models.photo import Photo
+from app.models.comment import Comment
+from app.models.itinerary import Itinerary
 from app.models.security_log import SecurityLog
+from app.notifications import notify_removal
 
 
 # ---------------------------------------------------------------- Dashboard
@@ -123,9 +127,40 @@ def posts():
     author_ids = {p.user_id for p in pagination.items}
     authors = {u.id: u for u in User.query.filter(User.id.in_(author_ids)).all()} if author_ids else {}
 
+    post_ids = [p.id for p in pagination.items]
+    # Ảnh đại diện (ảnh đầu tiên) của mỗi post -> 1 query, tránh N+1.
+    thumbs = {}
+    if post_ids:
+        for ph in Photo.query.filter(Photo.post_id.in_(post_ids)).order_by(Photo.post_id, Photo.id).all():
+            thumbs.setdefault(ph.post_id, ph)
+    # Số bình luận của mỗi post -> 1 query GROUP BY, tránh N+1.
+    comment_counts = {}
+    if post_ids:
+        rows = (
+            db.session.query(Comment.post_id, db.func.count(Comment.id))
+            .filter(Comment.post_id.in_(post_ids))
+            .group_by(Comment.post_id)
+            .all()
+        )
+        comment_counts = dict(rows)
+
     return render_template(
-        "admin/posts.html", posts=pagination.items, pagination=pagination, q=q, authors=authors
+        "admin/posts.html", posts=pagination.items, pagination=pagination, q=q,
+        authors=authors, thumbs=thumbs, comment_counts=comment_counts,
     )
+
+
+@admin_bp.route("/posts/<int:post_id>/toggle-hide", methods=["POST"])
+@login_required
+@admin_required
+def toggle_hide_post(post_id):
+    """Khóa/mở khóa bài viết — ẩn khỏi mọi người (trừ admin & chính chủ) mà KHÔNG xóa dữ liệu.
+    Dùng khi nghi ngờ vi phạm nhưng chưa cần xóa vĩnh viễn (có thể mở khóa lại nếu xét sai)."""
+    post = Post.query.get_or_404(post_id)
+    post.is_hidden = not post.is_hidden
+    db.session.commit()
+    flash(f"Đã {'khóa' if post.is_hidden else 'mở khóa'} bài viết #{post_id}.", "success")
+    return redirect(request.referrer or url_for("admin.posts"))
 
 
 @admin_bp.route("/posts/<int:post_id>/delete", methods=["POST"])
@@ -133,10 +168,72 @@ def posts():
 @admin_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
+    owner_id = post.user_id
     db.session.delete(post)
+    # post_id=None (bắt buộc) để thông báo không bị cascade "delete-orphan" xóa theo bài vừa xóa.
+    notify_removal(owner_id, current_user.id, "post_removed")
     db.session.commit()
-    flash(f"Đã xóa bài viết #{post_id}.", "success")
+    flash(f"Đã xóa bài viết #{post_id} và thông báo cho người dùng.", "success")
     return redirect(request.referrer or url_for("admin.posts"))
+
+
+# --------------------------------------------------------- Quản lý Lịch trình
+@admin_bp.route("/itineraries")
+@login_required
+@admin_required
+def itineraries():
+    q = request.args.get("q", "").strip()
+    query = Itinerary.query.join(User, Itinerary.user_id == User.id)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            db.or_(Itinerary.title.ilike(like), User.username.ilike(like))
+        )
+    page = request.args.get("page", 1, type=int)
+    pagination = query.order_by(Itinerary.id.desc()).paginate(page=page, per_page=20, error_out=False)
+
+    author_ids = {it.user_id for it in pagination.items}
+    authors = {u.id: u for u in User.query.filter(User.id.in_(author_ids)).all()} if author_ids else {}
+
+    it_ids = [it.id for it in pagination.items]
+    comment_counts = {}
+    if it_ids:
+        rows = (
+            db.session.query(Comment.itinerary_id, db.func.count(Comment.id))
+            .filter(Comment.itinerary_id.in_(it_ids))
+            .group_by(Comment.itinerary_id)
+            .all()
+        )
+        comment_counts = dict(rows)
+
+    return render_template(
+        "admin/itineraries.html", itineraries=pagination.items, pagination=pagination, q=q,
+        authors=authors, comment_counts=comment_counts,
+    )
+
+
+@admin_bp.route("/itineraries/<int:itinerary_id>/toggle-hide", methods=["POST"])
+@login_required
+@admin_required
+def toggle_hide_itinerary(itinerary_id):
+    it = Itinerary.query.get_or_404(itinerary_id)
+    it.is_hidden = not it.is_hidden
+    db.session.commit()
+    flash(f"Đã {'khóa' if it.is_hidden else 'mở khóa'} lịch trình #{itinerary_id}.", "success")
+    return redirect(request.referrer or url_for("admin.itineraries"))
+
+
+@admin_bp.route("/itineraries/<int:itinerary_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_itinerary(itinerary_id):
+    it = Itinerary.query.get_or_404(itinerary_id)
+    owner_id = it.user_id
+    db.session.delete(it)
+    notify_removal(owner_id, current_user.id, "itinerary_removed")
+    db.session.commit()
+    flash(f"Đã xóa lịch trình #{itinerary_id} và thông báo cho người dùng.", "success")
+    return redirect(request.referrer or url_for("admin.itineraries"))
 
 
 # ------------------------------------------------------ Nhật ký An ninh (Phát)

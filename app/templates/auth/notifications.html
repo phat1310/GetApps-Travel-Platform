@@ -117,6 +117,9 @@
                 {% for n in notifications %}
                     {% set actor = n.actor %}
                     {% set who = (actor.nickname or actor.full_name or actor.username) if actor else 'Một người dùng' %}
+                    {% if n.notification_type in ('post_removed', 'itinerary_removed') %}
+                        {% set who = 'Quản trị viên hệ thống' %}
+                    {% endif %}
                     {% if n.itinerary_id and n.itinerary %}
                         {% set target_url = url_for('plans.index', open=n.itinerary_id) %}
                         {% set what = 'lịch trình' %}
@@ -148,6 +151,8 @@
                                 <div class="notif-badge-icon bg-info"><i class="bi bi-person-plus-fill"></i></div>
                             {% elif n.notification_type == 'mention' %}
                                 <div class="notif-badge-icon bg-warning"><i class="bi bi-at"></i></div>
+                            {% elif n.notification_type in ('post_removed', 'itinerary_removed') %}
+                                <div class="notif-badge-icon bg-danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
                             {% else %}
                                 <div class="notif-badge-icon bg-secondary"><i class="bi bi-bell-fill"></i></div>
                             {% endif %}
@@ -166,6 +171,10 @@
                                 {% elif n.notification_type == 'mention' %}
                                     {% set _pv = previews.get(('post', n.post_id)) if n.post_id else None %}
                                     <span class="text-secondary">{% if _pv and _pv.in_caption %}đã nhắc đến bạn trong một bài viết.{% else %}đã nhắc đến bạn trong một bình luận về {{ what or 'bài viết' }}.{% endif %}</span>
+                                {% elif n.notification_type == 'post_removed' %}
+                                    <span class="text-danger fw-semibold">đã xóa bài đăng của bạn do có hành vi đáng ngờ.</span>
+                                {% elif n.notification_type == 'itinerary_removed' %}
+                                    <span class="text-danger fw-semibold">đã xóa lịch trình của bạn do có hành vi đáng ngờ.</span>
                                 {% else %}
                                     <span class="text-secondary">đã tương tác với bạn.</span>
                                 {% endif %}
