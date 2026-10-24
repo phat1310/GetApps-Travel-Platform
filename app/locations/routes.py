@@ -11,18 +11,22 @@ from werkzeug.utils import secure_filename
 
 from app.locations import locations_bp
 from app.notifications import notify
-from app.mentions import notify_mentions, notify_new_mentions, render_mentions, suggest as suggest_mentions
-from app.extensions import db, limiter
+from app.mentions import display_name as mention_display_name, notify_mentions, notify_new_mentions, render_mentions, strip_leading_self_mention, suggest as suggest_mentions
+from app.security_logging import log_security_event, detect_xss
+from app.extensions import db
+from sqlalchemy.exc import IntegrityError
 from app.models import (
     Post, Photo, Like, Comment, Share, SavedPost, Location, User,
     Itinerary, ItineraryDay, ItineraryStop, ItineraryLodging, ItineraryAttachment,
     Notification,
 )
+from app.models.comment import CommentLike
 from app.locations.utils import get_or_create_location, normalize_location_name
 import app.locations.places as places
 from app.locations.places import resolve_location
 from app.locations.hashtag_utils import parse_hashtags, get_or_create_hashtag
 from app.locations.serializers import serialize_posts
+from app.timeutil import to_vn
 from app.locations.maplinks import parse_map_links, attach_map_links, visible_links, POST_LIMIT
 from app.locations.discovery import (
     popular_locations, suggest_users, following_ids, root_post, can_view_post,
@@ -67,8 +71,7 @@ def visible_itinerary_or_404(itinerary_id):
     it = db.session.get(Itinerary, itinerary_id)
     if it is None:
         abort(404)
-    viewer_id = current_user.id if current_user.is_authenticated else None
-    if not can_view_itinerary(it, viewer_id, following_ids(viewer_id) if viewer_id else set()):
+    if not can_view_itinerary(it, current_user.id, following_ids(current_user.id)):
         abort(404)
     return it
 
@@ -79,7 +82,6 @@ def visible_itinerary_or_404(itinerary_id):
 
 @locations_bp.route("/upload", methods=["GET", "POST"])
 @login_required
-@limiter.limit("15 per minute", methods=["POST"])
 def create_post():
     if request.method == "GET":
         # Trang riêng đã bỏ: mở hộp "Tạo mới" (nút máy bay) ở tab Đăng bài
@@ -475,6 +477,85 @@ def delete_photo(photo_id):
 # FEED
 # =========================================================
 
+def comment_like_map(comment_ids, viewer_id):
+    """{comment_id: {"count": n, "mine": bool}} — dùng chung cho comment bài đăng lẫn lịch trình."""
+    if not comment_ids:
+        return {}
+    rows = CommentLike.query.filter(CommentLike.comment_id.in_(comment_ids)).all()
+    out = {}
+    for r in rows:
+        d = out.setdefault(r.comment_id, {"count": 0, "mine": False})
+        d["count"] += 1
+        if r.user_id == viewer_id:
+            d["mine"] = True
+    return out
+
+
+@locations_bp.route("/api/comments/<int:comment_id>/like", methods=["POST"])
+@login_required
+def toggle_comment_like(comment_id):
+    """Thả / bỏ tim 1 bình luận (bài đăng hoặc lịch trình đều dùng chung route này)."""
+    c = db.session.get(Comment, comment_id)
+    if not c:
+        abort(404)
+    existing = CommentLike.query.filter_by(comment_id=c.id, user_id=current_user.id).first()
+    if existing:
+        db.session.delete(existing)
+    else:
+        db.session.add(CommentLike(comment_id=c.id, user_id=current_user.id))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+    lk = comment_like_map([c.id], current_user.id).get(c.id, {"count": 0, "mine": False})
+    return jsonify({"likes_count": lk["count"], "is_liked": lk["mine"]})
+
+
+def build_comments_tree(comments, viewer_id):
+    """Cây bình luận (name/content tách dòng, @mention reply, thả tim) — dùng chung cho bài đăng VÀ lịch trình."""
+    cmt_likes = comment_like_map([c.id for c in comments], viewer_id)
+
+    def _fmt(c, c_author, reply_to_author=None):
+        lk = cmt_likes.get(c.id, {"count": 0, "mine": False})
+        display_content = strip_leading_self_mention(c.content, reply_to_author) if reply_to_author else c.content
+        return {
+            "id": c.id,
+            "user_id": c.user_id,
+            "parent_id": c.parent_id,
+            "reply_to_id": c.reply_to_id,
+            "reply_to_name": mention_display_name(reply_to_author) if reply_to_author else None,
+            "reply_to_username": reply_to_author.username if reply_to_author else None,
+            "author_name": c_author.username if c_author else f"User #{c.user_id}",
+            "author_username": c_author.username if c_author else None,
+            "author_avatar": c_author.avatar_url if c_author else None,
+            "content": display_content,
+            "created_at": to_vn(c.created_at).strftime("%H:%M %d/%m/%Y") if c.created_at else "",
+            "created_dt": c.created_at,
+            "can_delete": (c.user_id == viewer_id),
+            "likes_count": lk["count"],
+            "is_liked": lk["mine"],
+            "replies": [],
+        }
+
+    by_id = {}
+    top_level = []
+    for c in comments:
+        c_author = db.session.get(User, c.user_id)
+        reply_to_author = None
+        if c.reply_to_id:
+            reply_to_comment = db.session.get(Comment, c.reply_to_id)
+            if reply_to_comment:
+                reply_to_author = db.session.get(User, reply_to_comment.user_id)
+        by_id[c.id] = _fmt(c, c_author, reply_to_author)
+    for c in comments:
+        node = by_id[c.id]
+        if c.parent_id and c.parent_id in by_id:
+            by_id[c.parent_id]["replies"].append(node)
+        else:
+            top_level.append(node)
+    return top_level
+
+
 def build_post_cards(posts, viewer_id):
     """Dữ liệu thẻ bài viết (bảng tin + tab "Bài viết" ở trang cá nhân dùng chung 1 mẫu: locations/_post_card.html).
     `posts` đã được lọc quyền xem ở nơi gọi. `is_mine` / `edit_data` chỉ bật cho chủ bài."""
@@ -492,19 +573,7 @@ def build_post_cards(posts, viewer_id):
         comments_count = len(comments)
         is_saved = bool(SavedPost.query.filter_by(user_id=viewer_id, post_id=p.id).first())
         shares_count = Share.query.filter_by(post_id=p.id).count()
-
-        formatted_comments = []
-        for c in comments:
-            c_author = db.session.get(User, c.user_id)
-            formatted_comments.append({
-                "id": c.id,
-                "user_id": c.user_id,
-                "author_name": c_author.username if c_author else f"User #{c.user_id}",
-                "author_username": c_author.username if c_author else None,
-                "content": c.content,
-                "created_at": c.created_at.strftime("%H:%M %d/%m/%Y") if c.created_at else "",
-                "can_delete": (c.user_id == viewer_id)
-            })
+        formatted_comments = build_comments_tree(comments, viewer_id)
 
         post_cards.append({
             "id": p.id,
@@ -536,13 +605,10 @@ def build_post_cards(posts, viewer_id):
 
 
 @locations_bp.route("/feed", methods=["GET"])
+@login_required
 def feed():
-    """Bảng tin Feed — Hỗ trợ song song cả Web HTML UI lẫn REST API JSON.
-    Khách (chưa đăng nhập) xem được bài CÔNG KHAI; đăng bài / thích / bình luận... vẫn cần đăng nhập."""
+    """Bảng tin Feed — Hỗ trợ song song cả Web HTML UI lẫn REST API JSON."""
     from app.models import Follow
-
-    if not current_user.is_authenticated:
-        return _guest_feed()
 
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 10, type=int), 1), 50)
@@ -571,23 +637,19 @@ def feed():
         })
 
     # 2. Render Template HTML cho Trình duyệt Web
+    # Bài CÔNG KHAI của bất kỳ ai cũng hiện trong bảng tin (không bắt buộc phải follow mới thấy),
+    # cộng thêm bài RIÊNG TƯ của người mình đang follow (và của chính mình) -> can_view_post lọc lại lần cuối cho chắc.
     follow_set = following_ids(current_user.id)
     feed_user_ids = list(follow_set | {current_user.id})
 
     posts = (
-        Post.query.filter(Post.user_id.in_(feed_user_ids))
+        Post.query.filter(
+            db.or_(Post.visibility == "public", Post.user_id.in_(feed_user_ids))
+        )
         .order_by(Post.created_at.desc())
         .all()
     )
     posts = [p for p in posts if can_view_post(p, current_user.id, follow_set)]
-
-    if not posts:
-        # Chưa follow ai: gợi ý bài CÔNG KHAI mới nhất (không bao giờ lộ bài riêng tư của người lạ)
-        cand = (
-            Post.query.filter(Post.visibility == "public")
-            .order_by(Post.created_at.desc()).limit(40).all()
-        )
-        posts = [p for p in cand if can_view_post(p, current_user.id, follow_set)][:20]
 
     post_cards = build_post_cards(posts, current_user.id)
 
@@ -598,23 +660,6 @@ def feed():
         popular_places=popular_locations(10),
         suggested_users=suggest_users(current_user.id, 5),
     )
-
-
-def _guest_feed():
-    page = max(request.args.get("page", 1, type=int), 1)
-    per_page = min(max(request.args.get("per_page", 10, type=int), 1), 50)
-    cand = (Post.query.filter(Post.visibility == "public")
-            .order_by(Post.created_at.desc(), Post.id.desc()).limit(200).all())
-    cand = [p for p in cand if can_view_post(p, None, set())]
-    if request.args.get("format") == "json" or (
-        request.headers.get("Accept") == "application/json" and not request.accept_mimetypes.accept_html
-    ):
-        start = (page - 1) * per_page
-        posts = cand[start:start + per_page + 1]
-        return jsonify({"feed": serialize_posts(posts[:per_page], None), "page": page,
-                        "per_page": per_page, "has_next": len(posts) > per_page})
-    return render_template("locations/feed.html", posts=build_post_cards(cand[:20], None), me_card=None,
-                           popular_places=popular_locations(10), suggested_users=[])
 
 
 @locations_bp.route("/mentions/suggest", methods=["GET"])
@@ -642,16 +687,17 @@ def popular_places_api():
 
 
 @locations_bp.route("/p/<int:post_id>", methods=["GET"])
+@login_required
 def view_post(post_id):
     """Trang xem ĐÚNG 1 bài (link từ thông báo): không phụ thuộc bài đó có nằm trong bảng tin của người xem hay không."""
     post = db.session.get(Post, post_id)
     if not post or not user_can_access_post(post):
         abort(404)                       # không phân biệt "không tồn tại" và "không có quyền" -> không lộ bài riêng tư
-    viewer_id = current_user.id if current_user.is_authenticated else None
-    return render_template("locations/post_view.html", posts=build_post_cards([post], viewer_id))
+    return render_template("locations/post_view.html", posts=build_post_cards([post], current_user.id))
 
 
 @locations_bp.route("/posts/<int:post_id>", methods=["GET"])
+@login_required
 def get_post(post_id):
     """Chi tiết 1 bài viết (thay cho route địa điểm cũ đã không còn)."""
     post = db.session.get(Post, post_id)
@@ -660,7 +706,7 @@ def get_post(post_id):
     if not user_can_access_post(post):
         return jsonify({"error": "Bạn không có quyền xem bài viết này"}), 403
 
-    return jsonify({"post": serialize_posts([post], current_user.id if current_user.is_authenticated else None)[0]})
+    return jsonify({"post": serialize_posts([post], current_user.id)[0]})
 
 
 # =========================================================
@@ -744,14 +790,35 @@ def create_comment(post_id):
     data = request.get_json() or {}
     content = data.get("content", "").strip()
 
+    if detect_xss(content):
+        log_security_event(event_type="XSS_DETECTED", severity="CRITICAL",
+                            status_code=201, payload_snippet=content,
+                            action_taken="LOGGED_ONLY")  # vẫn lưu bình thường — Jinja autoescape + escapeHtml() lo phần hiển thị an toàn
+
     if not content:
         return jsonify({
             "error": "Nội dung bình luận không được để trống"
         }), 400
 
+    parent_id = data.get("parent_id")
+    parent = None
+    reply_to = None  # reply cụ thể đang được trả lời (nếu có) — khác parent khi trả lời-của-trả lời
+    if parent_id:
+        parent = db.session.get(Comment, int(parent_id))
+        if not parent or parent.post_id != post_id:
+            return jsonify({"error": "Bình luận gốc không hợp lệ"}), 400
+        if parent.parent_id:
+            # Trả lời 1 reply -> vẫn chỉ lồng 1 cấp trong DB (gắn parent_id vào bình luận gốc của reply đó),
+            # nhưng lưu lại reply_to_id = chính reply vừa bị trả lời để hiện tag "@người" + báo đúng người.
+            reply_to = parent
+            parent_id = parent.parent_id
+            parent = db.session.get(Comment, parent_id)
+
     comment = Comment(
         user_id=current_user.id,
         post_id=post_id,
+        parent_id=parent.id if parent else None,
+        reply_to_id=reply_to.id if reply_to else None,
         content=content
     )
 
@@ -760,7 +827,14 @@ def create_comment(post_id):
     tagged = notify_mentions(content, current_user.id, post.user_id, post=post)
     if post.user_id not in tagged:
         notify(post.user_id, current_user.id, "comment", post_id=post.id)
+    # Người thực sự bị trả lời (reply_to nếu có, không thì bình luận gốc) -> báo cho đúng họ, không phải người khác
+    notify_target = reply_to or parent
+    if notify_target and notify_target.user_id != current_user.id and notify_target.user_id not in tagged and notify_target.user_id != post.user_id:
+        notify(notify_target.user_id, current_user.id, "comment", post_id=post.id)
     db.session.commit()
+
+    reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
+    display_content = strip_leading_self_mention(comment.content, reply_to_author) if reply_to_author else comment.content
 
     return jsonify({
         "message": "Bình luận thành công",
@@ -768,9 +842,14 @@ def create_comment(post_id):
             "id": comment.id,
             "user_id": comment.user_id,
             "post_id": comment.post_id,
+            "parent_id": comment.parent_id,
+            "reply_to_id": comment.reply_to_id,
+            "reply_to_name": mention_display_name(reply_to_author) if reply_to_author else None,
+            "reply_to_username": reply_to_author.username if reply_to_author else None,
             "author_username": current_user.username,
-            "content": comment.content,
-            "content_html": str(render_mentions(comment.content)),
+            "author_avatar": current_user.avatar_url,
+            "content": display_content,
+            "content_html": str(render_mentions(display_content)),
             "created_at": comment.created_at.isoformat()
         }
     }), 201
@@ -784,6 +863,7 @@ def create_comment(post_id):
     "/posts/<int:post_id>/comments",
     methods=["GET"]
 )
+@login_required
 def get_comments(post_id):
     post = db.session.get(Post, post_id)
 
@@ -841,11 +921,17 @@ def delete_comment(comment_id):
             "error": "Bạn không có quyền xóa bình luận này"
         }), 403
 
+    # Xóa bình luận gốc -> xóa luôn các trả lời (chỉ 1 cấp lồng nên không cần đệ quy)
+    deleted_count = 1
+    if not comment.parent_id:
+        deleted_count += Comment.query.filter_by(parent_id=comment.id).delete()
+
     db.session.delete(comment)
     db.session.commit()
 
     return jsonify({
-        "message": "Xóa bình luận thành công"
+        "message": "Xóa bình luận thành công",
+        "deleted_count": deleted_count
     })
 
 
@@ -1090,6 +1176,11 @@ def repost_post(post_id):
     if len(note) > 500:
         return jsonify({"error": "Ghi chú tối đa 500 ký tự"}), 400
 
+    if detect_xss(note):
+        log_security_event(event_type="XSS_DETECTED", severity="CRITICAL",
+                            status_code=201, payload_snippet=note,
+                            action_taken="LOGGED_ONLY")  # vẫn lưu — Jinja autoescape {{ post.repost_note }} lo phần hiển thị an toàn
+
     # Mỗi user chỉ repost một bài gốc một lần
     existing = Share.query.filter_by(
         user_id=current_user.id,
@@ -1291,6 +1382,7 @@ def places_check_links():
     "/locations/search",
     methods=["GET"]
 )
+@login_required
 def search_locations():
     """
     Tìm kiếm địa điểm.
@@ -1417,11 +1509,11 @@ def create_itinerary():
 
 
 @locations_bp.route("/itineraries/feed", methods=["GET"])
+@login_required
 def itinerary_feed():
-    viewer_id = current_user.id if current_user.is_authenticated else None
-    feed_follow = following_ids(viewer_id) if viewer_id else set()
+    feed_follow = following_ids(current_user.id)
     itineraries = [it for it in Itinerary.query.order_by(Itinerary.created_at.desc()).all()
-                   if can_view_itinerary(it, viewer_id, feed_follow)]
+                   if can_view_itinerary(it, current_user.id, feed_follow)]
     return jsonify({"feed": [
         {
             "id": it.id,
@@ -1473,6 +1565,7 @@ def serialize_itinerary(it):
 
 
 @locations_bp.route("/itineraries/<int:itinerary_id>", methods=["GET"])
+@login_required
 def get_itinerary(itinerary_id):
     it = visible_itinerary_or_404(itinerary_id)
     return jsonify(serialize_itinerary(it))
@@ -1542,18 +1635,66 @@ def like_itinerary(itinerary_id):
 @login_required
 def create_itinerary_comment(itinerary_id):
     plan = visible_itinerary_or_404(itinerary_id)
-    data = request.get_json()
-    content = data.get("content", "").strip() if data else ""
+    data = request.get_json() or {}
+    content = (data.get("content") or "").strip()
+
+    if detect_xss(content):
+        log_security_event(event_type="XSS_DETECTED", severity="CRITICAL",
+                            status_code=201, payload_snippet=content,
+                            action_taken="LOGGED_ONLY")
+
     if not content:
         return jsonify({"error": "Nội dung bình luận không được rỗng"}), 400
-    comment = Comment(user_id=current_user.id, itinerary_id=itinerary_id, content=content)
+
+    parent_id = data.get("parent_id")
+    parent = None
+    reply_to = None  # reply cụ thể đang được trả lời (nếu có) — khác parent khi trả lời-của-trả lời
+    if parent_id:
+        parent = db.session.get(Comment, int(parent_id))
+        if not parent or parent.itinerary_id != itinerary_id:
+            return jsonify({"error": "Bình luận gốc không hợp lệ"}), 400
+        if parent.parent_id:
+            reply_to = parent
+            parent_id = parent.parent_id
+            parent = db.session.get(Comment, parent_id)
+
+    comment = Comment(
+        user_id=current_user.id,
+        itinerary_id=itinerary_id,
+        parent_id=parent.id if parent else None,
+        reply_to_id=reply_to.id if reply_to else None,
+        content=content,
+    )
     db.session.add(comment)
     tagged = notify_mentions(content, current_user.id, plan.user_id, itinerary=plan)
     if plan.user_id not in tagged:
         notify(plan.user_id, current_user.id, "comment", itinerary_id=plan.id)
+    notify_target = reply_to or parent
+    if notify_target and notify_target.user_id != current_user.id and notify_target.user_id not in tagged and notify_target.user_id != plan.user_id:
+        notify(notify_target.user_id, current_user.id, "comment", itinerary_id=plan.id)
     db.session.commit()
-    return jsonify({"message": "Đã bình luận", "comment_id": comment.id,
-                    "content_html": str(render_mentions(content))}), 201
+
+    reply_to_author = db.session.get(User, reply_to.user_id) if reply_to else None
+    display_content = strip_leading_self_mention(comment.content, reply_to_author) if reply_to_author else comment.content
+
+    return jsonify({
+        "message": "Đã bình luận",
+        "comment": {
+            "id": comment.id,
+            "user_id": comment.user_id,
+            "parent_id": comment.parent_id,
+            "reply_to_id": comment.reply_to_id,
+            "reply_to_name": mention_display_name(reply_to_author) if reply_to_author else None,
+            "reply_to_username": reply_to_author.username if reply_to_author else None,
+            "author_username": current_user.username,
+            "author_avatar": current_user.avatar_url,
+            "content": display_content,
+            "content_html": str(render_mentions(display_content)),
+            "likes_count": 0,
+            "is_liked": False,
+            "created_at": comment.created_at.isoformat(),
+        },
+    }), 201
 
 
 @locations_bp.route("/itineraries/<int:itinerary_id>/comments", methods=["GET"])

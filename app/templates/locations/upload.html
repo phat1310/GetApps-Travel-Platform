@@ -150,7 +150,12 @@
                 {% endif %}
                 <div>
                     <h6 class="mb-0 fw-bold text-dark">{{ current_user.username }}</h6>
-                    <small class="text-muted"><i class="bi bi-globe2 me-1"></i>Công khai • Cộng đồng GEs</small>
+                    <div class="text-muted" style="font-size: 0.72rem;">
+                        <button type="button" class="qc-vis-toggle" data-up-vis title="Bấm để đổi giữa Công khai và Riêng tư (chỉ áp dụng cho bài viết này)">
+                            <i class="bi bi-globe2"></i><span class="up-vis-label">Công khai</span><i class="bi bi-arrow-left-right"></i>
+                        </button>
+                        <span class="up-vis-hint ms-1">• Cộng đồng GEs</span>
+                    </div>
                 </div>
             </div>
             <span class="badge badge-role badge-role-{{ current_user.role }}">{{ current_user.role }}</span>
@@ -159,6 +164,7 @@
         <!-- Form Đăng Bài -->
         <form action="{{ url_for('locations.create_post') }}" method="POST" enctype="multipart/form-data" id="post-upload-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="visibility" id="upPostVisibility" value="public">
             <!-- 1. VÙNG TẢI ẢNH / VIDEO -->
             <div class="mb-4">
                 <label class="form-label fw-bold text-dark d-flex align-items-center justify-content-between">
@@ -337,5 +343,33 @@
     }
 
     // Địa điểm: dùng ô chọn chung GesPlace (static/js/place-picker.js) — chọn theo danh mục hành chính
+
+    // Công khai <-> Riêng tư cho bài viết này (y hệt hộp "Tạo mới" ở base.html, nhưng độc lập id)
+    (function () {
+        const toggleBtn = document.querySelector('[data-up-vis]');
+        const input = document.getElementById('upPostVisibility');
+        if (!toggleBtn || !input) return;
+        toggleBtn.addEventListener('click', function () {
+            const toPrivate = input.value !== 'private';
+            input.value = toPrivate ? 'private' : 'public';
+            toggleBtn.classList.toggle('private', toPrivate);
+            toggleBtn.querySelector('.up-vis-label').textContent = toPrivate ? 'Riêng tư' : 'Công khai';
+            toggleBtn.querySelector('i').className = toPrivate ? 'bi bi-lock-fill' : 'bi bi-globe2';
+            const hint = toggleBtn.parentElement.querySelector('.up-vis-hint');
+            if (hint) hint.textContent = toPrivate ? '• Chỉ người theo dõi bạn' : '• Cộng đồng GEs';
+        });
+    })();
+
+    // Khóa nút khi submit để chống bấm nhiều lần gây double-submit (đồng bộ với hộp "Tạo mới" ở base.html)
+    (function () {
+        const form = document.getElementById('post-upload-form');
+        const submitBtn = document.getElementById('submit-btn');
+        if (!form || !submitBtn) return;
+        form.addEventListener('submit', function (e) {
+            if (submitBtn.disabled) { e.preventDefault(); return; }
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang đăng...';
+        });
+    })();
 </script>
 {% endblock %}

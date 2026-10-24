@@ -102,11 +102,82 @@
     .post-action-btn.saved {
         color: var(--ges-primary);
     }
+    .comments-list {
+        max-height: 280px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+    }
+    .comments-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    .comments-list::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 3px;
+    }
     .comment-box {
         background-color: #f8fafc;
         border-radius: 8px;
         padding: 0.5rem 0.75rem;
         font-size: 0.88rem;
+    }
+    .comment-replies {
+        margin-left: 2rem;
+        margin-top: 0.4rem;
+        padding-left: 0.6rem;
+        border-left: 2px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .comment-reply {
+        background-color: #f1f5f9;
+    }
+    .comment-name {
+        font-size: 0.86rem;
+        line-height: 1.2;
+    }
+    .comment-text {
+        font-size: 0.88rem;
+        color: var(--ges-text-secondary, #475569);
+        line-height: 1.35;
+        margin-top: 1px;
+        word-break: break-word;
+    }
+    .reply-btn {
+        font-size: 0.72rem;
+        text-decoration: none !important;
+    }
+    .reply-btn:hover {
+        text-decoration: underline !important;
+    }
+    .cmt-like-btn {
+        font-size: 0.72rem;
+        text-decoration: none !important;
+        color: var(--ges-text-muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .cmt-like-btn:hover {
+        color: #e41e3f;
+    }
+    .cmt-like-btn.on {
+        color: #e41e3f;
+    }
+    .reply-mention {
+        font-weight: 600;
+        color: var(--ges-primary);
+        font-size: 0.88rem;
+    }
+    .replies-toggle-btn {
+        font-size: 0.74rem;
+        text-decoration: none !important;
+        margin-top: 2px;
+        display: inline-block;
+    }
+    .replies-toggle-btn:hover {
+        text-decoration: underline !important;
     }
     .sidebar-card {
         background: var(--ges-card-bg);
@@ -158,6 +229,12 @@
     }
     [data-bs-theme="dark"] .comment-box .text-secondary {
         color: #CBD5E1 !important;
+    }
+    [data-bs-theme="dark"] .comment-replies {
+        border-left-color: #334155;
+    }
+    [data-bs-theme="dark"] .comment-reply {
+        background-color: #1E293B !important;
     }
     [data-bs-theme="dark"] .post-action-btn:hover {
         background-color: #334155 !important;

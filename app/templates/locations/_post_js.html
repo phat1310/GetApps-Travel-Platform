@@ -2,6 +2,35 @@
     let currentSharePostId = null;
     let shareModalInstance = null;
 
+    // ---------- Modal xác nhận dùng chung (thay cho window.confirm) ----------
+    let confirmModalInstance = null;
+    function confirmDialog(message, okText) {
+        return new Promise((resolve) => {
+            const modalEl = document.getElementById('confirmModal');
+            if (!confirmModalInstance) {
+                confirmModalInstance = new bootstrap.Modal(modalEl);
+            }
+            document.getElementById('confirmModalMessage').innerText = message;
+            const okBtn = document.getElementById('confirmModalOkBtn');
+            okBtn.innerText = okText || 'Xóa';
+
+            let settled = false;
+            const onOk = () => {
+                settled = true;
+                confirmModalInstance.hide();
+                resolve(true);
+            };
+            const onHidden = () => {
+                okBtn.removeEventListener('click', onOk);
+                modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                if (!settled) resolve(false);
+            };
+            okBtn.addEventListener('click', onOk);
+            modalEl.addEventListener('hidden.bs.modal', onHidden);
+            confirmModalInstance.show();
+        });
+    }
+
     function openShareModal(postId) {
         currentSharePostId = postId;
         const modalEl = document.getElementById('shareModal');
@@ -225,18 +254,76 @@
         }
     }
 
-    // AJAX: Thêm bình luận (Comment)
+    // ---------- Thả tim bình luận ----------
+    async function toggleCommentLike(btn) {
+        const cid = btn.dataset.cid;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        try {
+            const res = await fetch(`/locations/api/comments/${cid}/like`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            if (!res.ok) return;
+            const data = await res.json();
+            btn.classList.toggle('on', !!data.is_liked);
+            btn.querySelector('i').className = 'bi ' + (data.is_liked ? 'bi-heart-fill' : 'bi-heart');
+            btn.querySelector('span').textContent = data.likes_count || '';
+        } catch (e) {}
+    }
+
+    // ---------- Trả lời bình luận ----------
+    const replyContext = {};   // postId -> { parentId, username }
+
+    function replyToComment(postId, parentId, username) {
+        replyContext[postId] = { parentId: parentId, username: username };
+        const ctx = document.getElementById(`reply-context-${postId}`);
+        const nameEl = document.getElementById(`reply-context-name-${postId}`);
+        if (ctx && nameEl) {
+            nameEl.innerText = '@' + username;
+            ctx.classList.remove('d-none');
+        }
+        const input = document.getElementById(`comment-input-${postId}`);
+        if (input) { input.focus(); }
+    }
+
+    // Thu gọn / mở khung trả lời (kiểu "Xem N phản hồi" của Facebook)
+    function toggleReplies(commentId) {
+        const box = document.getElementById(`comment-replies-${commentId}`);
+        const btn = document.getElementById(`replies-toggle-${commentId}`);
+        if (!box || !btn) return;
+        const willShow = box.classList.contains('d-none');
+        box.classList.toggle('d-none');
+        const count = box.querySelectorAll('.comment-reply').length;
+        btn.innerHTML = willShow
+            ? `<i class="bi bi-arrow-return-right"></i> Ẩn phản hồi`
+            : `<i class="bi bi-arrow-return-right"></i> Xem ${count} phản hồi`;
+    }
+
+    function cancelReply(postId) {
+        delete replyContext[postId];
+        const ctx = document.getElementById(`reply-context-${postId}`);
+        if (ctx) ctx.classList.add('d-none');
+    }
+
+    function currentUserAvatarHtml() {
+        const url = {{ current_user.avatar_url | tojson }};
+        const initial = {{ current_user.username[0]|upper|tojson }};
+        return url
+            ? `<img src="${url}" alt="" class="avatar avatar-sm flex-shrink-0">`
+            : `<span class="avatar-placeholder avatar-sm flex-shrink-0">${initial}</span>`;
+    }
+
+    // AJAX: Thêm bình luận (Comment) — hỗ trợ cả bình luận gốc lẫn trả lời (1 cấp)
     async function submitComment(event, postId) {
         event.preventDefault();
         const input = document.getElementById(`comment-input-${postId}`);
         const content = input.value.trim();
         if (!content) return;
 
+        const ctx = replyContext[postId];
+
         try {
             const res = await fetch(`/locations/posts/${postId}/comments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: content })
+                body: JSON.stringify({ content: content, parent_id: ctx ? ctx.parentId : null })
             });
             const data = await res.json();
             if (res.ok) {
@@ -245,22 +332,87 @@
                 const countSpan = document.getElementById(`comment-count-${postId}`);
                 countSpan.innerText = (parseInt(countSpan.innerText) || 0) + 1;
 
-                // Thêm comment vào danh sách
-                const list = document.getElementById(`comments-list-${postId}`);
                 const c = data.comment;
-                const newCommentHtml = `
-                    <div class="comment-box d-flex justify-content-between align-items-start" id="comment-item-${c.id}">
-                        <div>
-                            <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${escapeHtml(c.author_username || '{{ current_user.username }}')}:</strong></a>
-                            <span class="text-secondary ms-1">${c.content_html || escapeHtml(c.content)}</span>
-                            <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">Vừa xong</div>
+                const avatarHtml = currentUserAvatarHtml();
+                const authorName = escapeHtml(c.author_username || '{{ current_user.username }}');
+
+                if (c.parent_id) {
+                    // Trả lời -> chèn lồng dưới bình luận gốc (tạo khung + nút thu gọn nếu chưa có)
+                    let repliesBox = document.getElementById(`comment-replies-${c.parent_id}`);
+                    let toggleBtn = document.getElementById(`replies-toggle-${c.parent_id}`);
+                    const thread = document.getElementById(`comment-thread-${c.parent_id}`);
+                    if (!toggleBtn && thread) {
+                        toggleBtn = document.createElement('button');
+                        toggleBtn.type = 'button';
+                        toggleBtn.className = 'btn btn-sm btn-link text-muted p-0 ps-1 replies-toggle-btn';
+                        toggleBtn.id = `replies-toggle-${c.parent_id}`;
+                        toggleBtn.onclick = function () { toggleReplies(c.parent_id); };
+                        thread.appendChild(toggleBtn);
+                    }
+                    if (!repliesBox && thread) {
+                        repliesBox = document.createElement('div');
+                        repliesBox.className = 'comment-replies';
+                        repliesBox.id = `comment-replies-${c.parent_id}`;
+                        thread.appendChild(repliesBox);
+                    }
+                    const mentionHtml = c.reply_to_name
+                        ? `<a href="/profile/${encodeURIComponent(c.reply_to_username || '')}" class="text-decoration-none reply-mention">@${escapeHtml(c.reply_to_name)}</a> `
+                        : '';
+                    const replyHtml = `
+                        <div class="comment-box comment-reply d-flex align-items-start gap-2" id="comment-item-${c.id}">
+                            ${avatarHtml}
+                            <div class="flex-grow-1">
+                                <div class="comment-name">
+                                    <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}</strong></a>
+                                </div>
+                                <div class="comment-text">${mentionHtml}${c.content_html || escapeHtml(c.content)}</div>
+                                <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                    <span>Vừa xong</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 cmt-like-btn" data-cid="${c.id}" onclick="toggleCommentLike(this)"><i class="bi bi-heart"></i> <span></span></button>
+                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                `;
-                list.insertAdjacentHTML('beforeend', newCommentHtml);
+                    `;
+                    if (repliesBox) {
+                        repliesBox.insertAdjacentHTML('beforeend', replyHtml);
+                        repliesBox.classList.remove('d-none');   // tự mở khung ra vì mình vừa trả lời
+                        if (toggleBtn) {
+                            const count = repliesBox.querySelectorAll('.comment-reply').length;
+                            toggleBtn.innerHTML = `<i class="bi bi-arrow-return-right"></i> Ẩn phản hồi (${count})`;
+                        }
+                    }
+                } else {
+                    // Bình luận gốc -> thêm vào cuối danh sách
+                    const list = document.getElementById(`comments-list-${postId}`);
+                    const newCommentHtml = `
+                        <div class="comment-thread" id="comment-thread-${c.id}">
+                            <div class="comment-box d-flex align-items-start gap-2" id="comment-item-${c.id}">
+                                ${avatarHtml}
+                                <div class="flex-grow-1">
+                                    <div class="comment-name">
+                                        <a href="/profile/${encodeURIComponent(c.author_username || '{{ current_user.username }}')}" class="text-decoration-none"><strong class="text-dark">${authorName}</strong></a>
+                                    </div>
+                                    <div class="comment-text">${c.content_html || escapeHtml(c.content)}</div>
+                                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                        <span>Vừa xong</span>
+                                        <button type="button" class="btn btn-sm btn-link p-0 cmt-like-btn" data-cid="${c.id}" onclick="toggleCommentLike(this)"><i class="bi bi-heart"></i> <span></span></button>
+                                        <button type="button" class="btn btn-sm btn-link text-muted p-0 reply-btn" onclick="replyToComment(${postId}, ${c.id}, '${authorName}')">Trả lời</button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" title="Xóa bình luận" onclick="deleteComment(${c.id}, ${postId})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    list.insertAdjacentHTML('beforeend', newCommentHtml);
+                }
+
+                cancelReply(postId);
             } else {
                 alert(data.error || "Không thể gửi bình luận");
             }
@@ -271,7 +423,7 @@
 
     // AJAX: Xóa bình luận
     async function deleteComment(commentId, postId) {
-        if (!confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+        if (!(await confirmDialog("Bạn có chắc chắn muốn xóa bình luận này?"))) return;
 
         try {
             const res = await fetch(`/locations/comments/${commentId}`, {
@@ -279,11 +431,31 @@
             });
             const data = await res.json();
             if (res.ok) {
-                const item = document.getElementById(`comment-item-${commentId}`);
-                if (item) item.remove();
+                // Xóa bình luận gốc -> gỡ luôn khung chứa trả lời bên dưới nó; xóa reply -> chỉ gỡ đúng dòng đó
+                const thread = document.getElementById(`comment-thread-${commentId}`);
+                if (thread) { thread.remove(); }
+                else {
+                    const item = document.getElementById(`comment-item-${commentId}`);
+                    const repliesBox = item ? item.closest('.comment-replies') : null;
+                    if (item) item.remove();
+                    if (repliesBox) {
+                        const parentThread = repliesBox.closest('.comment-thread');
+                        const toggleBtn = parentThread ? parentThread.querySelector('.replies-toggle-btn') : null;
+                        const remaining = repliesBox.querySelectorAll('.comment-reply').length;
+                        if (remaining === 0) {
+                            repliesBox.remove();
+                            if (toggleBtn) toggleBtn.remove();
+                        } else if (toggleBtn) {
+                            const hidden = repliesBox.classList.contains('d-none');
+                            toggleBtn.innerHTML = hidden
+                                ? `<i class="bi bi-arrow-return-right"></i> Xem ${remaining} phản hồi`
+                                : `<i class="bi bi-arrow-return-right"></i> Ẩn phản hồi`;
+                        }
+                    }
+                }
                 const countSpan = document.getElementById(`comment-count-${postId}`);
-                let count = parseInt(countSpan.innerText) || 1;
-                countSpan.innerText = Math.max(0, count - 1);
+                const count = parseInt(countSpan.innerText) || 0;
+                countSpan.innerText = Math.max(0, count - (data.deleted_count || 1));
             } else {
                 alert(data.error || "Không thể xóa bình luận");
             }

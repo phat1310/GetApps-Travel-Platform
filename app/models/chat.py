@@ -47,6 +47,7 @@ class Message(db.Model):
     conversation_id = db.Column(db.Integer, db.ForeignKey("conversations.id"), nullable=False, index=True)
     sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     body = db.Column(db.Text, nullable=True)
+    reply_to_id = db.Column(db.Integer, db.ForeignKey("messages.id"), nullable=True)  # Trả lời đúng 1 tin nhắn cụ thể
 
     # Tệp đính kèm (tùy chọn)
     file_path = db.Column(db.String(255), nullable=True)   # tên file ngẫu nhiên trên đĩa
@@ -55,6 +56,7 @@ class Message(db.Model):
     file_size = db.Column(db.Integer, nullable=True)
 
     is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    is_deleted = db.Column(db.Boolean, nullable=True, default=False)   # người gửi tự thu hồi tin nhắn của mình
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     reactions = db.relationship(

@@ -4,7 +4,9 @@ Quy tắc nhắn tin:
 - Hai người ĐÃ follow nhau: nhắn tự do (hội thoại status="mutual").
 - NGƯỜI LẠ: tìm theo tên (gợi ý gần giống, bỏ dấu, không phân biệt hoa thường/khoảng trắng) rồi nhắn.
   Tin đầu vào mục "Tin nhắn chờ" của người nhận (status="pending"): người gửi chỉ gửi được 1 tin chữ,
-  chưa gửi được tệp, cho tới khi người nhận Chấp nhận (hoặc trả lời). Từ chối thì không nhắn tiếp được.
+  chưa gửi được tệp, cho tới khi người nhận TRẢ LỜI (ngầm hiểu là đồng ý) -> status chuyển "accepted"
+  và 2 bên nhắn tự do. Không có bước "chấp nhận/từ chối" riêng: người nhận không rep thì thôi, không
+  bị chặn gì, vẫn tìm/nhắn lại người kia bình thường bất cứ lúc nào.
 - Tài khoản riêng tư (is_private): người lạ chưa follow thì không nhắn được.
 - Mọi route đều yêu cầu đăng nhập và kiểm tra người dùng có thuộc hội thoại hay không (chống IDOR).
 - Tệp đính kèm lưu ở instance/chat_uploads/ với tên ngẫu nhiên, KHÔNG nằm trong static/.
@@ -168,9 +170,6 @@ def _permissions(conv, other_id, sets=None):
                 perms["note"] = "Đang chờ người kia chấp nhận. Bạn chỉ gửi được 1 tin trước khi được chấp nhận."
         else:
             perms.update(can_send=True, can_attach=True)   # người nhận trả lời = chấp nhận
-    elif st == "declined":
-        perms["note"] = ("Người này chưa thể nhận tin nhắn từ bạn." if conv.initiated_by == me
-                         else "Bạn đã từ chối cuộc trò chuyện này.")
     else:  # "mutual" nhưng không còn follow nhau
         perms["note"] = "Hai bạn cần follow nhau để nhắn tin."
     return perms
@@ -191,17 +190,44 @@ def _hearts_for(message_ids):
     return out
 
 
+def _reply_preview(msg):
+    """Trích dẫn gọn tin nhắn gốc mà `msg` đang trả lời (nếu có)."""
+    if not msg.reply_to_id:
+        return None
+    orig = db.session.get(Message, msg.reply_to_id)
+    if not orig:
+        return None
+    if orig.is_deleted:
+        text = "Tin nhắn đã được thu hồi"
+    elif orig.body:
+        text = orig.body
+    elif orig.file_path:
+        text = {"image": "[Ảnh]", "video": "[Video]"}.get(orig.file_kind) or f"[Tệp] {orig.file_name}"
+    else:
+        text = ""
+    sender = db.session.get(User, orig.sender_id)
+    return {
+        "id": orig.id,
+        "text": text[:140],
+        "sender_name": (sender.nickname or sender.username) if sender else "",
+        "mine": orig.sender_id == current_user.id,
+    }
+
+
 def _message_dict(msg, hearts=None):
+    deleted = bool(msg.is_deleted)
     data = {
         "id": msg.id,
         "mine": msg.sender_id == current_user.id,
-        "body": msg.body or "",
+        "body": "Tin nhắn đã được thu hồi" if deleted else (msg.body or ""),
         "read": bool(msg.is_read),
         "at": _iso(msg.created_at),
         "file": None,
+        "deleted": deleted,
         "hearts": (hearts or {}).get(msg.id, {"count": 0, "mine": False}),
+        "reply_to": None if deleted else _reply_preview(msg),
     }
-    if msg.file_path:
+    if msg.file_path and not deleted:
         data["file"] = {
             "url": url_for("chat.download_file", message_id=msg.id),
             "name": msg.file_name or "tệp",
@@ -219,7 +245,9 @@ def _serialize_messages(msgs):
 def _last_preview(msg):
     if not msg:
         return None
-    if msg.body:
+    if msg.is_deleted:
+        text = "Tin nhắn đã được thu hồi"
+    elif msg.body:
         text = msg.body
     elif msg.file_path:
         text = {"image": "[Ảnh]", "video": "[Video]"}.get(msg.file_kind) or f"[Tệp] {msg.file_name}"
@@ -255,7 +283,7 @@ def _last_ids(conv_ids):
 
 
 def _visible_conversations():
-    """Hội thoại của mình, trừ: yêu cầu đã bị mình từ chối, và yêu cầu chưa có tin nào (người lạ mới bấm mở)."""
+    """Hội thoại của mình, trừ yêu cầu chưa có tin nào (người lạ mới bấm mở, chưa thật sự nhắn gì)."""
     me = current_user.id
     convs = (
         Conversation.query
@@ -267,8 +295,6 @@ def _visible_conversations():
     keep = []
     for c in convs:
         incoming = c.initiated_by is not None and c.initiated_by != me
-        if incoming and c.status == "declined":
-            continue
         if incoming and c.status == "pending" and not last_ids.get(c.id):
             continue
         keep.append(c)
@@ -358,33 +384,8 @@ def open_conversation():
             conv = Conversation.query.filter_by(user_a_id=a, user_b_id=b).first()
             if not conv:
                 return jsonify({"error": "Không tạo được hội thoại"}), 500
-    elif conv.status == "declined" and conv.initiated_by != current_user.id:
-        return jsonify({"error": "Bạn đã từ chối cuộc trò chuyện này"}), 403
     unread_map = _unread_by_conv([conv.id])
     return jsonify({"conversation": _conversation_dict(conv, other, unread_map, sets)})
-
-
-@chat_bp.route("/api/conversations/<int:conv_id>/accept", methods=["POST"])
-@login_required
-def accept_request(conv_id):
-    conv = _get_conv_or_404(conv_id)
-    if conv.status != "pending" or conv.initiated_by == current_user.id:
-        return jsonify({"error": "Không có yêu cầu nào để chấp nhận"}), 400
-    conv.status = "accepted"
-    db.session.commit()
-    other = db.session.get(User, conv.other_user_id(current_user.id))
-    return jsonify({"conversation": _conversation_dict(conv, other, _unread_by_conv([conv.id]))})
-
-
-@chat_bp.route("/api/conversations/<int:conv_id>/decline", methods=["POST"])
-@login_required
-def decline_request(conv_id):
-    conv = _get_conv_or_404(conv_id)
-    if conv.status != "pending" or conv.initiated_by == current_user.id:
-        return jsonify({"error": "Không có yêu cầu nào để từ chối"}), 400
-    conv.status = "declined"
-    db.session.commit()
-    return jsonify({"ok": True})
 
 
 @chat_bp.route("/api/conversations/<int:conv_id>/messages", methods=["GET"])
@@ -437,7 +438,13 @@ def send_message(conv_id):
     if not body and not has_file:
         return jsonify({"error": "Tin nhắn trống"}), 400
 
-    msg = Message(conversation_id=conv.id, sender_id=current_user.id, body=body or None)
+    reply_to_id = request.form.get("reply_to_id", type=int)
+    if reply_to_id:
+        orig = db.session.get(Message, reply_to_id)
+        if not orig or orig.conversation_id != conv.id:
+            reply_to_id = None  # chỉ cho reply tin nhắn thật sự nằm trong đúng hội thoại này
+
+    msg = Message(conversation_id=conv.id, sender_id=current_user.id, body=body or None, reply_to_id=reply_to_id)
 
     if has_file:
         original = _clean_filename(upload.filename)
@@ -502,6 +509,42 @@ def conversation_hearts(conv_id):
     conv = _get_conv_or_404(conv_id)
     ids = [m_id for (m_id,) in db.session.query(Message.id).filter_by(conversation_id=conv.id).all()]
     return jsonify({"hearts": {str(k): v for k, v in _hearts_for(ids).items()}})
+
+
+# =========================================================
+# XÓA (THU HỒI) TIN NHẮN — chỉ người gửi, giữ lại dòng tin nhắn (tombstone), không xóa hẳn khỏi lịch sử
+# =========================================================
+
+@chat_bp.route("/api/messages/<int:message_id>", methods=["DELETE"])
+@login_required
+def delete_message(message_id):
+    msg = db.session.get(Message, message_id)
+    if not msg:
+        abort(404)
+    conv = db.session.get(Conversation, msg.conversation_id)
+    if not conv or not conv.has_member(current_user.id):
+        abort(404)
+    if msg.sender_id != current_user.id:
+        return jsonify({"error": "Bạn chỉ có thể thu hồi tin nhắn của chính mình"}), 403
+    if msg.is_deleted:
+        return jsonify({"message": _message_dict(msg)})
+
+    if msg.file_path:
+        path = os.path.join(_upload_dir(), msg.file_path)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        msg.file_path = None
+        msg.file_name = None
+        msg.file_kind = None
+        msg.file_size = None
+
+    msg.body = None
+    msg.is_deleted = True
+    db.session.commit()
+    return jsonify({"message": _message_dict(msg)})
 
 
 # =========================================================

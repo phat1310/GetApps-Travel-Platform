@@ -1,3 +1,22 @@
+<!-- Modal Xác nhận chung (thay cho window.confirm mặc định của trình duyệt) -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold text-dark" id="confirmModalLabel"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Xác nhận</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <p class="mb-0 text-secondary" id="confirmModalMessage">Bạn có chắc chắn?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal" id="confirmModalCancelBtn">Hủy</button>
+                <button type="button" class="btn btn-danger rounded-pill px-4" id="confirmModalOkBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Xác nhận Đăng lại (Repost): chọn Công khai/Riêng tư + ghi chú -->
 <div class="modal fade" id="repostModal" tabindex="-1" aria-labelledby="repostModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

@@ -76,6 +76,7 @@
         if (tab) {
             pp.querySelectorAll('.pp-daytab').forEach(t => t.classList.toggle('active', t === tab));
             pp.querySelectorAll('.pp-day').forEach(d => d.classList.toggle('active', d.dataset.dayPane === tab.dataset.day));
+            pp.querySelectorAll('.pp-day-side').forEach(d => d.classList.toggle('active', d.dataset.dayPane === tab.dataset.day));
             return;
         }
         const b = e.target.closest('[data-pp]');
@@ -94,24 +95,90 @@
         if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('pl-card')) { e.preventDefault(); openPanel(e.target.dataset.planId); }
     });
 
+    // Trả lời 1 bình luận cụ thể trong cửa sổ chi tiết (banner "Đang trả lời ...")
+    function ppSetReply(pp, cid, name) {
+        const f = $('[data-pp-form="comment"]', pp), prev = $('#ppReplyPrev', pp);
+        if (!f || !prev) return;
+        $('input[name="parent_id"]', f).value = cid || '';
+        if (cid) { $('#ppReplyName', pp).textContent = name || ''; prev.hidden = false; }
+        else { prev.hidden = true; }
+        $('input[type="text"]', f)?.focus();
+    }
+
+    // Thả tim 1 bình luận trong cửa sổ chi tiết
+    async function ppToggleCommentLike(btn) {
+        if (!AUTH) return needLogin();
+        const cid = btn.dataset.cid;
+        const r = await post('/locations/api/comments/' + cid + '/like');
+        if (!r.ok) return;
+        btn.classList.toggle('on', !!r.data.is_liked);
+        $('i', btn).className = 'bi ' + (r.data.is_liked ? 'bi-heart-fill' : 'bi-heart');
+        $('span', btn).textContent = r.data.likes_count || '';
+    }
+
+    document.addEventListener('click', function (e) {
+        const pp2 = e.target.closest('.pp');
+        if (!pp2) return;
+        const likeBtn = e.target.closest('[data-act="cmt-like"]');
+        if (likeBtn) { ppToggleCommentLike(likeBtn); return; }
+        const replyBtn = e.target.closest('[data-act="cmt-reply"]');
+        if (replyBtn) { ppSetReply(pp2, replyBtn.dataset.cid, replyBtn.dataset.name); return; }
+        if (e.target.closest('#ppReplyCancel')) { ppSetReply(pp2, null); return; }
+    });
+
     // Gửi bình luận trong cửa sổ chi tiết
     document.addEventListener('submit', async function (e) {
         const f = e.target.closest('[data-pp-form="comment"]');
         if (!f) return;
         e.preventDefault();
-        const input = $('input', f), text = input.value.trim();
+        const input = $('input[type="text"]', f), text = input.value.trim();
         if (!text) return;
         const pp = f.closest('.pp');
-        const r = await post('/locations/itineraries/' + pp.dataset.planId + '/comments', { content: text });
+        const parentId = $('input[name="parent_id"]', f).value || null;
+        const r = await post('/locations/itineraries/' + pp.dataset.planId + '/comments', parentId ? { content: text, parent_id: parentId } : { content: text });
         if (!r.ok) return;
         $('#ppNoCmt')?.remove();
+        const c = r.data.comment;
         const row = document.createElement('div');
-        row.className = 'pp-cmt';
-        const who = document.createElement('b'); who.textContent = {{ (current_user.username if current_user.is_authenticated else '') | tojson }};
-        const span = document.createElement('span'); span.textContent = ' ' + text;      // textContent: không chèn HTML
-        row.append(who, span);
-        $('#ppCmtList').appendChild(row);
+        row.className = 'pp-cmt-item' + (parentId ? ' pp-cmt-reply-item' : '');
+        row.dataset.cid = c.id;
+        const avatar = c.author_avatar
+            ? '<img src="' + c.author_avatar + '" class="pp-cmt-av" alt="">'
+            : '<span class="pp-cmt-av pp-av-ph">' + (c.author_username || '?')[0].toUpperCase() + '</span>';
+        row.innerHTML =
+            '<div class="d-flex gap-2">' + avatar +
+            '<div class="flex-grow-1" style="min-width:0;">' +
+            '<div class="pp-cmt-box">' +
+            '<div class="comment-name"><a href="/profile/' + c.author_username + '" class="text-decoration-none fw-bold"></a></div>' +
+            '<div class="comment-text"></div>' +
+            '</div>' +
+            '<div class="pp-cmt-actions"><span class="pp-muted">Vừa xong</span>' +
+            '<button type="button" class="pp-cmt-like" data-act="cmt-like" data-cid="' + c.id + '"><i class="bi bi-heart"></i> <span></span></button>' +
+            '<button type="button" class="pp-cmt-reply-btn" data-act="cmt-reply" data-cid="' + c.id + '" data-name="' + c.author_username + '">Trả lời</button>' +
+            '</div></div></div>';
+        row.querySelector('.comment-name a').textContent = c.author_username;   // textContent: không chèn HTML
+        const textEl = row.querySelector('.comment-text');
+        if (c.reply_to_name) {
+            const m = document.createElement('a');
+            m.className = 'reply-mention';
+            m.href = '/profile/' + encodeURIComponent(c.reply_to_username || '');
+            m.textContent = '@' + c.reply_to_name;
+            textEl.appendChild(m);
+            textEl.appendChild(document.createTextNode(' '));
+        }
+        textEl.insertAdjacentHTML('beforeend', c.content_html || '');   // content_html do SERVER dựng (đã escape + gắn link @mention)
+        if (parentId) {
+            let wrap = $('.pp-cmt-item[data-cid="' + parentId + '"]', $('#ppCmtList')).nextElementSibling;
+            if (!wrap || !wrap.classList.contains('pp-cmt-replies')) {
+                wrap = document.createElement('div'); wrap.className = 'pp-cmt-replies';
+                $('.pp-cmt-item[data-cid="' + parentId + '"]').insertAdjacentElement('afterend', wrap);
+            }
+            wrap.appendChild(row);
+        } else {
+            $('#ppCmtList').appendChild(row);
+        }
         input.value = '';
+        ppSetReply(pp, null);
     });
 
     // Cửa sổ chia sẻ
