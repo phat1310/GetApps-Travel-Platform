@@ -956,8 +956,9 @@
 <body class="has-pill-side{% if not current_user.is_authenticated %} is-guest{% endif %}">
 
     <!-- ==================== HEADER & NAVBAR ==================== -->
-    {# Khung giao diện dùng chung cho cả khách và người đã đăng nhập; chức năng cần tài khoản dùng data-login-gate #}
-    {% if True %}
+    {# Khung giao diện dùng chung cho cả khách và người đã đăng nhập; chức năng cần tài khoản dùng data-login-gate.
+       Riêng trang đăng nhập/đăng ký KHÔNG hiện thanh tìm kiếm/cài đặt/sidebar (card đăng nhập đứng một mình). #}
+    {% if request.endpoint not in ('auth.login', 'auth.register') %}
         <!-- Top Bar Proposal (Slide 4 & forntend.jpg) -->
         <header class="st-top">
             <a class="st-logo" href="{{ url_for('locations.feed') }}" aria-label="GetApps" style="margin-left: -14px;">

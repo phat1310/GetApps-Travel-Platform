@@ -605,10 +605,13 @@ def build_post_cards(posts, viewer_id):
 
 
 @locations_bp.route("/feed", methods=["GET"])
-@login_required
 def feed():
-    """Bảng tin Feed — Hỗ trợ song song cả Web HTML UI lẫn REST API JSON."""
+    """Bảng tin Feed — Hỗ trợ song song cả Web HTML UI lẫn REST API JSON.
+    Khách (chưa đăng nhập) vẫn xem được bài CÔNG KHAI (không có me_card/gợi ý theo follow);
+    mọi hành động (like/comment/lưu/đăng...) vẫn bắt đăng nhập ở route riêng (data-login-gate)."""
     from app.models import Follow
+
+    viewer_id = current_user.id if current_user.is_authenticated else None
 
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 10, type=int), 1), 50)
@@ -617,20 +620,20 @@ def feed():
     if request.args.get("format") == "json" or (
         request.headers.get("Accept") == "application/json" and not request.accept_mimetypes.accept_html
     ):
-        json_follow = following_ids(current_user.id)
+        json_follow = following_ids(viewer_id) if viewer_id else set()
         cand = (
             Post.query.filter(Post.visibility == "public")
             .order_by(Post.created_at.desc(), Post.id.desc())
             .all()
         )
-        cand = [p for p in cand if can_view_post(p, current_user.id, json_follow)]
+        cand = [p for p in cand if can_view_post(p, viewer_id, json_follow)]
         start = (page - 1) * per_page
         posts = cand[start:start + per_page + 1]
         has_next = len(posts) > per_page
         posts = posts[:per_page]
 
         return jsonify({
-            "feed": serialize_posts(posts, current_user.id),
+            "feed": serialize_posts(posts, viewer_id),
             "page": page,
             "per_page": per_page,
             "has_next": has_next,
@@ -639,8 +642,8 @@ def feed():
     # 2. Render Template HTML cho Trình duyệt Web
     # Bài CÔNG KHAI của bất kỳ ai cũng hiện trong bảng tin (không bắt buộc phải follow mới thấy),
     # cộng thêm bài RIÊNG TƯ của người mình đang follow (và của chính mình) -> can_view_post lọc lại lần cuối cho chắc.
-    follow_set = following_ids(current_user.id)
-    feed_user_ids = list(follow_set | {current_user.id})
+    follow_set = following_ids(viewer_id) if viewer_id else set()
+    feed_user_ids = list(follow_set | ({viewer_id} if viewer_id else set()))
 
     posts = (
         Post.query.filter(
@@ -649,16 +652,16 @@ def feed():
         .order_by(Post.created_at.desc())
         .all()
     )
-    posts = [p for p in posts if can_view_post(p, current_user.id, follow_set)]
+    posts = [p for p in posts if can_view_post(p, viewer_id, follow_set)]
 
-    post_cards = build_post_cards(posts, current_user.id)
+    post_cards = build_post_cards(posts, viewer_id)
 
     return render_template(
         "locations/feed.html",
         posts=post_cards,
-        me_card=profile_card(current_user),
+        me_card=profile_card(current_user) if viewer_id else None,
         popular_places=popular_locations(10),
-        suggested_users=suggest_users(current_user.id, 5),
+        suggested_users=suggest_users(viewer_id, 5) if viewer_id else [],
     )
 
 
@@ -687,26 +690,27 @@ def popular_places_api():
 
 
 @locations_bp.route("/p/<int:post_id>", methods=["GET"])
-@login_required
 def view_post(post_id):
-    """Trang xem ĐÚNG 1 bài (link từ thông báo): không phụ thuộc bài đó có nằm trong bảng tin của người xem hay không."""
+    """Trang xem ĐÚNG 1 bài (link từ thông báo): không phụ thuộc bài đó có nằm trong bảng tin của người xem hay không.
+    Khách xem được nếu bài là công khai (user_can_access_post đã tự xử lý viewer ẩn danh)."""
     post = db.session.get(Post, post_id)
     if not post or not user_can_access_post(post):
         abort(404)                       # không phân biệt "không tồn tại" và "không có quyền" -> không lộ bài riêng tư
-    return render_template("locations/post_view.html", posts=build_post_cards([post], current_user.id))
+    viewer_id = current_user.id if current_user.is_authenticated else None
+    return render_template("locations/post_view.html", posts=build_post_cards([post], viewer_id))
 
 
 @locations_bp.route("/posts/<int:post_id>", methods=["GET"])
-@login_required
 def get_post(post_id):
-    """Chi tiết 1 bài viết (thay cho route địa điểm cũ đã không còn)."""
+    """Chi tiết 1 bài viết (thay cho route địa điểm cũ đã không còn). Khách xem được bài công khai."""
     post = db.session.get(Post, post_id)
     if not post:
         return jsonify({"error": "Bài viết không tồn tại"}), 404
     if not user_can_access_post(post):
         return jsonify({"error": "Bạn không có quyền xem bài viết này"}), 403
 
-    return jsonify({"post": serialize_posts([post], current_user.id)[0]})
+    viewer_id = current_user.id if current_user.is_authenticated else None
+    return jsonify({"post": serialize_posts([post], viewer_id)[0]})
 
 
 # =========================================================
