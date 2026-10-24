@@ -45,7 +45,7 @@
                 <span class="badge bg-secondary">{{ it.visibility }}</span>
                 {% if it.is_hidden %}<span class="badge bg-danger ms-1"><i class="bi bi-lock-fill"></i> Đã khóa</span>{% endif %}
             </td>
-            <td class="small text-secondary">{{ it.created_at.strftime('%d/%m/%Y %H:%M') if it.created_at else '—' }}</td>
+            <td class="small text-secondary">{{ it.created_at | vn_dt }}</td>
             <td class="text-end" onclick="event.stopPropagation();">
                 <form method="post" action="{{ url_for('admin.toggle_hide_itinerary', itinerary_id=it.id) }}" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

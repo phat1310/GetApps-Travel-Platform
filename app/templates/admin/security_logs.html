@@ -58,17 +58,28 @@
         <tr>
             <th>Thời gian</th>
             <th>IP nguồn</th>
+            <th>Người dùng</th>
             <th>Sự kiện</th>
             <th>Endpoint</th>
             <th>Mã</th>
             <th>Hành động</th>
+            <th class="text-end"></th>
         </tr>
         </thead>
         <tbody>
         {% for log in logs %}
         <tr>
-            <td class="small text-secondary">{{ log.timestamp.strftime('%d/%m %H:%M:%S') if log.timestamp else '—' }}</td>
+            <td class="small text-secondary">{{ log.timestamp | vn_dt('%d/%m %H:%M:%S') }}</td>
             <td><code>{{ log.ip_address }}</code></td>
+            <td class="small">
+                {% set u = log_users.get(log.user_id) if log.user_id else None %}
+                {% if u %}
+                    <a href="{{ url_for('admin.users', q=u.username) }}" class="text-info">{{ u.username }}</a>
+                    {% if u.is_banned %}<span class="badge bg-secondary ms-1">đã khóa</span>{% endif %}
+                {% else %}
+                    <span class="text-secondary fst-italic">Ẩn danh (chưa đăng nhập)</span>
+                {% endif %}
+            </td>
             <td>
                 {% set badge = 'bg-danger' if log.severity == 'CRITICAL' else ('bg-warning text-dark' if log.severity == 'WARNING' else 'bg-info text-dark') %}
                 <span class="badge {{ badge }}">{{ event_labels.get(log.event_type, log.event_type) }}</span>
@@ -78,9 +89,18 @@
                 <span class="badge {{ 'bg-danger' if log.status_code >= 400 else 'bg-secondary' }}">{{ log.status_code }}</span>
             </td>
             <td class="small">{{ log.action_taken }}</td>
+            <td class="text-end">
+                {% if u and not u.is_banned %}
+                <form method="post" action="{{ url_for('admin.toggle_ban', user_id=u.id) }}" class="d-inline"
+                      onsubmit="return confirm('Khóa tài khoản {{ u.username }}?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-outline-warning"><i class="bi bi-lock-fill"></i> Khóa TK</button>
+                </form>
+                {% endif %}
+            </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="text-center text-secondary py-4">Chưa có nhật ký nào — chạy thử 1 kịch bản tấn công mẫu (rate-limit/SQLi/XSS/403) để thấy log xuất hiện ở đây.</td></tr>
+        <tr><td colspan="8" class="text-center text-secondary py-4">Chưa có nhật ký nào — chạy thử 1 kịch bản tấn công mẫu (rate-limit/SQLi/XSS/403) để thấy log xuất hiện ở đây.</td></tr>
         {% endfor %}
         </tbody>
     </table>

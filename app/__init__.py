@@ -188,6 +188,14 @@ def create_app(config_override=None):
     app.jinja_env.globals['time_tag'] = timeutil.time_tag      # {{ time_tag(created_at, edited_at) }}
     app.jinja_env.globals['edited_clock'] = timeutil.edited_clock
 
+    def _vn_dt(dt, fmt='%d/%m/%Y %H:%M'):
+        """DB lưu giờ UTC (datetime.utcnow) nhưng người dùng/admin ở Việt Nam (UTC+7) ->
+        LUÔN phải cộng 7 tiếng trước khi strftime, nếu không bảng admin sẽ hiện sai giờ
+        (y hệt lỗi time_tag ở trang người dùng đã xử lý bằng timeutil.to_vn)."""
+        return timeutil.to_vn(dt).strftime(fmt) if dt else '—'
+
+    app.jinja_env.filters['vn_dt'] = _vn_dt      # {{ created_at | vn_dt }} hoặc {{ ts | vn_dt('%d/%m %H:%M:%S') }}
+
     @app.context_processor
     def inject_notification_badge():
         """Số thông báo CHƯA ĐỌC cho chấm đỏ ở quả chuông (hiển thị ngay khi tải trang)."""

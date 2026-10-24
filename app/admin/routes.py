@@ -27,6 +27,14 @@ from app.models.itinerary import Itinerary
 from app.models.security_log import SecurityLog
 from app.models.chat import Conversation, Message
 from app.notifications import notify_moderation
+from app.timeutil import to_vn
+
+
+def _vn_fmt(dt, fmt="%d/%m/%Y %H:%M"):
+    """DB lưu giờ UTC (datetime.utcnow) nhưng admin xem ở giờ Việt Nam (UTC+7) -> LUÔN cộng 7
+    tiếng trước khi strftime cho các JSON trả về modal xem nhanh (bảng HTML dùng filter Jinja
+    'vn_dt' đăng ký ở app/__init__.py, chỗ này là bản tương đương dùng trong code Python)."""
+    return to_vn(dt).strftime(fmt) if dt else "—"
 
 
 # ---------------------------------------------------------------- Dashboard
@@ -207,7 +215,7 @@ def post_detail(post_id):
         "author": author.username if author else f"user#{post.user_id}",
         "visibility": post.visibility,
         "is_hidden": post.is_hidden,
-        "created_at": post.created_at.strftime("%d/%m/%Y %H:%M") if post.created_at else "—",
+        "created_at": _vn_fmt(post.created_at),
         "comment_count": len(cmts),
         "media": [
             {"url": _photo_url(ph), "type": ph.media_type} for ph in photos
@@ -230,7 +238,7 @@ def _comment_json(c, authors_by_id):
         # HTML đã escape + biến URL thành link bấm được (dùng chung hàm linkify_comment ở dưới) —
         # để admin kiểm tra link spam/độc hại người dùng dán trong bình luận mà không phải đoán.
         "content_html": str(linkify_comment(c.content)) if c.content else "",
-        "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "—",
+        "created_at": _vn_fmt(c.created_at),
         "is_reply": bool(c.parent_id),
     }
 
@@ -331,7 +339,7 @@ def itinerary_detail(itinerary_id):
         "author": author.username if author else f"user#{it.user_id}",
         "visibility": it.visibility,
         "is_hidden": it.is_hidden,
-        "created_at": it.created_at.strftime("%d/%m/%Y %H:%M") if it.created_at else "—",
+        "created_at": _vn_fmt(it.created_at),
         "total_days": it.total_days,
         "comment_count": len(cmts),
         "comments": [_comment_json(c, cmt_authors) for c in cmts],
@@ -499,7 +507,7 @@ def conversation_detail(conversation_id):
             "file_kind": m.file_kind,
             "file_url": url_for("admin.message_file", message_id=m.id) if (m.file_path and not m.is_deleted) else None,
             "is_deleted": bool(m.is_deleted),
-            "created_at": m.created_at.strftime("%d/%m/%Y %H:%M") if m.created_at else "—",
+            "created_at": _vn_fmt(m.created_at),
         }
 
     return jsonify({
@@ -564,6 +572,10 @@ def security_logs():
     page = request.args.get("page", 1, type=int)
     pagination = query.order_by(SecurityLog.timestamp.desc()).paginate(page=page, per_page=25, error_out=False)
 
+    # Người dùng gắn với mỗi dòng log (nếu lúc đó họ đã đăng nhập) -> 1 query, tránh N+1.
+    log_user_ids = {log.user_id for log in pagination.items if log.user_id}
+    log_users = {u.id: u for u in User.query.filter(User.id.in_(log_user_ids)).all()} if log_user_ids else {}
+
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     today_q = SecurityLog.query.filter(SecurityLog.timestamp >= today_start)
     kpi = {
@@ -590,6 +602,7 @@ def security_logs():
         top_ips=top_ips,
         event_type=event_type,
         event_labels=EVENT_TYPE_LABELS,
+        log_users=log_users,
     )
 
 

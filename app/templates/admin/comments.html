@@ -41,7 +41,7 @@
                     </a>
                 {% else %}—{% endif %}
             </td>
-            <td class="small text-secondary">{{ c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else '—' }}</td>
+            <td class="small text-secondary">{{ c.created_at | vn_dt }}</td>
             <td class="text-end">
                 <form method="post" action="{{ url_for('admin.delete_comment', comment_id=c.id) }}" class="d-inline"
                       onsubmit="return confirm('Xóa bình luận #{{ c.id }}?{{ ' Các trả lời của bình luận này cũng sẽ bị xóa.' if not c.parent_id else '' }}');">

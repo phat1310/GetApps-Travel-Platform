@@ -32,7 +32,7 @@
             <td><span class="badge bg-secondary">{{ c.status }}</span></td>
             <td class="text-center">{{ msg_counts.get(c.id, 0) }}</td>
             <td class="text-center">{{ media_counts.get(c.id, 0) }}</td>
-            <td class="small text-secondary">{{ c.last_message_at.strftime('%d/%m/%Y %H:%M') if c.last_message_at else '—' }}</td>
+            <td class="small text-secondary">{{ c.last_message_at | vn_dt }}</td>
         </tr>
         {% else %}
         <tr><td colspan="7" class="text-center text-secondary py-4">Không có hội thoại nào khớp.</td></tr>
