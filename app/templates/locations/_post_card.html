@@ -29,7 +29,7 @@
                             {% endif %}
                             <div>
                                 <div class="d-flex align-items-center gap-1 flex-wrap">
-                                    <a href="{{ author_href }}" class="fw-bold text-dark fs-6 text-decoration-none">{{ post.author.username if post.author else 'Ẩn danh' }}</a>
+                                    <a href="{{ author_href }}" class="fw-bold text-dark fs-6 text-decoration-none">{{ (post.author.nickname or post.author.username) if post.author else 'Ẩn danh' }}</a>
                                     {% if post.author and post.author.role %}
                                         <span class="badge badge-role badge-role-{{ post.author.role }}">{{ post.author.role }}</span>
                                     {% endif %}
